@@ -195,12 +195,6 @@ class KaiPlayerApp {
 
         kaiAPI.song.onData(async (event, songData) => {
             console.log('🎵 Received song data in renderer - performing full initialization');
-            console.log('Song data audio info:', {
-                hasAudio: !!songData.audio,
-                hasSources: !!songData.audio?.sources,
-                sourcesLength: songData.audio?.sources?.length || 0,
-                sourceNames: songData.audio?.sources?.map(s => s.name) || []
-            });
             
             this.currentSong = songData;
             
@@ -209,14 +203,6 @@ class KaiPlayerApp {
             
             // CLEAN SLATE APPROACH: Reinitialize audio engine
             if (this.audioEngine && this.currentSong) {
-                console.log('🔄 Reinitializing audio engine with fresh song data...');
-                console.log('Before reinitialize - currentSong audio info:', {
-                    hasAudio: !!this.currentSong.audio,
-                    hasSources: !!this.currentSong.audio?.sources,
-                    sourcesLength: this.currentSong.audio?.sources?.length || 0,
-                    sourceNames: this.currentSong.audio?.sources?.map(s => s.name) || []
-                });
-                
                 // Create a backup copy of the song data BEFORE reinitialize
                 const songDataBackup = {
                     ...this.currentSong,
@@ -227,39 +213,19 @@ class KaiPlayerApp {
                 };
                 
                 await this.audioEngine.reinitialize();
-                
-                console.log('After reinitialize - currentSong audio info:', {
-                    hasAudio: !!this.currentSong.audio,
-                    hasSources: !!this.currentSong.audio?.sources,
-                    sourcesLength: this.currentSong.audio?.sources?.length || 0,
-                    sourceNames: this.currentSong.audio?.sources?.map(s => s.name) || []
-                });
-                
-                console.log('🔄 Loading song into audio engine...');
-                console.log('Using songDataBackup with audio info:', {
-                    hasAudio: !!songDataBackup.audio,
-                    hasSources: !!songDataBackup.audio?.sources,
-                    sourcesLength: songDataBackup.audio?.sources?.length || 0
-                });
-                
                 await this.audioEngine.loadSong(songDataBackup);
                 
                 // Restore the original song data if it was corrupted
                 if (!this.currentSong.audio && songDataBackup.audio) {
-                    console.log('🔧 Restoring corrupted currentSong.audio from backup');
                     this.currentSong.audio = songDataBackup.audio;
                 }
                 if (!this.currentSong.lyrics && songDataBackup.lyrics) {
-                    console.log('🔧 Restoring corrupted currentSong.lyrics from backup');
                     this.currentSong.lyrics = songDataBackup.lyrics;
                 }
-                
-                console.log('✅ Audio engine fully loaded');
             }
             
             // CLEAN SLATE APPROACH: Reinitialize karaoke renderer  
             if (this.player && this.currentSong) {
-                console.log('🔄 Reinitializing karaoke renderer with fresh song data...');
                 if (this.player.karaokeRenderer) {
                     this.player.karaokeRenderer.reinitialize();
                 }
@@ -271,15 +237,6 @@ class KaiPlayerApp {
                     duration: this.audioEngine ? this.audioEngine.getDuration() : (this.currentSong.metadata?.duration || 0),
                     audio: this.currentSong.audio // Include audio sources for vocals waveform
                 };
-                console.log('Main.js passing full metadata to player:', { 
-                    hasAudio: !!fullMetadata.audio, 
-                    hasSources: !!fullMetadata.audio?.sources,
-                    sourcesLength: fullMetadata.audio?.sources?.length || 0,
-                    sourceNames: fullMetadata.audio?.sources?.map(s => s.name) || [],
-                    hasLyrics: !!fullMetadata.lyrics,
-                    lyricsLength: Array.isArray(fullMetadata.lyrics) ? fullMetadata.lyrics.length : 0,
-                    lyricsType: typeof fullMetadata.lyrics
-                });
                 this.player.onSongLoaded(fullMetadata);
                 
                 // Apply waveform preferences to player
@@ -288,11 +245,9 @@ class KaiPlayerApp {
                     // Update effect display with current preset
                     setTimeout(() => this.updateEffectDisplay(), 100);
                 }
-                console.log('✅ Karaoke renderer fully loaded');
             }
             
-            // Wait a moment for all contexts and buffers to be fully ready
-            console.log('⏳ Waiting for all audio contexts to be ready...');
+            // Wait for all contexts and buffers to be ready
             await new Promise(resolve => setTimeout(resolve, 500));
             
             if (this.coaching) {
@@ -300,17 +255,13 @@ class KaiPlayerApp {
             }
             
             if (this.editor && this.currentSong) {
-                console.log('Main calling editor.onSongLoaded with currentSong:', this.currentSong);
                 this.editor.onSongLoaded(this.currentSong);
-            } else {
-                console.log('Editor or currentSong missing:', !!this.editor, !!this.currentSong);
             }
             
             if (this.mixer && this.audioEngine) {
                 this.mixer.updateFromAudioEngine();
             }
             
-            console.log('✅ Song loading complete - showing transport controls');
             document.getElementById('loadingMessage').style.display = 'none';
             document.getElementById('transportControls').style.display = 'flex';
             
@@ -585,19 +536,15 @@ class KaiPlayerApp {
     }
 
     async onSongLoaded(metadata) {
-        console.log('🔄 Loading song with clean slate approach...');
-        console.log('Frontend received metadata:', metadata);
-        
-        // IMMEDIATELY stop current playback
+        // Stop current playback
         if (this.audioEngine) {
-            console.log('🛑 Stopping current playback...');
             await this.audioEngine.pause();
         }
         if (this.player) {
             await this.player.pause();
         }
         
-        // Show loading state - hide transport controls, show loading message
+        // Show loading state
         document.getElementById('transportControls').style.display = 'none';
         document.getElementById('loadingMessage').style.display = 'flex';
         
@@ -612,10 +559,6 @@ class KaiPlayerApp {
         
         // Enable song info button
         document.getElementById('songInfoBtn').disabled = false;
-        
-        // Wait for song:data event to provide full song data
-        // The actual initialization will happen in the song:data handler
-        console.log('🔄 Waiting for song:data with full audio sources...');
     }
 
     showSongInfo() {

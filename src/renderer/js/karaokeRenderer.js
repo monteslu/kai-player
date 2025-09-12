@@ -1684,9 +1684,9 @@ class KaraokeRenderer {
             const budgetUsed = (this.frameUpdateTime / targetFrameTime) * 100;
             
             // Log as separate lines to avoid console truncation
-            console.log(`Frame ${this.frameCount} Performance:`);
-            console.log(`  Render: ${renderTime.toFixed(2)}ms (clear:${clearTime.toFixed(1)} effects:${effectsTime.toFixed(1)} vocals:${vocalsTime.toFixed(1)} mic:${micTime.toFixed(1)} lyrics:${lyricsTime.toFixed(1)})`);
-            console.log(`  FULL FRAME: ${this.frameUpdateTime.toFixed(2)}ms | Budget: ${budgetUsed.toFixed(1)}% | Actual FPS: ${avgFPS.toFixed(1)} ${avgFPS < 55 ? '🔴' : avgFPS < 58 ? '🟡' : '🟢'}`);
+            // console.log(`Frame ${this.frameCount} Performance:`);
+            // console.log(`  Render: ${renderTime.toFixed(2)}ms (clear:${clearTime.toFixed(1)} effects:${effectsTime.toFixed(1)} vocals:${vocalsTime.toFixed(1)} mic:${micTime.toFixed(1)} lyrics:${lyricsTime.toFixed(1)})`);
+            // console.log(`  FULL FRAME: ${this.frameUpdateTime.toFixed(2)}ms | Budget: ${budgetUsed.toFixed(1)}% | Actual FPS: ${avgFPS.toFixed(1)} ${avgFPS < 55 ? '🔴' : avgFPS < 58 ? '🟡' : '🟢'}`);
         }
     }
     

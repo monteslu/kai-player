@@ -32,9 +32,9 @@ class PlayerController {
         this.updateTimer = setInterval(() => {
             if (this.isPlaying) {
                 this.updatePosition();
-                if (Math.random() < 0.05) { // Debug occasionally
-                    console.log('PlayerController timer tick - isPlaying:', this.isPlaying, 'position:', this.currentPosition.toFixed(2));
-                }
+                // if (Math.random() < 0.05) { // Debug occasionally
+                //     console.log('PlayerController timer tick - isPlaying:', this.isPlaying, 'position:', this.currentPosition.toFixed(2));
+                // }
             }
         }, 100);
     }
@@ -208,9 +208,9 @@ class PlayerController {
         if (this.audioEngine && this.audioEngine.getCurrentTime) {
             const engineTime = this.audioEngine.getCurrentTime();
             this.currentPosition = engineTime;
-            if (Math.random() < 0.02) { // Debug occasionally
-                console.log('PlayerController position from engine:', engineTime.toFixed(2) + 's');
-            }
+            // if (Math.random() < 0.02) { // Debug occasionally
+            //     console.log('PlayerController position from engine:', engineTime.toFixed(2) + 's');
+            // }
         } else {
             // Fallback to increment
             this.currentPosition += 0.1;

@@ -585,14 +585,14 @@ class RendererAudioEngine {
             const duration = this.getDuration();
             const clampedPosition = duration > 0 ? Math.min(calculatedPosition, duration) : calculatedPosition;
             
-            if (Math.random() < 0.01) { // Debug occasionally
-                console.log('AudioEngine timing - startTime:', this.startTime.toFixed(2), 
-                           'currentTime:', this.audioContexts.PA.currentTime.toFixed(2),
-                           'elapsed:', elapsed.toFixed(2), 
-                           'basePosition:', this.currentPosition.toFixed(2),
-                           'calculated:', calculatedPosition.toFixed(2),
-                           'clamped:', clampedPosition.toFixed(2));
-            }
+            // if (Math.random() < 0.01) { // Debug occasionally
+            //     console.log('AudioEngine timing - startTime:', this.startTime.toFixed(2), 
+            //                'currentTime:', this.audioContexts.PA.currentTime.toFixed(2),
+            //                'elapsed:', elapsed.toFixed(2), 
+            //                'basePosition:', this.currentPosition.toFixed(2),
+            //                'calculated:', calculatedPosition.toFixed(2),
+            //                'clamped:', clampedPosition.toFixed(2));
+            // }
             return clampedPosition;
         }
         return this.currentPosition;
