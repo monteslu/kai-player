@@ -23,7 +23,8 @@ class KaiPlayerApp {
             micToSpeakers: true,
             enableMic: true,
             enableEffects: true,
-            overlayOpacity: 0.5
+            overlayOpacity: 0.5,
+            showUpcomingLyrics: true
         };
         
         this.autoTunePreferences = {
@@ -496,6 +497,7 @@ class KaiPlayerApp {
         const micToSpeakers = document.getElementById('micToSpeakers');
         const enableMic = document.getElementById('enableMic');
         const enableEffects = document.getElementById('enableEffects');
+        const enableUpcomingLyrics = document.getElementById('showUpcomingLyrics');
         
         enableWaveforms?.addEventListener('change', (e) => {
             this.waveformPreferences.enableWaveforms = e.target.checked;
@@ -538,6 +540,16 @@ class KaiPlayerApp {
             // Update player if it exists
             if (this.player && this.player.karaokeRenderer) {
                 this.player.karaokeRenderer.setEffectsEnabled(e.target.checked);
+            }
+        });
+        
+        enableUpcomingLyrics?.addEventListener('change', (e) => {
+            this.waveformPreferences.showUpcomingLyrics = e.target.checked;
+            this.saveWaveformPreferences();
+            
+            // Update karaoke renderer if it exists
+            if (this.player && this.player.karaokeRenderer) {
+                this.player.karaokeRenderer.setShowUpcomingLyrics(e.target.checked);
             }
         });
         
@@ -882,10 +894,13 @@ class KaiPlayerApp {
                 const enableMic = document.getElementById('enableMic');
                 const enableEffects = document.getElementById('enableEffects');
                 
+                const showUpcomingLyrics = document.getElementById('showUpcomingLyrics');
+                
                 if (enableWaveforms) enableWaveforms.checked = this.waveformPreferences.enableWaveforms;
                 if (micToSpeakers) micToSpeakers.checked = this.waveformPreferences.micToSpeakers;
                 if (enableMic) enableMic.checked = this.waveformPreferences.enableMic;
                 if (enableEffects) enableEffects.checked = this.waveformPreferences.enableEffects;
+                if (showUpcomingLyrics) showUpcomingLyrics.checked = this.waveformPreferences.showUpcomingLyrics;
                 
                 // Apply saved overlay opacity
                 const overlayOpacity = document.getElementById('overlayOpacity');

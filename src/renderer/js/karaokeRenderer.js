@@ -17,10 +17,17 @@ class KaraokeRenderer {
         // Animation tracking for backup singers
         this.backupAnimations = new Map(); // lineIndex -> { alpha, fadeDirection, lastStateChange }
         
+        // Lyric transition animations
+        this.lyricTransitions = new Map(); // Track lyrics moving from upcoming to active
+        
         // Performance optimization - cache expensive calculations
         this.cachedCurrentLine = -1;
         this.lastTimeForLineCalculation = -1;
         this.lineCalculationTolerance = 0.1; // Only recalculate if time changed by 0.1s
+        
+        // Track upcoming lyric positioning
+        this.lockedUpcomingIndex = null;
+        this.lastActiveLyricsBottom = null; // Save the Y position after drawing active lyrics
         
         // Frame rate optimization
         this.frameCount = 0;
@@ -41,7 +48,8 @@ class KaraokeRenderer {
             micToSpeakers: true,
             enableMic: true,
             enableEffects: true,
-            overlayOpacity: 0.5
+            overlayOpacity: 0.5,
+            showUpcomingLyrics: true
         };
         
         // FPS and performance tracking
@@ -902,6 +910,7 @@ class KaraokeRenderer {
             return;
         }
         
+        
         const gl = this.effectsGL;
         const analysis = this.analyzeMusicFrequencies();
         
@@ -1595,6 +1604,7 @@ class KaraokeRenderer {
         
         this.frameCount++;
         
+        
         // Performance profiling - sample every 2 seconds
         const shouldProfile = this.frameCount % 120 === 0;
         const frameStart = shouldProfile ? performance.now() : 0;
@@ -1691,6 +1701,7 @@ class KaraokeRenderer {
             // console.log(`  Render: ${renderTime.toFixed(2)}ms (clear:${clearTime.toFixed(1)} effects:${effectsTime.toFixed(1)} vocals:${vocalsTime.toFixed(1)} mic:${micTime.toFixed(1)} lyrics:${lyricsTime.toFixed(1)})`);
             // console.log(`  FULL FRAME: ${this.frameUpdateTime.toFixed(2)}ms | Budget: ${budgetUsed.toFixed(1)}% | Actual FPS: ${avgFPS.toFixed(1)} ${avgFPS < 55 ? '🔴' : avgFPS < 58 ? '🟡' : '🟢'}`);
         }
+        
     }
     
     
@@ -1817,31 +1828,54 @@ class KaraokeRenderer {
             }
         }
         
-        if (activeLines.length === 0) return;
-        
         // Separate main and backup singers
         const mainLines = activeLines.filter(line => !line.isBackup);
         const backupLines = activeLines.filter(line => line.isBackup);
         
         // Calculate vertical positioning - stack multiple lines if needed
-        const totalLines = mainLines.length + backupLines.length;
+        const totalLines = Math.max(1, mainLines.length + backupLines.length); // At least 1 for spacing calculation
         const lineSpacing = this.settings.lineHeight * 1.2;
         const totalHeight = totalLines * lineSpacing;
-        let currentY = (canvasHeight / 2) - (totalHeight / 2) + lineSpacing - 80; // Move up by 80 pixels
+        let currentY = (canvasHeight / 2) - (totalHeight / 2) + lineSpacing - 120; // Move up by 120 pixels for more room below
         
-        // Draw main singer lines first (more prominent position)
+        // Draw main singer lines
         mainLines.forEach(line => {
-            this.drawSingleLine(line, canvasWidth, currentY, false); // false = main singer
-            currentY += lineSpacing;
+            const nextY = this.drawSingleLine(line, canvasWidth, currentY, false); // false = main singer
+            currentY = nextY || (currentY + lineSpacing); // Use returned Y or fallback to old spacing
         });
         
         // Draw backup singer lines below main singers with animation
         backupLines.forEach(line => {
             const animation = this.backupAnimations.get(line.index);
             const alpha = animation ? animation.alpha : this.settings.backupMaxAlpha;
-            this.drawSingleLine(line, canvasWidth, currentY, true, alpha); // true = backup singer
-            currentY += lineSpacing;
+            const nextY = this.drawSingleLine(line, canvasWidth, currentY, true, alpha); // true = backup singer
+            currentY = nextY || (currentY + lineSpacing); // Use returned Y or fallback to old spacing
         });
+        
+        // Save the bottom position after drawing active lyrics (only if there were active lyrics)
+        const hasActiveLyrics = activeLines.length > 0;
+        if (hasActiveLyrics) {
+            this.lastActiveLyricsBottom = currentY;
+        }
+        
+        // Calculate upcoming position for both animations and drawing
+        const upcomingY = (this.lastActiveLyricsBottom || currentY) + 10;
+        
+        // Check for lyrics transitioning from upcoming to active and start animations
+        this.startTransitionAnimations(activeLines, upcomingY);
+        
+        // Draw transitioning lyrics (animating from upcoming to active)
+        for (const [lineIndex, transition] of this.lyricTransitions.entries()) {
+            const lyricLine = this.lyrics[lineIndex];
+            if (lyricLine) {
+                this.drawTransitioningLine(lyricLine, canvasWidth, transition);
+            }
+        }
+        
+        // Draw upcoming lyrics if enabled (positioned dynamically after current lyrics) 
+        if (this.waveformPreferences.showUpcomingLyrics) {
+            this.drawUpcomingLyrics(canvasWidth, canvasHeight, upcomingY);
+        }
     }
     
     drawSingleLine(line, canvasWidth, yPosition, isBackup, alpha = 1.0) {
@@ -1896,8 +1930,10 @@ class KaraokeRenderer {
             }
             
             // Draw each wrapped line
+            let finalY = yPosition;
             lines.forEach((textLine, index) => {
                 const adjustedY = yPosition + (index * this.settings.lineHeight * 0.8);
+                finalY = adjustedY + (this.settings.lineHeight * 0.8); // Bottom of this line
                 
                 // Add visual indicator for backup singers (prefix)
                 if (isBackup) {
@@ -1907,10 +1943,19 @@ class KaraokeRenderer {
                     this.drawTextWithBackground(textLine, canvasWidth / 2, adjustedY);
                 }
             });
+            
+            // Restore context (removes alpha changes)
+            this.ctx.restore();
+            
+            // Return the bottom Y position after all wrapped lines
+            return finalY;
         }
         
-        // Restore context (removes alpha changes)
+        // Restore context (removes alpha changes)  
         this.ctx.restore();
+        
+        // Return null if no text was drawn (fallback to old spacing)
+        return null;
     }
     
     updateBackupAnimations() {
@@ -2556,6 +2601,278 @@ class KaraokeRenderer {
         } catch (error) {
             console.warn('Failed to ensure input device selection:', error);
         }
+    }
+    
+    setShowUpcomingLyrics(enabled) {
+        this.waveformPreferences.showUpcomingLyrics = enabled;
+        console.log('Show upcoming lyrics:', enabled);
+    }
+    
+    drawUpcomingLyrics(canvasWidth, canvasHeight, startY) {
+        if (!this.lyrics) return;
+        
+        const now = this.currentTime;
+        const maxTimeAhead = 5.0; // Only show lyrics up to 5 seconds ahead
+        
+        // Check if current locked upcoming has become active - only then clear it
+        if (this.lockedUpcomingIndex !== null && this.lockedUpcomingIndex !== undefined) {
+            const lockedLine = this.lyrics[this.lockedUpcomingIndex];
+            // Only clear if the line doesn't exist or has actually become active
+            if (!lockedLine || now >= lockedLine.startTime) {
+                this.lockedUpcomingIndex = null;
+            }
+        }
+        
+        // If no locked upcoming or it became active, find the next one
+        if (this.lockedUpcomingIndex === null || this.lockedUpcomingIndex === undefined) {
+            // Find the next upcoming lyric that starts after now
+            let nextUpcomingIndex = null;
+            let closestStartTime = Infinity;
+            
+            for (let i = 0; i < this.lyrics.length; i++) {
+                const line = this.lyrics[i];
+                if (!line.isDisabled && !line.isBackup && 
+                    line.startTime > now && 
+                    line.startTime <= now + maxTimeAhead &&
+                    line.startTime < closestStartTime) {
+                    nextUpcomingIndex = i;
+                    closestStartTime = line.startTime;
+                }
+            }
+            
+            this.lockedUpcomingIndex = nextUpcomingIndex;
+        }
+        
+        // If still no upcoming, return
+        if (this.lockedUpcomingIndex === null || this.lockedUpcomingIndex === undefined) return;
+        
+        const lockedLine = this.lyrics[this.lockedUpcomingIndex];
+        if (!lockedLine) {
+            this.lockedUpcomingIndex = null;
+            return;
+        }
+        
+        // Double-check it's not active (this shouldn't happen with the logic above)
+        if (now >= lockedLine.startTime) {
+            this.lockedUpcomingIndex = null;
+            return;
+        }
+        
+        // Don't draw if this lyric is currently transitioning/animating
+        if (this.lyricTransitions.has(this.lockedUpcomingIndex)) {
+            return;
+        }
+        
+        // Draw the locked upcoming lyric
+        this.ctx.save();
+        this.ctx.font = `${this.settings.fontSize * 0.85}px ${this.settings.fontFamily}`;
+        this.ctx.textAlign = 'center';
+        this.ctx.fillStyle = '#999999'; 
+        this.ctx.globalAlpha = 0.8;
+        
+        let currentY = startY - 10;
+        
+        // Get text from line
+        let text = '';
+        if (lockedLine.text) {
+            text = lockedLine.text;
+        } else if (lockedLine.words && lockedLine.words.length > 0) {
+            text = lockedLine.words.map(w => w.text || w.word || w).join(' ');
+        }
+        
+        if (text) {
+            this.drawWrappedText(text, canvasWidth / 2, currentY, canvasWidth * 0.8);
+        }
+        
+        this.ctx.restore();
+    }
+    
+    drawWrappedText(text, x, y, maxWidth) {
+        const words = text.split(' ');
+        let currentLine = '';
+        let linesRendered = 0;
+        const lineHeight = this.settings.fontSize * 0.85 * 1.2; // Match font size with some line spacing
+        
+        for (let i = 0; i < words.length; i++) {
+            const testLine = currentLine + (currentLine ? ' ' : '') + words[i];
+            const testWidth = this.ctx.measureText(testLine).width;
+            
+            if (testWidth > maxWidth && currentLine) {
+                // Draw current line and start new line
+                this.drawTextWithBackground(currentLine, x, y);
+                y += lineHeight;
+                linesRendered++;
+                currentLine = words[i];
+            } else {
+                currentLine = testLine;
+            }
+        }
+        
+        // Draw the final line
+        if (currentLine) {
+            this.drawTextWithBackground(currentLine, x, y);
+            linesRendered++;
+        }
+        
+        return linesRendered;
+    }
+    
+    updateLyricTransitions(currentActiveLines, now, currentActiveEndY) {
+        // Get current upcoming lyrics
+        const upcomingLines = [];
+        if (this.lyrics) {
+            for (let i = 0; i < this.lyrics.length; i++) {
+                const line = this.lyrics[i];
+                if (!line.isDisabled && !line.isBackup && 
+                    line.startTime > now && 
+                    line.startTime <= now + 5.0) {
+                    upcomingLines.push({ ...line, index: i });
+                    break; // Only track the very next one for transitions
+                }
+            }
+        }
+        
+        // Check for lyrics that should start transitioning (0.5 seconds before they become active)
+        for (const upcomingLine of upcomingLines) {
+            const timeToStart = upcomingLine.startTime - now;
+            if (timeToStart <= 0.5 && timeToStart > 0 && !this.lyricTransitions.has(upcomingLine.index)) {
+                
+                // Use the EXACT position where the upcoming line was just displayed
+                let upcomingPosition;
+                if (this.lastUpcomingDisplayY !== null && this.lastUpcomingLineIndex === upcomingLine.index) {
+                    upcomingPosition = this.lastUpcomingDisplayY;
+                    console.log(`🎯 Using EXACT upcoming position: ${upcomingPosition} for line ${upcomingLine.index}`);
+                } else {
+                    // Fallback calculation
+                    upcomingPosition = currentActiveEndY + 50;
+                    console.log(`🎯 Using FALLBACK upcoming position: ${upcomingPosition} for line ${upcomingLine.index}`);
+                }
+                
+                const activePosition = (this.canvas.height / 2) - 60;  // Where active is shown (center)
+                
+                this.lyricTransitions.set(upcomingLine.index, {
+                    startTime: now,
+                    duration: 0.35, // 350ms animation
+                    progress: 0,
+                    startY: upcomingPosition,  // EXACT position where it was displayed
+                    endY: activePosition       // Higher on screen (lower Y value)
+                });
+            }
+        }
+        
+        // Update existing transitions
+        for (const [lineIndex, transition] of this.lyricTransitions.entries()) {
+            const elapsed = now - transition.startTime;
+            
+            // Check if this line is now active - if so, complete the transition immediately
+            const lyricLine = this.lyrics[lineIndex];
+            const isNowActive = lyricLine && now >= lyricLine.startTime && now <= lyricLine.endTime;
+            
+            if (isNowActive) {
+                // Line became active - complete transition immediately
+                console.log(`🏁 Line ${lineIndex} became active - completing transition immediately`);
+                this.lyricTransitions.delete(lineIndex);
+            } else {
+                // Normal progress update
+                const newProgress = Math.min(1.0, elapsed / transition.duration);
+                transition.progress = newProgress;
+                
+                // Remove completed transitions
+                if (transition.progress >= 1.0) {
+                    this.lyricTransitions.delete(lineIndex);
+                }
+            }
+        }
+    }
+    
+    startTransitionAnimations(activeLines, upcomingY) {
+        const now = this.currentTime;
+        
+        // Check if locked upcoming lyric should start animating
+        if (this.lockedUpcomingIndex !== null && this.lockedUpcomingIndex !== undefined) {
+            const upcomingLine = this.lyrics[this.lockedUpcomingIndex];
+            if (upcomingLine) {
+                const timeUntilActive = upcomingLine.startTime - now;
+                
+                // Start animation 250ms before the lyric becomes active
+                if (timeUntilActive <= 0.25 && timeUntilActive > 0) {
+                    // Only start if not already animating
+                    if (!this.lyricTransitions.has(this.lockedUpcomingIndex)) {
+                        // Calculate active position (same as drawActiveLines)
+                        const canvasHeight = this.canvas.height;
+                        const lineSpacing = this.settings.lineHeight * 1.2;
+                        const activeY = (canvasHeight / 2) - lineSpacing + lineSpacing - 120;
+                        
+                        this.lyricTransitions.set(this.lockedUpcomingIndex, {
+                            startTime: now,
+                            duration: 0.25,
+                            progress: 0,
+                            startY: upcomingY - 10, // Where upcoming lyric is drawn
+                            endY: activeY
+                        });
+                        
+                        console.log(`Starting animation: ${upcomingY - 10} -> ${activeY} for line ${this.lockedUpcomingIndex}`);
+                    }
+                }
+            }
+        }
+        
+        // Update existing transitions
+        for (const [lineIndex, transition] of this.lyricTransitions.entries()) {
+            const elapsed = now - transition.startTime;
+            const lyricLine = this.lyrics[lineIndex];
+            const isNowActive = lyricLine && now >= lyricLine.startTime && now <= lyricLine.endTime;
+            
+            if (isNowActive) {
+                // Complete transition immediately when lyric becomes active
+                this.lyricTransitions.delete(lineIndex);
+            } else {
+                // Update progress
+                transition.progress = Math.min(1.0, elapsed / transition.duration);
+                
+                // Remove completed transitions
+                if (transition.progress >= 1.0) {
+                    this.lyricTransitions.delete(lineIndex);
+                }
+            }
+        }
+    }
+    
+    drawTransitioningLine(line, canvasWidth, transition) {
+        // Simple linear interpolation for position - THIS IS THE ANIMATION
+        const currentY = transition.startY + (transition.endY - transition.startY) * transition.progress;
+        
+        
+        // Interpolate color from upcoming grey to active color
+        const startColor = { r: 153, g: 153, b: 153 }; // #999999 (upcoming grey)
+        const endColor = { r: 255, g: 255, b: 255 }; // #ffffff (active white)
+        
+        const r = Math.round(startColor.r + (endColor.r - startColor.r) * transition.progress);
+        const g = Math.round(startColor.g + (endColor.g - startColor.g) * transition.progress);
+        const b = Math.round(startColor.b + (endColor.b - startColor.b) * transition.progress);
+        
+        // Interpolate alpha
+        const alpha = 0.8 + (1.0 - 0.8) * transition.progress;
+        
+        // Set up context for animated line
+        this.ctx.save();
+        this.ctx.font = `${this.settings.fontSize}px ${this.settings.fontFamily}`;
+        this.ctx.textAlign = 'center';
+        this.ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${alpha})`;
+        
+        // Get text from line
+        let text = '';
+        if (line.text) {
+            text = line.text;
+        } else if (line.words && line.words.length > 0) {
+            text = line.words.map(w => w.text || w.word || w).join(' ');
+        }
+        
+        if (text) {
+            this.drawTextWithBackground(text, canvasWidth / 2, currentY);
+        }
+        
+        this.ctx.restore();
     }
 }
 
