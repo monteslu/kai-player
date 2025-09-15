@@ -77,6 +77,20 @@ const api = {
     
     onFolderSet: (callback) => ipcRenderer.on('library:folderSet', callback),
     removeFolderSetListener: (callback) => ipcRenderer.removeListener('library:folderSet', callback)
+  },
+
+  webServer: {
+    getPort: () => ipcRenderer.invoke('webServer:getPort'),
+    getSettings: () => ipcRenderer.invoke('webServer:getSettings'),
+    updateSettings: (settings) => ipcRenderer.invoke('webServer:updateSettings', settings),
+    getSongRequests: () => ipcRenderer.invoke('webServer:getSongRequests'),
+    approveRequest: (requestId) => ipcRenderer.invoke('webServer:approveRequest', requestId),
+    rejectRequest: (requestId) => ipcRenderer.invoke('webServer:rejectRequest', requestId)
+  },
+
+  events: {
+    on: (channel, callback) => ipcRenderer.on(channel, callback),
+    removeListener: (channel, callback) => ipcRenderer.removeListener(channel, callback)
   }
 };
 

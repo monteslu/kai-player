@@ -1080,11 +1080,16 @@ class KaiPlayerApp {
                 displayName = renderer.currentPreset.length > 15 ? 
                     renderer.currentPreset.substring(0, 15) + '...' : 
                     renderer.currentPreset;
-            } else if (renderer.effectType === 'custom') {
-                displayName = 'Custom Shader';
+            } else {
+                displayName = 'No Effect';
             }
             
             effectNameElement.textContent = displayName;
+        }
+        
+        // Sync the effects manager UI if it's loaded
+        if (window.effectsManager && typeof window.effectsManager.syncWithRenderer === 'function') {
+            window.effectsManager.syncWithRenderer();
         }
     }
     

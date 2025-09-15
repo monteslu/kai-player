@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Butterchurn Screenshot Generator</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background: #1a1a1a;
+            color: white;
+            font-family: Arial, sans-serif;
+        }
+        
+        .controls {
+            margin-bottom: 20px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        
+        button {
+            padding: 10px 20px;
+            background: #007acc;
+            border: none;
+            border-radius: 4px;
+            color: white;
+            cursor: pointer;
+        }
+        
+        button:disabled {
+            background: #555;
+            cursor: not-allowed;
+        }
+        
+        #canvas {
+            border: 2px solid #007acc;
+            display: block;
+            width: 640px;
+            height: 360px;
+        }
+        
+        #progress {
+            margin-top: 10px;
+            padding: 10px;
+            background: #2a2a2a;
+            border-radius: 4px;
+            min-height: 200px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        
+        .preset-info {
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Butterchurn Screenshot Generator</h1>
+    
+    <div class="controls">
+        <button id="generateBtn">Generate All Screenshots</button>
+        <button id="downloadZipBtn" disabled>Download ZIP</button>
+        <label>
+            Capture Duration: 
+            <input type="number" id="durationInput" value="3" min="1" max="10" step="0.5"> seconds
+        </label>
+        <label>
+            <input type="checkbox" id="individualDownloads"> Download Individual Files
+        </label>
+    </div>
+    
+    <canvas id="canvas" width="480" height="270"></canvas>
+    
+    <div class="preset-info">
+        <strong>Current Preset:</strong> <span id="currentPreset">None</span><br>
+        <strong>Progress:</strong> <span id="progressText">0/0</span>
+    </div>
+    
+    <div id="progress">Ready to generate screenshots...</div>
+
+    <!-- Butterchurn Libraries -->
+    <script src="lib/butterchurn.min.js"></script>
+    <script src="lib/butterchurnPresets.min.js"></script>
+    
+    <!-- JSZip for ZIP downloads -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
+    <script>
+        // Debug library loading
+        console.log('Butterchurn loaded:', typeof window.butterchurn);
+        console.log('Butterchurn presets loaded:', typeof window.butterchurnPresets);
+        console.log('JSZip loaded:', typeof window.JSZip);
+        
+        // Test WebGL support
+        const testCanvas = document.createElement('canvas');
+        const testGL = testCanvas.getContext('webgl') || testCanvas.getContext('experimental-webgl');
+        console.log('WebGL test context:', testGL ? 'supported' : 'not supported');
+        if (testGL) {
+            console.log('WebGL version:', testGL.getParameter(testGL.VERSION));
+            console.log('WebGL vendor:', testGL.getParameter(testGL.VENDOR));
+            console.log('WebGL renderer:', testGL.getParameter(testGL.RENDERER));
+        }
+    </script>
+    
+    <script>
+        class ButterchurnScreenshotGenerator {
+            constructor() {
+                this.canvas = document.getElementById('canvas');
+                // Don't get 2D context yet - Butterchurn needs WebGL context first
+                this.ctx = null;
+                this.butterchurn = null;
+                this.audioContext = null;
+                this.presets = [];
+                this.screenshots = new Map();
+                this.currentIndex = 0;
+                
+                this.progressDiv = document.getElementById('progress');
+                this.progressText = document.getElementById('progressText');
+                this.currentPresetSpan = document.getElementById('currentPreset');
+                
+                this.init();
+            }
+            
+            async init() {
+                try {
+                    this.log('Initializing Butterchurn...');
+                    
+                    // Initialize audio context
+                    this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                    this.log('Audio context created');
+                    
+                    // Create Butterchurn visualizer
+                    this.log('Checking Butterchurn availability...');
+                    this.log('window.butterchurn:', typeof window.butterchurn);
+                    this.log('window.butterchurnPresets:', typeof window.butterchurnPresets);
+                    
+                    if (!window.butterchurn) {
+                        throw new Error('Butterchurn library not loaded - check console for 404 errors');
+                    }
+                    if (!window.butterchurnPresets) {
+                        throw new Error('Butterchurn presets library not loaded - check console for 404 errors');
+                    }
+                    
+                    let butterchurnAPI = window.butterchurn;
+                    if (butterchurnAPI.default) {
+                        butterchurnAPI = butterchurnAPI.default;
+                    }
+                    
+                    this.log('Creating Butterchurn visualizer...');
+                    this.butterchurn = butterchurnAPI.createVisualizer(this.audioContext, this.canvas, {
+                        width: 480,
+                        height: 270,
+                        pixelRatio: 1,
+                        textureRatio: 1,
+                        preserveDrawingBuffer: true
+                    });
+                    
+                    this.log('Butterchurn visualizer created successfully');
+                    
+                    // Load presets
+                    if (window.butterchurnPresets && window.butterchurnPresets.getPresets) {
+                        const presetData = window.butterchurnPresets.getPresets();
+                        this.presets = Object.keys(presetData).map(name => ({
+                            name,
+                            data: presetData[name],
+                            displayName: this.parseDisplayName(name)
+                        }));
+                        
+                        this.log(`Loaded ${this.presets.length} presets`);
+                        this.updateProgress();
+                    } else {
+                        throw new Error('Butterchurn presets not available');
+                    }
+                    
+                    // Start render loop
+                    this.startRenderLoop();
+                    
+                    // Setup event listeners
+                    this.setupEventListeners();
+                    
+                    this.log('Initialization complete!');
+                    
+                } catch (error) {
+                    this.log(`Initialization failed: ${error.message}`, 'error');
+                }
+            }
+            
+            parseDisplayName(name) {
+                // Parse preset name for display
+                if (name.includes(' - ')) {
+                    const parts = name.split(' - ');
+                    return parts.slice(1).join(' - ');
+                }
+                return name.replace(/_/g, ' ');
+            }
+            
+            setupEventListeners() {
+                document.getElementById('generateBtn').addEventListener('click', () => {
+                    this.generateAllScreenshots();
+                });
+                
+                document.getElementById('downloadZipBtn').addEventListener('click', () => {
+                    this.downloadZip();
+                });
+            }
+            
+            startRenderLoop() {
+                const render = () => {
+                    if (this.butterchurn) {
+                        // Create some dummy audio data for visualization
+                        const audioData = new Uint8Array(256);
+                        // Fill with some basic frequency data that changes over time
+                        for (let i = 0; i < audioData.length; i++) {
+                            audioData[i] = Math.sin(Date.now() * 0.002 + i * 0.1) * 64 + 128;
+                        }
+                        
+                        // Connect some dummy audio data to butterchurn
+                        if (this.butterchurn.setAudioData) {
+                            this.butterchurn.setAudioData(audioData);
+                        }
+                        
+                        this.butterchurn.render();
+                    }
+                    requestAnimationFrame(render);
+                };
+                render();
+            }
+            
+            async generateAllScreenshots() {
+                const generateBtn = document.getElementById('generateBtn');
+                generateBtn.disabled = true;
+                generateBtn.textContent = 'Generating...';
+                
+                const duration = parseFloat(document.getElementById('durationInput').value) * 1000;
+                const downloadIndividual = document.getElementById('individualDownloads').checked;
+                
+                this.screenshots.clear();
+                this.currentIndex = 0;
+                
+                try {
+                    for (let i = 0; i < this.presets.length; i++) {
+                        const preset = this.presets[i];
+                        this.currentIndex = i;
+                        this.updateProgress();
+                        
+                        this.log(`Capturing ${i + 1}/${this.presets.length}: ${preset.displayName}`);
+                        this.currentPresetSpan.textContent = preset.displayName;
+                        
+                        try {
+                            // Load the preset
+                            this.butterchurn.loadPreset(preset.data, 0.0);
+                            
+                            // Wait for preset to stabilize and render a few frames
+                            await this.sleep(duration);
+                            
+                            // Force a few more renders to make sure the preset is fully loaded
+                            for (let j = 0; j < 10; j++) {
+                                this.butterchurn.render();
+                                await this.sleep(50); // Short delay between renders
+                            }
+                            
+                            // Capture screenshot using the WebGL-safe method
+                            const dataURL = await this.captureWebGLCanvas();
+                            if (dataURL && !dataURL.includes('data:,')) {
+                                this.screenshots.set(preset.name, dataURL);
+                                
+                                // Don't download individual files - we'll do ZIP instead
+                                this.log(`✅ Captured: ${preset.displayName}`);
+                            } else {
+                                this.log(`❌ Failed to capture: ${preset.displayName} (empty data)`);
+                            }
+                            
+                        } catch (error) {
+                            this.log(`Failed to capture ${preset.name}: ${error.message}`, 'error');
+                        }
+                        
+                        // Small delay between captures
+                        await this.sleep(100);
+                    }
+                    
+                    this.log(`Screenshot generation complete! Captured ${this.screenshots.size} screenshots.`);
+                    document.getElementById('downloadZipBtn').disabled = false;
+                    
+                    // Auto-download ZIP when complete
+                    if (this.screenshots.size > 0) {
+                        this.log('Auto-downloading ZIP file...');
+                        await this.downloadZip();
+                    }
+                    
+                } catch (error) {
+                    this.log(`Generation failed: ${error.message}`, 'error');
+                } finally {
+                    generateBtn.disabled = false;
+                    generateBtn.textContent = 'Generate All Screenshots';
+                    this.currentPresetSpan.textContent = 'Complete';
+                }
+            }
+            
+            async downloadZip() {
+                if (this.screenshots.size === 0) {
+                    this.log('No screenshots to download', 'error');
+                    return;
+                }
+                
+                this.log('Creating ZIP file...');
+                const zip = new JSZip();
+                
+                for (const [presetName, dataURL] of this.screenshots.entries()) {
+                    // Convert data URL to blob
+                    const response = await fetch(dataURL);
+                    const blob = await response.blob();
+                    zip.file(`${this.sanitizeFilename(presetName)}.png`, blob);
+                }
+                
+                const zipBlob = await zip.generateAsync({ type: 'blob' });
+                this.downloadFile(URL.createObjectURL(zipBlob), 'butterchurn-screenshots.zip');
+                
+                this.log('ZIP download started');
+            }
+            
+            async captureWebGLCanvas() {
+                try {
+                    // Force a render right before capture to ensure fresh frame
+                    if (this.butterchurn) {
+                        this.butterchurn.render();
+                    }
+                    
+                    // Wait a frame to ensure render is complete
+                    await new Promise(resolve => requestAnimationFrame(resolve));
+                    
+                    // Try to get WebGL context (Butterchurn should have created it)
+                    const gl = this.canvas.getContext('webgl', { preserveDrawingBuffer: true }) || 
+                              this.canvas.getContext('webgl2', { preserveDrawingBuffer: true });
+                    
+                    if (gl) {
+                        const width = this.canvas.width;
+                        const height = this.canvas.height;
+                        const pixels = new Uint8Array(width * height * 4);
+                        
+                        // Read pixels directly from WebGL framebuffer
+                        gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+                        
+                        // Create a new 2D canvas to convert pixels to image
+                        const tempCanvas = document.createElement('canvas');
+                        tempCanvas.width = width;
+                        tempCanvas.height = height;
+                        const tempCtx = tempCanvas.getContext('2d');
+                        
+                        const imageData = new ImageData(width, height);
+                        
+                        // Copy and flip pixels (WebGL origin is bottom-left, canvas is top-left)
+                        for (let y = 0; y < height; y++) {
+                            for (let x = 0; x < width; x++) {
+                                const srcIndex = ((height - 1 - y) * width + x) * 4;
+                                const dstIndex = (y * width + x) * 4;
+                                imageData.data[dstIndex] = pixels[srcIndex];         // R
+                                imageData.data[dstIndex + 1] = pixels[srcIndex + 1]; // G
+                                imageData.data[dstIndex + 2] = pixels[srcIndex + 2]; // B
+                                imageData.data[dstIndex + 3] = 255; // Force full opacity
+                            }
+                        }
+                        
+                        tempCtx.putImageData(imageData, 0, 0);
+                        return tempCanvas.toDataURL('image/png');
+                    } else {
+                        // Fallback to standard toDataURL
+                        return this.canvas.toDataURL('image/png');
+                    }
+                    
+                } catch (error) {
+                    console.error('Error capturing WebGL canvas:', error);
+                    // Last resort fallback
+                    try {
+                        return this.canvas.toDataURL('image/png');
+                    } catch (e) {
+                        return null;
+                    }
+                }
+            }
+
+            downloadFile(url, filename) {
+                const link = document.createElement('a');
+                link.download = filename;
+                link.href = url;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            }
+            
+            sanitizeFilename(name) {
+                return name.replace(/[^a-zA-Z0-9-_\s]/g, '_');
+            }
+            
+            updateProgress() {
+                this.progressText.textContent = `${this.currentIndex}/${this.presets.length}`;
+            }
+            
+            sleep(ms) {
+                return new Promise(resolve => setTimeout(resolve, ms));
+            }
+            
+            log(message, type = 'info') {
+                const timestamp = new Date().toLocaleTimeString();
+                const className = type === 'error' ? 'style="color: #ff6b6b"' : '';
+                this.progressDiv.innerHTML += `<div ${className}>[${timestamp}] ${message}</div>`;
+                this.progressDiv.scrollTop = this.progressDiv.scrollHeight;
+                console.log(`[ScreenshotGen] ${message}`);
+            }
+        }
+        
+        // Initialize when page loads
+        window.addEventListener('load', () => {
+            window.screenshotGenerator = new ButterchurnScreenshotGenerator();
+        });
+    </script>
+</body>
+</html>

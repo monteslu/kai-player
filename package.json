@@ -33,6 +33,8 @@
     "audiomotion-analyzer": "^4.5.1",
     "butterchurn": "^2.6.7",
     "butterchurn-presets": "^2.4.7",
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
     "ws": "^8.13.0",
     "yauzl": "^3.0.0",
     "yazl": "^3.3.1"

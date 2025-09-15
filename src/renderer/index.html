@@ -109,6 +109,8 @@
                     <button class="tab-btn" data-tab="library">Library</button>
                     <button class="tab-btn" data-tab="mixer">Mixer</button>
                     <button class="tab-btn" data-tab="coaching">Coaching</button>
+                    <button class="tab-btn" data-tab="effects">Effects</button>
+                    <button class="tab-btn" data-tab="requests">Song Requests</button>
                     <button class="tab-btn" data-tab="editor">Lyrics Editor</button>
                 </div>
 
@@ -296,6 +298,84 @@
                                         <div class="metric-fill" style="width: 0%"></div>
                                     </div>
                                     <span class="metric-value">0%</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Effects Tab -->
+                    <div id="effects-tab" class="tab-pane">
+                        <div class="effects-container">
+                            <div class="effects-header">
+                                <div class="effects-search">
+                                    <input type="text" id="effectsSearch" placeholder="Search effects..." />
+                                </div>
+                                <div class="effects-info">
+                                    <span id="effectsCount">0 effects</span>
+                                    <button id="randomEffectBtn" class="effects-btn">🎲 Random</button>
+                                </div>
+                            </div>
+                            
+                            <div class="effects-content">
+                                <div class="effects-categories">
+                                    <button class="category-btn active" data-category="all">All</button>
+                                    <button class="category-btn" data-category="geiss">Geiss</button>
+                                    <button class="category-btn" data-category="martin">Martin</button>
+                                    <button class="category-btn" data-category="flexi">Flexi</button>
+                                    <button class="category-btn" data-category="shifter">Shifter</button>
+                                    <button class="category-btn" data-category="other">Other</button>
+                                </div>
+                                
+                                <div class="effects-list" id="effectsList">
+                                    <div class="effects-loading">
+                                        <div class="loading-icon">⏳</div>
+                                        <div class="loading-message">Loading Butterchurn effects...</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Song Requests Tab -->
+                    <div id="requests-tab" class="tab-pane">
+                        <div class="requests-container">
+                            <div class="requests-header">
+                                <div class="server-status">
+                                    <h3>🌐 Web Server</h3>
+                                    <p id="serverUrl">Server not started</p>
+                                    <button id="copyUrlBtn" class="requests-btn" style="display: none;">📋 Copy URL</button>
+                                </div>
+                                <div class="requests-settings">
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" id="allowRequestsToggle" checked>
+                                        <span>Allow Song Requests</span>
+                                    </label>
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" id="requireApprovalToggle" checked>
+                                        <span>Require KJ Approval</span>
+                                    </label>
+                                </div>
+                            </div>
+                            
+                            <div class="requests-content">
+                                <div class="requests-section">
+                                    <div class="requests-section-header">
+                                        <h4>📝 Pending Requests</h4>
+                                        <button id="refreshRequestsBtn" class="requests-btn">🔄 Refresh</button>
+                                    </div>
+                                    <div id="pendingRequestsList" class="requests-list">
+                                        <div class="no-requests">No pending requests</div>
+                                    </div>
+                                </div>
+                                
+                                <div class="requests-section">
+                                    <div class="requests-section-header">
+                                        <h4>✅ Recent Activity</h4>
+                                        <button id="clearHistoryBtn" class="requests-btn">🗑️ Clear</button>
+                                    </div>
+                                    <div id="requestHistoryList" class="requests-list">
+                                        <div class="no-requests">No recent activity</div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -489,6 +569,8 @@
     <script src="js/mixer.js"></script>
     <script src="js/player.js"></script>
     <script src="js/coaching.js"></script>
+    <script src="js/effects.js"></script>
+    <script src="js/requests.js"></script>
     <script src="js/editor.js"></script>
     <script src="js/library.js"></script>
     <script src="js/queue.js"></script>

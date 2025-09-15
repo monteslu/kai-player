@@ -5,6 +5,7 @@ const AudioEngine = require('./audioEngine');
 const KaiLoader = require('../utils/kaiLoader');
 const KaiWriter = require('../utils/kaiWriter');
 const SettingsManager = require('./settingsManager');
+const WebServer = require('./webServer');
 
 class KaiPlayerApp {
   constructor() {
@@ -14,6 +15,9 @@ class KaiPlayerApp {
     this.currentSong = null;
     this.isDev = process.argv.includes('--dev');
     this.settings = new SettingsManager();
+    this.webServer = null;
+    this.songQueue = [];
+    this.libraryManager = null;
     this.canvasStreaming = {
       isStreaming: false,
       stream: null,
@@ -31,6 +35,7 @@ class KaiPlayerApp {
     this.createApplicationMenu();
     this.setupIPC();
     this.initializeAudioEngine();
+    await this.initializeWebServer();
     
     // Check if songs folder is set, prompt if not
     await this.checkSongsFolder();
@@ -1274,6 +1279,46 @@ class KaiPlayerApp {
         return { error: error.message };
       }
     });
+
+    // Web Server Management
+    ipcMain.handle('webServer:getPort', () => {
+      return this.getWebServerPort();
+    });
+
+    ipcMain.handle('webServer:getSettings', () => {
+      return this.getWebServerSettings();
+    });
+
+    ipcMain.handle('webServer:updateSettings', (event, settings) => {
+      this.updateWebServerSettings(settings);
+      return { success: true };
+    });
+
+    ipcMain.handle('webServer:getSongRequests', () => {
+      return this.getSongRequests();
+    });
+
+    ipcMain.handle('webServer:approveRequest', async (event, requestId) => {
+      try {
+        const response = await fetch(`http://localhost:${this.getWebServerPort()}/admin/requests/${requestId}/approve`, {
+          method: 'POST'
+        });
+        return await response.json();
+      } catch (error) {
+        return { error: error.message };
+      }
+    });
+
+    ipcMain.handle('webServer:rejectRequest', async (event, requestId) => {
+      try {
+        const response = await fetch(`http://localhost:${this.getWebServerPort()}/admin/requests/${requestId}/reject`, {
+          method: 'POST'
+        });
+        return await response.json();
+      } catch (error) {
+        return { error: error.message };
+      }
+    });
   }
 
   async scanForKaiFiles(folderPath) {
@@ -1522,11 +1567,103 @@ class KaiPlayerApp {
       this.mainWindow.webContents.send(channel, data);
     }
   }
+
+  // Web Server Integration Methods
+  async initializeWebServer() {
+    try {
+      this.webServer = new WebServer(this);
+      const port = await this.webServer.start(3069);
+      
+      console.log(`🌐 Web server started at http://localhost:${port}`);
+      console.log(`📱 Song requests available at: http://localhost:${port}`);
+      
+      // Notify renderer about web server
+      this.sendToRenderer('webServer:started', { port });
+      
+    } catch (error) {
+      console.error('Failed to start web server:', error);
+      // Don't fail the entire app if web server fails
+    }
+  }
+
+  // Methods called by WebServer
+  getLibrarySongs() {
+    // This would typically come from your library manager
+    // For now, return empty array - you'll need to integrate with your existing library system
+    if (this.libraryManager && this.libraryManager.songs) {
+      return this.libraryManager.songs;
+    }
+    return [];
+  }
+
+  getQueue() {
+    return this.songQueue || [];
+  }
+
+  getCurrentSong() {
+    return this.currentSong;
+  }
+
+  addSongToQueue(queueItem) {
+    if (!this.songQueue) {
+      this.songQueue = [];
+    }
+    
+    this.songQueue.push({
+      id: Date.now() + Math.random(),
+      path: queueItem.path,
+      title: queueItem.title,
+      artist: queueItem.artist,
+      duration: queueItem.duration,
+      requester: queueItem.requester,
+      addedVia: queueItem.addedVia || 'web-request',
+      addedAt: new Date()
+    });
+
+    // Notify renderer about queue update
+    this.sendToRenderer('queue:updated', this.songQueue);
+    console.log(`➕ Added "${queueItem.title}" to queue (requested by ${queueItem.requester})`);
+  }
+
+  onSongRequest(request) {
+    // Notify renderer about new song request
+    this.sendToRenderer('songRequest:new', request);
+    console.log(`🎤 New song request: "${request.song.title}" by ${request.requesterName}`);
+  }
+
+  // Web server management methods
+  getWebServerPort() {
+    return this.webServer ? this.webServer.getPort() : null;
+  }
+
+  getWebServerSettings() {
+    return this.webServer ? this.webServer.getSettings() : null;
+  }
+
+  updateWebServerSettings(settings) {
+    if (this.webServer) {
+      this.webServer.updateSettings(settings);
+    }
+  }
+
+  getSongRequests() {
+    return this.webServer ? this.webServer.getSongRequests() : [];
+  }
+
+  // Clean up web server on app close
+  cleanup() {
+    if (this.webServer) {
+      this.webServer.stop();
+    }
+  }
 }
 
 const kaiApp = new KaiPlayerApp();
 
 app.on('window-all-closed', () => {
+  // Clean up web server
+  kaiApp.cleanup();
+  
   // Quit the app when all windows are closed, even on macOS
   app.quit();
 });

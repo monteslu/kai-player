@@ -60,9 +60,6 @@ class KaraokeRenderer {
         // WebGL effects system
         this.effectsCanvas = null;
         this.effectsGL = null;
-        this.effectsProgram = null;
-        this.effectsUniforms = {};
-        this.effectsAttributes = {};
         this.musicAnalyser = null;
         this.musicFrequencyData = null;
         
@@ -70,14 +67,11 @@ class KaraokeRenderer {
         this.butterchurn = null;
         this.currentPreset = null;
         this.presetList = [];
-        this.effectType = 'butterchurn'; // 'butterchurn', 'audiomotion', 'custom'
+        this.effectType = 'butterchurn';
         this.butterchurnSourceNode = null;
         this.butterchurnAudioBuffer = null;
         this.originalAudioArrayBuffer = null; // Store original for multiple AudioContext decoding
         
-        // Custom shader effects
-        this.customEffects = [];
-        this.currentCustomEffectIndex = 0;
         
         // AudioWorklet for efficient analysis
         this.musicWorkletNode = null;
@@ -227,18 +221,12 @@ class KaraokeRenderer {
                     }
                 }
             } else {
-                console.warn('Butterchurn libraries not available, using custom effects');
+                console.warn('Butterchurn libraries not available, effects disabled');
                 throw new Error('Butterchurn not available');
             }
         } catch (error) {
-            console.warn('Butterchurn failed to load, falling back to custom effects:', error);
-            
-            // Fallback to our custom WebGL effects
-            this.effectsGL = this.effectsCanvas.getContext('webgl2') || this.effectsCanvas.getContext('webgl');
-            if (this.effectsGL) {
-                this.setupCustomShaders();
-                this.effectType = 'custom';
-            }
+            console.error('Butterchurn failed to load, effects disabled:', error);
+            this.effectType = 'disabled';
         }
         
         if (!this.effectsGL) {
@@ -246,223 +234,6 @@ class KaraokeRenderer {
         }
     }
     
-    setupCustomShaders() {
-        const gl = this.effectsGL;
-        
-        // Multiple shader effects to choose from
-        const shaderEffects = [
-            {
-                name: 'Gentle Glow',
-                fragment: `
-                    precision mediump float;
-                    varying vec2 v_texCoord;
-                    uniform float u_time;
-                    uniform float u_energy;
-                    uniform float u_bass;
-                    uniform float u_mid;
-                    uniform float u_treble;
-                    
-                    void main() {
-                        vec2 uv = v_texCoord;
-                        vec2 center = vec2(0.5, 0.5);
-                        float dist = distance(uv, center);
-                        
-                        // Gentle pulsing glow from center
-                        float pulse = 0.6 + 0.4 * sin(u_time * 2.0 + u_energy * 3.0);
-                        float glow = exp(-dist * (2.0 + u_energy * 0.5)) * pulse;
-                        
-                        // Slow color waves
-                        float colorShift = u_time * 0.5 + dist * 2.0;
-                        
-                        vec3 color = vec3(
-                            0.3 + 0.3 * sin(colorShift + u_bass * 2.0),
-                            0.4 + 0.2 * sin(colorShift * 1.3 + u_mid * 2.0), 
-                            0.6 + 0.4 * sin(colorShift * 0.7 + u_treble * 2.0)
-                        ) * glow;
-                        
-                        gl_FragColor = vec4(color, 1.0);
-                    }
-                `
-            },
-            {
-                name: 'Energy Ripples',
-                fragment: `
-                    precision mediump float;
-                    varying vec2 v_texCoord;
-                    uniform float u_time;
-                    uniform float u_energy;
-                    uniform float u_bass;
-                    uniform float u_mid;
-                    uniform float u_treble;
-                    
-                    void main() {
-                        vec2 uv = v_texCoord;
-                        vec2 center = vec2(0.5, 0.5);
-                        float dist = distance(uv, center);
-                        
-                        // Ripple effect based on energy
-                        float ripple = sin((dist - u_time * 0.5) * 20.0 * (1.0 + u_energy)) * 0.5 + 0.5;
-                        ripple *= exp(-dist * 3.0);
-                        
-                        vec3 color = vec3(
-                            u_bass * ripple + 0.1,
-                            u_mid * ripple * 0.7 + 0.1,
-                            u_treble * ripple * 1.2 + 0.1
-                        );
-                        
-                        gl_FragColor = vec4(color, 1.0);
-                    }
-                `
-            },
-            {
-                name: 'Frequency Bars',
-                fragment: `
-                    precision mediump float;
-                    varying vec2 v_texCoord;
-                    uniform float u_time;
-                    uniform float u_energy;
-                    uniform float u_bass;
-                    uniform float u_mid;
-                    uniform float u_treble;
-                    
-                    void main() {
-                        vec2 uv = v_texCoord;
-                        float x = uv.x;
-                        float y = uv.y;
-                        
-                        // Create frequency bars
-                        float bar = 0.0;
-                        if (x < 0.33) {
-                            bar = step(1.0 - y, u_bass);
-                            gl_FragColor = vec4(bar, 0.0, 0.0, 1.0);
-                        } else if (x < 0.66) {
-                            bar = step(1.0 - y, u_mid);
-                            gl_FragColor = vec4(0.0, bar, 0.0, 1.0);
-                        } else {
-                            bar = step(1.0 - y, u_treble);
-                            gl_FragColor = vec4(0.0, 0.0, bar, 1.0);
-                        }
-                    }
-                `
-            },
-            {
-                name: 'Plasma Field',
-                fragment: `
-                    precision mediump float;
-                    varying vec2 v_texCoord;
-                    uniform float u_time;
-                    uniform float u_energy;
-                    uniform float u_bass;
-                    uniform float u_mid;
-                    uniform float u_treble;
-                    
-                    void main() {
-                        vec2 uv = v_texCoord * 2.0 - 1.0;
-                        
-                        // Plasma effect
-                        float plasma = sin(uv.x * 10.0 + u_time + u_bass * 5.0) +
-                                      sin(uv.y * 8.0 + u_time * 1.3 + u_mid * 3.0) +
-                                      sin((uv.x + uv.y) * 6.0 + u_time * 0.7 + u_treble * 4.0) +
-                                      sin(length(uv) * 12.0 + u_time * 2.0 + u_energy * 6.0);
-                        
-                        plasma = plasma * 0.25 + 0.5;
-                        
-                        vec3 color = vec3(
-                            sin(plasma * 3.14159 + u_time),
-                            sin(plasma * 3.14159 + u_time + 2.0),
-                            sin(plasma * 3.14159 + u_time + 4.0)
-                        ) * 0.5 + 0.5;
-                        
-                        gl_FragColor = vec4(color * u_energy, 1.0);
-                    }
-                `
-            }
-        ];
-        
-        // Store all custom effects for cycling
-        this.customEffects = shaderEffects;
-        
-        // Compile first effect initially
-        this.switchToCustomEffect(0);
-        
-    }
-    
-    switchToCustomEffect(index) {
-        if (index < 0 || index >= this.customEffects.length) return;
-        
-        const gl = this.effectsGL;
-        const effect = this.customEffects[index];
-        
-        const vertexShaderSource = `
-            attribute vec2 a_position;
-            varying vec2 v_texCoord;
-            void main() {
-                gl_Position = vec4(a_position, 0.0, 1.0);
-                v_texCoord = (a_position + 1.0) / 2.0;
-            }
-        `;
-        
-        const vertexShader = this.compileShader(gl, gl.VERTEX_SHADER, vertexShaderSource);
-        const fragmentShader = this.compileShader(gl, gl.FRAGMENT_SHADER, effect.fragment);
-        
-        if (!vertexShader || !fragmentShader) return;
-        
-        // Clean up old program if it exists
-        if (this.effectsProgram) {
-            gl.deleteProgram(this.effectsProgram);
-        }
-        
-        this.effectsProgram = gl.createProgram();
-        gl.attachShader(this.effectsProgram, vertexShader);
-        gl.attachShader(this.effectsProgram, fragmentShader);
-        gl.linkProgram(this.effectsProgram);
-        
-        if (!gl.getProgramParameter(this.effectsProgram, gl.LINK_STATUS)) {
-            console.error('WebGL program link error:', gl.getProgramInfoLog(this.effectsProgram));
-            return;
-        }
-        
-        // Get uniform locations
-        this.effectsUniforms = {
-            time: gl.getUniformLocation(this.effectsProgram, 'u_time'),
-            energy: gl.getUniformLocation(this.effectsProgram, 'u_energy'),
-            bass: gl.getUniformLocation(this.effectsProgram, 'u_bass'),
-            mid: gl.getUniformLocation(this.effectsProgram, 'u_mid'),
-            treble: gl.getUniformLocation(this.effectsProgram, 'u_treble'),
-            centroid: gl.getUniformLocation(this.effectsProgram, 'u_centroid'),
-            resolution: gl.getUniformLocation(this.effectsProgram, 'u_resolution')
-        };
-        
-        this.effectsAttributes = {
-            position: gl.getAttribLocation(this.effectsProgram, 'a_position')
-        };
-        
-        const positions = new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]);
-        if (!this.effectsBuffer) {
-            this.effectsBuffer = gl.createBuffer();
-        }
-        gl.bindBuffer(gl.ARRAY_BUFFER, this.effectsBuffer);
-        gl.bufferData(gl.ARRAY_BUFFER, positions, gl.STATIC_DRAW);
-        
-        gl.viewport(0, 0, 1920, 1080);
-        
-        this.currentCustomEffectIndex = index;
-        this.currentPreset = effect.name;
-    }
-    
-    compileShader(gl, type, source) {
-        const shader = gl.createShader(type);
-        gl.shaderSource(shader, source);
-        gl.compileShader(shader);
-        
-        if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-            console.error('Shader compile error:', gl.getShaderInfoLog(shader));
-            gl.deleteShader(shader);
-            return null;
-        }
-        
-        return shader;
-    }
 
     setupCanvas() {
         // Canvas size is ALWAYS 1920x1080 (1080p)
@@ -887,7 +658,7 @@ class KaraokeRenderer {
         // if (Math.random() < 0.01) { // Debug occasionally
         // }
         
-        // Use Butterchurn if available, otherwise fall back to custom shaders
+        // Use Butterchurn for background effects
         if (this.effectType === 'butterchurn' && this.butterchurn) {
             try {
                 // Convert our analysis data to Butterchurn's expected format
@@ -943,40 +714,11 @@ class KaraokeRenderer {
                 }
                 
             } catch (error) {
-                console.warn('Butterchurn render failed, falling back to custom:', error);
-                this.effectType = 'custom';
-                this.renderCustomEffects(analysis);
+                console.error('Butterchurn render failed:', error);
             }
-        } else if (this.effectType === 'custom' && this.effectsProgram) {
-            this.renderCustomEffects(analysis);
         }
     }
     
-    renderCustomEffects(analysis) {
-        const gl = this.effectsGL;
-        
-        // Clear and setup WebGL state
-        gl.clearColor(0, 0, 0, 1);
-        gl.clear(gl.COLOR_BUFFER_BIT);
-        gl.useProgram(this.effectsProgram);
-        
-        // Set uniforms
-        gl.uniform1f(this.effectsUniforms.time, this.currentTime);
-        gl.uniform1f(this.effectsUniforms.energy, analysis.energy);
-        gl.uniform1f(this.effectsUniforms.bass, analysis.bass);
-        gl.uniform1f(this.effectsUniforms.mid, analysis.mid);
-        gl.uniform1f(this.effectsUniforms.treble, analysis.treble);
-        gl.uniform1f(this.effectsUniforms.centroid, analysis.centroid);
-        gl.uniform2f(this.effectsUniforms.resolution, 1920, 1080);
-        
-        // Bind vertex buffer and draw
-        gl.bindBuffer(gl.ARRAY_BUFFER, this.effectsBuffer);
-        gl.enableVertexAttribArray(this.effectsAttributes.position);
-        gl.vertexAttribPointer(this.effectsAttributes.position, 2, gl.FLOAT, false, 0, 0);
-        
-        // Draw fullscreen quad
-        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-    }
     
     // Preset management methods
     switchToNextPreset() {
@@ -984,9 +726,6 @@ class KaraokeRenderer {
             const currentIndex = this.presetList.indexOf(this.currentPreset);
             const nextIndex = (currentIndex + 1) % this.presetList.length;
             this.switchToPreset(this.presetList[nextIndex]);
-        } else if (this.effectType === 'custom' && this.customEffects.length) {
-            const nextIndex = (this.currentCustomEffectIndex + 1) % this.customEffects.length;
-            this.switchToCustomEffect(nextIndex);
         }
     }
     
@@ -995,10 +734,6 @@ class KaraokeRenderer {
             const currentIndex = this.presetList.indexOf(this.currentPreset);
             const prevIndex = currentIndex <= 0 ? this.presetList.length - 1 : currentIndex - 1;
             this.switchToPreset(this.presetList[prevIndex]);
-        } else if (this.effectType === 'custom' && this.customEffects.length) {
-            const prevIndex = this.currentCustomEffectIndex <= 0 ? 
-                this.customEffects.length - 1 : this.currentCustomEffectIndex - 1;
-            this.switchToCustomEffect(prevIndex);
         }
     }
     
@@ -1016,6 +751,31 @@ class KaraokeRenderer {
             console.error('Failed to switch preset:', error);
         }
     }
+
+    setButterchurnPreset(presetData, transitionTime = 1.0) {
+        if (this.effectType !== 'butterchurn' || !this.butterchurn) {
+            console.warn('Cannot set butterchurn preset - butterchurn not active');
+            return false;
+        }
+        
+        try {
+            this.butterchurn.loadPreset(presetData, transitionTime);
+            // Find the preset name for tracking
+            if (window.butterchurnPresets) {
+                const allPresets = window.butterchurnPresets.getPresets();
+                for (const [name, preset] of Object.entries(allPresets)) {
+                    if (preset === presetData) {
+                        this.currentPreset = name;
+                        break;
+                    }
+                }
+            }
+            return true;
+        } catch (error) {
+            console.error('Failed to set butterchurn preset:', error);
+            return false;
+        }
+    }
     
     getAvailablePresets() {
         return this.presetList;
@@ -1026,7 +786,7 @@ class KaraokeRenderer {
     }
     
     switchEffectType(type) {
-        if (['butterchurn', 'custom'].includes(type)) {
+        if (type === 'butterchurn') {
             this.effectType = type;
         }
     }

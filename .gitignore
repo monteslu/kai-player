@@ -3,4 +3,5 @@ package-lock.json
 *.kai
 *.mp3
 *.mp4
+*.DS_Store
 
