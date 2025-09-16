@@ -1331,6 +1331,34 @@ class KaiPlayerApp {
       }
     });
 
+    // Queue Management
+    ipcMain.handle('queue:addSong', async (event, queueItem) => {
+      await this.addSongToQueue(queueItem);
+      return { success: true };
+    });
+
+    ipcMain.handle('queue:get', () => {
+      return this.getQueue();
+    });
+
+    ipcMain.handle('queue:clear', () => {
+      this.songQueue = [];
+      this.sendToRenderer('queue:updated', this.songQueue);
+      return { success: true };
+    });
+
+    // Song management IPC handlers
+    ipcMain.handle('song:getCurrentSong', () => {
+      if (this.currentSong && this.currentSong.metadata) {
+        return {
+          path: this.currentSong.metadata.path || this.currentSong.filePath,
+          title: this.currentSong.metadata.title,
+          artist: this.currentSong.metadata.artist
+        };
+      }
+      return null;
+    });
+
     // Settings management IPC handlers
     ipcMain.handle('settings:get', (event, key, defaultValue = null) => {
       return this.settings.get(key, defaultValue);
@@ -1542,6 +1570,15 @@ class KaiPlayerApp {
       });
       this.sendToRenderer('song:loaded', kaiData.metadata || {});
       this.sendToRenderer('song:data', kaiData);
+
+      // Notify queue manager that this song is now current
+      console.log('📡 Main: Sending queue:songStarted IPC event for:', filePath);
+
+      // Add a small delay to ensure renderer is ready
+      setTimeout(() => {
+        console.log('📡 Main: Delayed sending of queue:songStarted after 100ms');
+        this.sendToRenderer('queue:songStarted', filePath);
+      }, 100);
       
       return {
         success: true,
@@ -1626,13 +1663,50 @@ class KaiPlayerApp {
   }
 
   // Methods called by WebServer
-  getLibrarySongs() {
-    // This would typically come from your library manager
-    // For now, return empty array - you'll need to integrate with your existing library system
-    if (this.libraryManager && this.libraryManager.songs) {
-      return this.libraryManager.songs;
+  async getLibrarySongs() {
+    try {
+      let songsFolder = this.settings.getSongsFolder();
+
+      // If no songs folder is set, try the app root directory
+      if (!songsFolder) {
+        songsFolder = process.cwd();
+      }
+
+      const files = await this.scanForKaiFiles(songsFolder);
+      const songs = [];
+
+      console.log(`getLibrarySongs: Processing ${files.length} files`);
+
+      for (const file of files) {
+        try {
+          // scanForKaiFiles already includes metadata in the file object
+          console.log(`Processing file: ${file.path}`);
+          console.log(`File metadata:`, file);
+
+          if (file.title && file.artist) {
+            const song = {
+              path: file.path,
+              title: file.title,
+              artist: file.artist,
+              duration: file.duration || 0
+            };
+            songs.push(song);
+            console.log(`Added song:`, song);
+          } else {
+            console.log(`Skipping file ${file.path} - missing title or artist`);
+          }
+        } catch (error) {
+          console.error('Error processing song:', error);
+        }
+      }
+
+      console.log(`getLibrarySongs: Returning ${songs.length} songs`);
+
+      return songs;
+    } catch (error) {
+      console.error('Error getting library songs:', error);
+      return [];
     }
-    return [];
   }
 
   getQueue() {
@@ -1643,12 +1717,15 @@ class KaiPlayerApp {
     return this.currentSong;
   }
 
-  addSongToQueue(queueItem) {
+  async addSongToQueue(queueItem) {
     if (!this.songQueue) {
       this.songQueue = [];
     }
-    
-    this.songQueue.push({
+
+    // Check if queue was empty before adding
+    const wasEmpty = this.songQueue.length === 0;
+
+    const newQueueItem = {
       id: Date.now() + Math.random(),
       path: queueItem.path,
       title: queueItem.title,
@@ -1657,7 +1734,19 @@ class KaiPlayerApp {
       requester: queueItem.requester,
       addedVia: queueItem.addedVia || 'web-request',
       addedAt: new Date()
-    });
+    };
+
+    this.songQueue.push(newQueueItem);
+
+    // If queue was empty, automatically load and start playing the first song
+    if (wasEmpty) {
+      console.log(`🎵 Queue was empty, auto-loading "${queueItem.title}"`);
+      try {
+        await this.loadKaiFile(queueItem.path);
+      } catch (error) {
+        console.error('❌ Failed to auto-load song from queue:', error);
+      }
+    }
 
     // Notify renderer about queue update
     this.sendToRenderer('queue:updated', this.songQueue);
@@ -1668,6 +1757,52 @@ class KaiPlayerApp {
     // Notify renderer about new song request
     this.sendToRenderer('songRequest:new', request);
     console.log(`🎤 New song request: "${request.song.title}" by ${request.requesterName}`);
+  }
+
+  // Player control methods for web admin
+  async playerPlay() {
+    // Trigger the same play action as the UI button
+    if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+      this.mainWindow.webContents.executeJavaScript(`
+        if (window.appInstance && window.appInstance.togglePlayback) {
+          window.appInstance.togglePlayback();
+        }
+      `).catch(err => console.log('Play command error:', err));
+    }
+  }
+
+  async playerNext() {
+    // Trigger the same next action as the UI button
+    if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+      this.mainWindow.webContents.executeJavaScript(`
+        if (window.queueManager && window.queueManager.loadNext) {
+          window.queueManager.loadNext();
+        }
+      `).catch(err => console.log('Next command error:', err));
+    }
+  }
+
+  async clearQueue() {
+    // Trigger the same clear action as the UI button
+    if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+      this.mainWindow.webContents.executeJavaScript(`
+        if (window.queueManager && window.queueManager.clearQueue) {
+          window.queueManager.clearQueue();
+        }
+      `).catch(err => console.log('Clear queue command error:', err));
+    }
+  }
+
+  async getCurrentSong() {
+    if (this.currentSong && this.currentSong.metadata) {
+      return {
+        path: this.currentSong.metadata.path || this.currentSong.filePath,
+        title: this.currentSong.metadata.title,
+        artist: this.currentSong.metadata.artist,
+        requester: this.currentSong.requester || 'KJ'
+      };
+    }
+    return null;
   }
 
   // Web server management methods

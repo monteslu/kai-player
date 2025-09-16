@@ -48,7 +48,7 @@ class KaraokeRenderer {
             micToSpeakers: true,
             enableMic: true,
             enableEffects: true,
-            overlayOpacity: 0.5,
+            overlayOpacity: 0.7,
             showUpcomingLyrics: true
         };
         
@@ -2248,34 +2248,42 @@ class KaraokeRenderer {
     drawSongInfo(width, height, songData) {
         const ctx = this.ctx;
         ctx.save();
-        
+
         // Get song info from various possible locations
         const title = songData.title || songData.metadata?.title || songData.name?.replace('.kai', '') || 'Unknown Title';
         const artist = songData.artist || songData.metadata?.artist || 'Unknown Artist';
-        
+        const requester = songData.requester;
+
         // Center position
         const centerX = width / 2;
         const centerY = height / 2;
-        
+
         // Draw title
         ctx.fillStyle = '#ffffff';
         ctx.font = 'bold 72px Arial, sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        
+
         // Add text shadow for better visibility
         ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
         ctx.shadowBlur = 4;
         ctx.shadowOffsetX = 2;
         ctx.shadowOffsetY = 2;
-        
+
         ctx.fillText(title, centerX, centerY - 50);
-        
+
         // Draw artist
         ctx.fillStyle = '#cccccc';
         ctx.font = '48px Arial, sans-serif';
         ctx.fillText(artist, centerX, centerY + 50);
-        
+
+        // Draw singer/requester if present
+        if (requester) {
+            ctx.fillStyle = '#aaaaaa';
+            ctx.font = '36px Arial, sans-serif';
+            ctx.fillText(`Singer: ${requester}`, centerX, centerY + 120);
+        }
+
         ctx.restore();
     }
     

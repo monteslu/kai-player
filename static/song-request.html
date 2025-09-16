@@ -1,0 +1,1002 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Loukai Karaoke - Song Requests</title>
+    <style>
+        /* Material Icons Font */
+        @font-face {
+            font-family: 'Material Icons';
+            font-style: normal;
+            font-weight: 400;
+            src: url('/static/fonts/material-icons.woff2') format('woff2');
+            font-display: swap;
+        }
+
+        .material-icons {
+            font-family: 'Material Icons';
+            font-weight: normal;
+            font-style: normal;
+            font-size: 24px;
+            line-height: 1;
+            letter-spacing: normal;
+            text-transform: none;
+            display: inline-block;
+            white-space: nowrap;
+            word-wrap: normal;
+            direction: ltr;
+            -webkit-font-feature-settings: 'liga';
+            -webkit-font-smoothing: antialiased;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #1a1a1a;
+            color: #ffffff;
+            min-height: 100vh;
+            margin: 0;
+            padding: 0;
+        }
+
+        /* Header */
+        .header {
+            background: #2a2a2a;
+            border-bottom: 1px solid #3a3a3a;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        }
+
+        .header h1 {
+            font-size: 2rem;
+            margin-bottom: 5px;
+            color: #ffffff;
+        }
+
+        .header .subtitle {
+            color: #999;
+            font-size: 0.9rem;
+        }
+
+        /* Container */
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+
+        /* Search Section */
+        .search-section {
+            background: #2a2a2a;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border: 1px solid #3a3a3a;
+        }
+
+        .search-box {
+            width: 100%;
+            padding: 12px 20px;
+            font-size: 16px;
+            background: #3a3a3a;
+            border: 1px solid #4a4a4a;
+            border-radius: 4px;
+            color: #ffffff;
+            outline: none;
+            transition: all 0.2s ease;
+        }
+
+        .search-box:focus {
+            border-color: #007acc;
+            box-shadow: 0 0 0 2px rgba(0, 122, 204, 0.2);
+        }
+
+        .search-box::placeholder {
+            color: #999;
+        }
+
+        /* Songs List */
+        .songs-section {
+            background: #2a2a2a;
+            border-radius: 8px;
+            border: 1px solid #3a3a3a;
+            overflow: hidden;
+        }
+
+        .section-header {
+            padding: 15px 20px;
+            background: #333;
+            border-bottom: 1px solid #3a3a3a;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .section-title {
+            font-size: 1.1rem;
+            font-weight: 500;
+        }
+
+        .songs-count {
+            color: #999;
+            font-size: 0.9rem;
+        }
+
+        .songs-list {
+            max-height: 500px;
+            overflow-y: auto;
+        }
+
+        .songs-list::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .songs-list::-webkit-scrollbar-track {
+            background: #1a1a1a;
+        }
+
+        .songs-list::-webkit-scrollbar-thumb {
+            background: #4a4a4a;
+            border-radius: 4px;
+        }
+
+        .songs-list::-webkit-scrollbar-thumb:hover {
+            background: #5a5a5a;
+        }
+
+        .song-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 20px;
+            border-bottom: 1px solid #333;
+            transition: background 0.2s;
+            cursor: pointer;
+        }
+
+        .song-item:hover {
+            background: #333;
+        }
+
+        .song-item:last-child {
+            border-bottom: none;
+        }
+
+        .song-info {
+            flex: 1;
+        }
+
+        .song-title {
+            font-size: 1rem;
+            color: #ffffff;
+            margin-bottom: 4px;
+        }
+
+        .song-artist {
+            font-size: 0.9rem;
+            color: #999;
+        }
+
+        .song-duration {
+            color: #666;
+            font-size: 0.9rem;
+            margin-right: 15px;
+        }
+
+        .request-btn {
+            background: #007acc;
+            color: white;
+            border: none;
+            padding: 8px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: background 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .request-btn:hover {
+            background: #0066aa;
+        }
+
+        .request-btn:disabled {
+            background: #4a4a4a;
+            color: #999;
+            cursor: not-allowed;
+        }
+
+        /* Request Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: #2a2a2a;
+            border-radius: 8px;
+            padding: 30px;
+            max-width: 500px;
+            width: 90%;
+            border: 1px solid #3a3a3a;
+        }
+
+        .modal-header {
+            margin-bottom: 20px;
+        }
+
+        .modal-title {
+            font-size: 1.5rem;
+            margin-bottom: 10px;
+        }
+
+        .modal-song-info {
+            color: #999;
+            font-size: 0.95rem;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 8px;
+            color: #ccc;
+            font-size: 0.9rem;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 10px;
+            background: #3a3a3a;
+            border: 1px solid #4a4a4a;
+            border-radius: 4px;
+            color: #ffffff;
+            font-size: 1rem;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: #007acc;
+        }
+
+        .form-textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: background 0.2s;
+        }
+
+        .btn-primary {
+            background: #007acc;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #0066aa;
+        }
+
+        .btn-secondary {
+            background: #4a4a4a;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #5a5a5a;
+        }
+
+        /* Queue Section */
+        .queue-section {
+            background: #2a2a2a;
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 20px;
+            border: 1px solid #3a3a3a;
+        }
+
+        .queue-title {
+            font-size: 1.2rem;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .queue-list {
+            list-style: none;
+        }
+
+        .queue-item {
+            padding: 12px;
+            background: #333;
+            border-radius: 4px;
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .queue-position {
+            background: #4a4a4a;
+            color: white;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            margin-right: 15px;
+        }
+
+        .queue-info {
+            flex: 1;
+        }
+
+        .queue-requester {
+            color: #007acc;
+            font-size: 0.85rem;
+        }
+
+        /* Loading States */
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+        }
+
+        .spinner {
+            border: 3px solid #3a3a3a;
+            border-top: 3px solid #007acc;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Messages */
+        .message {
+            padding: 15px;
+            border-radius: 4px;
+            margin: 20px 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .message-success {
+            background: #1a4a1a;
+            border: 1px solid #2a5a2a;
+            color: #4ade80;
+        }
+
+        .message-error {
+            background: #4a1a1a;
+            border: 1px solid #5a2a2a;
+            color: #f87171;
+        }
+
+        .message-info {
+            background: #1a3a4a;
+            border: 1px solid #2a4a5a;
+            color: #60a5fa;
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #666;
+        }
+
+        .empty-icon {
+            font-size: 64px;
+            margin-bottom: 20px;
+            opacity: 0.3;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .container {
+                padding: 10px;
+            }
+
+            .admin-link {
+                position: static;
+                margin: 10px;
+                width: calc(100% - 20px);
+                justify-content: center;
+            }
+
+            .header h1 {
+                font-size: 1.5rem;
+            }
+
+            .songs-list {
+                max-height: 400px;
+            }
+        }
+
+        /* Name Prompt Modal */
+        .name-prompt-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .name-prompt-modal {
+            background: #2a2a2a;
+            border-radius: 12px;
+            padding: 2rem;
+            max-width: 400px;
+            width: 90%;
+            text-align: center;
+            border: 1px solid #444;
+        }
+
+        .name-prompt-title {
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+            color: #ffffff;
+        }
+
+        .name-prompt-subtitle {
+            color: #cccccc;
+            margin-bottom: 2rem;
+            line-height: 1.4;
+        }
+
+        .name-input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #444;
+            border-radius: 8px;
+            background: #1a1a1a;
+            color: #ffffff;
+            font-size: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .name-input:focus {
+            outline: none;
+            border-color: #007AFF;
+        }
+
+        .name-submit-btn {
+            background: #007AFF;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 1rem;
+            cursor: pointer;
+            width: 100%;
+        }
+
+        .name-submit-btn:hover {
+            background: #0056CC;
+        }
+
+        .name-submit-btn:disabled {
+            background: #444;
+            cursor: not-allowed;
+        }
+
+        .main-content {
+            display: none;
+        }
+
+        .main-content.visible {
+            display: block;
+        }
+
+        .requester-display {
+            padding: 8px 12px;
+            background: #1a1a1a;
+            border: 1px solid #444;
+            border-radius: 6px;
+            color: #ffffff;
+            font-weight: 500;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Name Prompt Modal -->
+    <div id="namePromptOverlay" class="name-prompt-overlay">
+        <div class="name-prompt-modal">
+            <div class="name-prompt-title">Welcome to Karaoke!</div>
+            <div class="name-prompt-subtitle">Please enter your name to request songs</div>
+            <input type="text"
+                   id="nameInput"
+                   class="name-input"
+                   placeholder="Your name..."
+                   maxlength="50"
+                   autocomplete="off">
+            <button id="nameSubmitBtn" class="name-submit-btn" disabled>Continue</button>
+        </div>
+    </div>
+
+    <!-- Main Content (initially hidden) -->
+    <div id="mainContent" class="main-content">
+
+    <!-- Header -->
+    <div class="header">
+        <h1 id="serverName">Loukai Karaoke</h1>
+        <div class="subtitle">Request your favorite songs!</div>
+    </div>
+
+    <!-- Main Container -->
+    <div class="container">
+        <!-- Search Section -->
+        <div class="search-section">
+            <input type="text"
+                   class="search-box"
+                   id="searchBox"
+                   placeholder="Search for songs by title or artist..."
+                   autocomplete="off">
+        </div>
+
+        <!-- Songs Section -->
+        <div class="songs-section">
+            <div class="section-header">
+                <div class="section-title">Available Songs</div>
+                <div class="songs-count" id="songsCount">0 songs</div>
+            </div>
+            <div class="songs-list" id="songsList">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <div>Loading songs...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Queue Section -->
+        <div class="queue-section">
+            <div class="queue-title">
+                <span class="material-icons">queue_music</span>
+                <span>Current Queue</span>
+            </div>
+            <ul class="queue-list" id="queueList">
+                <li class="queue-item">
+                    <div style="display: flex; align-items: center;">
+                        <div class="queue-position">1</div>
+                        <div class="queue-info">
+                            <div class="song-title">Loading queue...</div>
+                        </div>
+                    </div>
+                </li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- Request Modal -->
+    <div class="modal" id="requestModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">Request Song</h2>
+                <div class="modal-song-info" id="modalSongInfo"></div>
+            </div>
+
+            <form id="requestForm">
+                <div class="form-group">
+                    <label class="form-label">Requesting as:</label>
+                    <div class="requester-display" id="requesterDisplay"></div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="message">Message (optional)</label>
+                    <textarea id="message"
+                              class="form-input form-textarea"
+                              maxlength="200"
+                              placeholder="Add a message or dedication..."></textarea>
+                </div>
+
+                <div class="modal-buttons">
+                    <button type="button" class="btn btn-secondary" onclick="closeRequestModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Submit Request</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        let allSongs = [];
+        let filteredSongs = [];
+        let selectedSong = null;
+        let serverSettings = {};
+        let userName = null;
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            setupNamePrompt();
+        });
+
+        function setupNamePrompt() {
+            // Check if name is already stored
+            const storedName = localStorage.getItem('karaoke-user-name');
+            if (storedName && storedName.trim()) {
+                userName = storedName.trim();
+                showMainContent();
+            } else {
+                showNamePrompt();
+            }
+
+            // Setup name prompt event listeners
+            const nameInput = document.getElementById('nameInput');
+            const nameSubmitBtn = document.getElementById('nameSubmitBtn');
+
+            nameInput.addEventListener('input', (e) => {
+                const name = e.target.value.trim();
+                nameSubmitBtn.disabled = name.length === 0;
+            });
+
+            nameInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter' && nameInput.value.trim()) {
+                    submitName();
+                }
+            });
+
+            nameSubmitBtn.addEventListener('click', submitName);
+        }
+
+        function submitName() {
+            const nameInput = document.getElementById('nameInput');
+            const name = nameInput.value.trim();
+
+            if (name) {
+                userName = name;
+                localStorage.setItem('karaoke-user-name', name);
+                showMainContent();
+            }
+        }
+
+        function showNamePrompt() {
+            document.getElementById('namePromptOverlay').style.display = 'flex';
+            document.getElementById('mainContent').classList.remove('visible');
+            // Focus the input after a brief delay
+            setTimeout(() => {
+                document.getElementById('nameInput').focus();
+            }, 100);
+        }
+
+        function showMainContent() {
+            document.getElementById('namePromptOverlay').style.display = 'none';
+            document.getElementById('mainContent').classList.add('visible');
+
+            // Initialize the main application
+            loadServerInfo();
+            loadSongs();
+            loadQueue();
+            setupEventListeners();
+
+            // Refresh queue every 10 seconds
+            setInterval(loadQueue, 10000);
+        }
+
+        // Load server info
+        async function loadServerInfo() {
+            try {
+                const response = await fetch('/api/info');
+                const info = await response.json();
+
+                serverSettings = info;
+                document.getElementById('serverName').textContent = info.serverName || 'Karaoke';
+                document.title = `${info.serverName || 'Karaoke'} - Song Requests`;
+
+                if (!info.allowRequests) {
+                    showMessage('Song requests are currently disabled', 'info');
+                }
+            } catch (error) {
+                console.error('Failed to load server info:', error);
+            }
+        }
+
+        // Load songs
+        async function loadSongs() {
+            try {
+                const response = await fetch('/api/songs?limit=1000');
+                const data = await response.json();
+
+                allSongs = data.songs || [];
+                filteredSongs = allSongs;
+
+                displaySongs();
+                updateSongCount();
+            } catch (error) {
+                console.error('Failed to load songs:', error);
+                document.getElementById('songsList').innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon material-icons">error_outline</div>
+                        <div>Failed to load songs. Please refresh the page.</div>
+                    </div>
+                `;
+            }
+        }
+
+        // Display songs
+        function displaySongs() {
+            const container = document.getElementById('songsList');
+
+            if (filteredSongs.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon material-icons">library_music</div>
+                        <div>No songs found</div>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = filteredSongs.map(song => `
+                <div class="song-item" onclick="requestSong('${song.id.replace(/'/g, "\\'")}')">
+                    <div class="song-info">
+                        <div class="song-title">${escapeHtml(song.title)}</div>
+                        <div class="song-artist">${escapeHtml(song.artist)}</div>
+                    </div>
+                    <div style="display: flex; align-items: center;">
+                        <span class="song-duration">${formatDuration(song.duration)}</span>
+                        <button class="request-btn" ${!serverSettings.allowRequests ? 'disabled' : ''}>
+                            <span class="material-icons" style="font-size: 18px;">add</span>
+                            Request
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Load queue
+        async function loadQueue() {
+            try {
+                const response = await fetch('/api/queue');
+                const data = await response.json();
+
+                displayQueue(data.queue || []);
+
+                if (data.currentlyPlaying) {
+                    // Could show currently playing song somewhere
+                }
+            } catch (error) {
+                console.error('Failed to load queue:', error);
+            }
+        }
+
+        // Display queue
+        function displayQueue(queue) {
+            const container = document.getElementById('queueList');
+
+            if (queue.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon material-icons">queue_music</div>
+                        <div>Queue is empty</div>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = queue.map((item, index) => `
+                <li class="queue-item">
+                    <div style="display: flex; align-items: center;">
+                        <div class="queue-position">${index + 1}</div>
+                        <div class="queue-info">
+                            <div class="song-title">${escapeHtml(item.title)}</div>
+                            <div class="song-artist">${escapeHtml(item.artist)}</div>
+                            <div class="queue-requester">Requested by ${escapeHtml(item.requester)}</div>
+                        </div>
+                    </div>
+                </li>
+            `).join('');
+        }
+
+        // Setup event listeners
+        function setupEventListeners() {
+            // Search
+            document.getElementById('searchBox').addEventListener('input', (e) => {
+                const search = e.target.value.toLowerCase();
+
+                if (search.trim() === '') {
+                    filteredSongs = allSongs;
+                } else {
+                    filteredSongs = allSongs.filter(song =>
+                        song.title.toLowerCase().includes(search) ||
+                        song.artist.toLowerCase().includes(search)
+                    );
+                }
+
+                displaySongs();
+                updateSongCount();
+            });
+
+            // Request form
+            document.getElementById('requestForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                await submitRequest();
+            });
+
+            // Modal close on background click
+            document.getElementById('requestModal').addEventListener('click', (e) => {
+                if (e.target.id === 'requestModal') {
+                    closeRequestModal();
+                }
+            });
+        }
+
+        // Request song
+        function requestSong(songId) {
+            if (!serverSettings.allowRequests) {
+                showMessage('Song requests are currently disabled', 'info');
+                return;
+            }
+
+            selectedSong = allSongs.find(s => s.id === songId);
+            if (!selectedSong) return;
+
+            // Show modal
+            document.getElementById('modalSongInfo').textContent =
+                `${selectedSong.title} - ${selectedSong.artist}`;
+
+            // Show the user's name
+            document.getElementById('requesterDisplay').textContent = userName;
+
+            document.getElementById('requestModal').classList.add('active');
+
+            // Focus message input
+            setTimeout(() => {
+                document.getElementById('message').focus();
+            }, 100);
+        }
+
+        // Close modal
+        function closeRequestModal() {
+            document.getElementById('requestModal').classList.remove('active');
+            document.getElementById('requestForm').reset();
+            selectedSong = null;
+        }
+
+        // Submit request
+        async function submitRequest() {
+            if (!selectedSong) return;
+
+            const message = document.getElementById('message').value.trim();
+
+            if (!userName) {
+                showMessage('Please refresh the page and enter your name', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/request', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        songId: selectedSong.id,
+                        requesterName: userName,
+                        message
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showMessage(result.message || 'Song requested successfully!', 'success');
+                    closeRequestModal();
+
+                    // Reload queue after a moment
+                    setTimeout(loadQueue, 1000);
+                } else {
+                    showMessage(result.error || 'Failed to submit request', 'error');
+                }
+            } catch (error) {
+                console.error('Request error:', error);
+                showMessage('Failed to submit request. Please try again.', 'error');
+            }
+        }
+
+        // Show message
+        function showMessage(text, type = 'info') {
+            // Remove existing messages
+            document.querySelectorAll('.message').forEach(msg => msg.remove());
+
+            const message = document.createElement('div');
+            message.className = `message message-${type}`;
+
+            const icon = type === 'success' ? 'check_circle' :
+                         type === 'error' ? 'error' : 'info';
+
+            message.innerHTML = `
+                <span class="material-icons">${icon}</span>
+                <span>${text}</span>
+            `;
+
+            document.querySelector('.container').insertBefore(
+                message,
+                document.querySelector('.search-section')
+            );
+
+            // Auto remove after 5 seconds
+            setTimeout(() => {
+                message.remove();
+            }, 5000);
+        }
+
+        // Update song count
+        function updateSongCount() {
+            const count = filteredSongs.length;
+            const total = allSongs.length;
+
+            let text = `${count} song${count !== 1 ? 's' : ''}`;
+            if (count !== total) {
+                text += ` (of ${total})`;
+            }
+
+            document.getElementById('songsCount').textContent = text;
+        }
+
+        // Helper functions
+        function formatDuration(seconds) {
+            if (!seconds) return '';
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${mins}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+    </script>
+
+    </div> <!-- End main-content -->
+
+</body>
+</html>

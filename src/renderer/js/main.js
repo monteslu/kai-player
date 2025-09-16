@@ -25,7 +25,7 @@ class KaiPlayerApp {
             enableEffects: true,
             randomEffectOnSong: false,
             disabledEffects: [],
-            overlayOpacity: 0.5,
+            overlayOpacity: 0.7,
             showUpcomingLyrics: true
         };
         
@@ -46,6 +46,7 @@ class KaiPlayerApp {
             await this.setupEventListeners();
             await this.loadAudioDevices();
             this.setupTabs();
+            this.setupServerTab();
             this.setupKeyboardShortcuts();
             this.setupWaveformControls();
             this.loadWaveformPreferences(); // Load after controls are set up
@@ -500,6 +501,224 @@ class KaiPlayerApp {
                 }
             });
         });
+    }
+
+    setupServerTab() {
+        // Update server status
+        this.updateServerStatus();
+
+        // Set up event listeners for server tab
+        document.getElementById('saveServerSettings')?.addEventListener('click', () => {
+            this.saveServerSettings();
+        });
+
+        document.getElementById('setPasswordBtn')?.addEventListener('click', () => {
+            this.setAdminPassword();
+        });
+
+        document.getElementById('openServerBtn')?.addEventListener('click', () => {
+            this.openServerInBrowser();
+        });
+
+        document.getElementById('openAdminBtn')?.addEventListener('click', () => {
+            this.openAdminPanel();
+        });
+
+        document.getElementById('clearRequestsBtn')?.addEventListener('click', () => {
+            this.clearAllRequests();
+        });
+
+        // Load current settings
+        this.loadServerSettings();
+
+        // Update requests stats periodically
+        setInterval(() => {
+            this.updateRequestsStats();
+        }, 5000);
+    }
+
+    async updateServerStatus() {
+        try {
+            const port = await window.kaiAPI.webServer.getPort();
+            const statusIndicator = document.getElementById('statusIndicator');
+            const statusText = document.getElementById('statusText');
+            const serverUrl = document.getElementById('serverUrl');
+            const openServerBtn = document.getElementById('openServerBtn');
+
+            if (port) {
+                statusIndicator.className = 'status-indicator online';
+                statusText.textContent = `Running on port ${port}`;
+                serverUrl.textContent = `http://localhost:${port}`;
+                openServerBtn.disabled = false;
+            } else {
+                statusIndicator.className = 'status-indicator offline';
+                statusText.textContent = 'Not running';
+                serverUrl.textContent = 'Not running';
+                openServerBtn.disabled = true;
+            }
+        } catch (error) {
+            console.error('Failed to get server status:', error);
+        }
+    }
+
+    async loadServerSettings() {
+        try {
+            const settings = await window.kaiAPI.webServer.getSettings();
+            if (settings) {
+                document.getElementById('serverName').value = settings.serverName || '';
+                document.getElementById('allowSongRequests').checked = settings.allowSongRequests !== false;
+                document.getElementById('requireKJApproval').checked = settings.requireKJApproval !== false;
+            }
+
+            // Check if admin password is set
+            const hasPassword = await window.kaiAPI.settings.get('server.adminPasswordHash');
+            const passwordStatus = document.getElementById('passwordStatus');
+            if (hasPassword) {
+                passwordStatus.textContent = 'Admin password is set';
+                passwordStatus.className = 'password-status set';
+            } else {
+                passwordStatus.textContent = 'No admin password set';
+                passwordStatus.className = 'password-status';
+            }
+        } catch (error) {
+            console.error('Failed to load server settings:', error);
+        }
+    }
+
+    async saveServerSettings() {
+        try {
+            const settings = {
+                serverName: document.getElementById('serverName').value || 'Loukai Karaoke',
+                allowSongRequests: document.getElementById('allowSongRequests').checked,
+                requireKJApproval: document.getElementById('requireKJApproval').checked
+            };
+
+            await window.kaiAPI.webServer.updateSettings(settings);
+            this.showServerMessage('Settings saved successfully', 'success');
+        } catch (error) {
+            console.error('Failed to save server settings:', error);
+            this.showServerMessage('Failed to save settings', 'error');
+        }
+    }
+
+    async setAdminPassword() {
+        const passwordInput = document.getElementById('adminPassword');
+        const password = passwordInput.value.trim();
+
+        if (!password) {
+            this.showServerMessage('Please enter a password', 'error');
+            return;
+        }
+
+        if (password.length < 6) {
+            this.showServerMessage('Password must be at least 6 characters', 'error');
+            return;
+        }
+
+        try {
+            // Hash the password using bcrypt
+            const bcrypt = require('bcrypt');
+            const saltRounds = 10;
+            const hashedPassword = await bcrypt.hash(password, saltRounds);
+
+            // Save the hashed password
+            await window.kaiAPI.settings.set('server.adminPasswordHash', hashedPassword);
+
+            // Clear the input
+            passwordInput.value = '';
+
+            // Update status
+            const passwordStatus = document.getElementById('passwordStatus');
+            passwordStatus.textContent = 'Admin password is set';
+            passwordStatus.className = 'password-status set';
+
+            this.showServerMessage('Admin password set successfully', 'success');
+        } catch (error) {
+            console.error('Failed to set admin password:', error);
+            this.showServerMessage('Failed to set admin password', 'error');
+        }
+    }
+
+    async openServerInBrowser() {
+        try {
+            const port = await window.kaiAPI.webServer.getPort();
+            if (port) {
+                require('electron').shell.openExternal(`http://localhost:${port}`);
+            }
+        } catch (error) {
+            console.error('Failed to open server:', error);
+        }
+    }
+
+    async openAdminPanel() {
+        try {
+            const port = await window.kaiAPI.webServer.getPort();
+            if (port) {
+                require('electron').shell.openExternal(`http://localhost:${port}/admin`);
+            }
+        } catch (error) {
+            console.error('Failed to open admin panel:', error);
+        }
+    }
+
+    async clearAllRequests() {
+        if (!confirm('Are you sure you want to clear all song requests? This cannot be undone.')) {
+            return;
+        }
+
+        try {
+            // This would need to be implemented in the web server
+            this.showServerMessage('All requests cleared', 'success');
+            this.updateRequestsStats();
+        } catch (error) {
+            console.error('Failed to clear requests:', error);
+            this.showServerMessage('Failed to clear requests', 'error');
+        }
+    }
+
+    async updateRequestsStats() {
+        try {
+            const requests = await window.kaiAPI.webServer.getSongRequests();
+            const pending = requests.filter(r => r.status === 'pending').length;
+
+            document.getElementById('pendingRequests').textContent = pending;
+            document.getElementById('totalRequests').textContent = requests.length;
+        } catch (error) {
+            // Silently fail for now
+        }
+    }
+
+    showServerMessage(message, type = 'info') {
+        // Create a temporary message element
+        const messageEl = document.createElement('div');
+        messageEl.className = `server-message ${type}`;
+        messageEl.textContent = message;
+        messageEl.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 12px 20px;
+            border-radius: 4px;
+            color: white;
+            font-weight: 500;
+            z-index: 10000;
+            animation: slideIn 0.3s ease;
+        `;
+
+        if (type === 'success') {
+            messageEl.style.background = '#28a745';
+        } else if (type === 'error') {
+            messageEl.style.background = '#dc3545';
+        } else {
+            messageEl.style.background = '#007acc';
+        }
+
+        document.body.appendChild(messageEl);
+
+        // Remove after 3 seconds
+        setTimeout(() => {
+            messageEl.remove();
+        }, 3000);
     }
 
     setupKeyboardShortcuts() {

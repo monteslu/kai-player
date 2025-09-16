@@ -48,7 +48,8 @@ const api = {
     onLoaded: (callback) => ipcRenderer.on('song:loaded', callback),
     onData: (callback) => ipcRenderer.on('song:data', callback),
     removeSongListener: (callback) => ipcRenderer.removeListener('song:loaded', callback),
-    removeDataListener: (callback) => ipcRenderer.removeListener('song:data', callback)
+    removeDataListener: (callback) => ipcRenderer.removeListener('song:data', callback),
+    getCurrentSong: () => ipcRenderer.invoke('song:getCurrentSong')
   },
   
   editor: {
@@ -93,6 +94,12 @@ const api = {
     set: (key, value) => ipcRenderer.invoke('settings:set', key, value),
     getAll: () => ipcRenderer.invoke('settings:getAll'),
     updateBatch: (updates) => ipcRenderer.invoke('settings:updateBatch', updates)
+  },
+
+  queue: {
+    addSong: (queueItem) => ipcRenderer.invoke('queue:addSong', queueItem),
+    get: () => ipcRenderer.invoke('queue:get'),
+    clear: () => ipcRenderer.invoke('queue:clear')
   },
 
   events: {

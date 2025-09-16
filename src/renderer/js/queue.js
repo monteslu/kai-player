@@ -1,13 +1,48 @@
 class QueueManager {
     constructor() {
-        this.queue = [];
+        this.queue = []; // Display cache only - main process is source of truth
         this.currentIndex = -1;
         this.isPlaying = false;
-        
+
         this.setupEventListeners();
+        this.initializeQueue();
+    }
+
+    async initializeQueue() {
+        // Load initial queue state from main process
+        await this.refreshQueueFromMain();
+
+        // Check if there's a currently loaded song and sync currentIndex
+        this.syncCurrentIndex();
     }
 
     setupEventListeners() {
+        // Listen for queue updates from main process (e.g., web requests)
+        if (window.kaiAPI && window.kaiAPI.events) {
+            console.log('✅ QueueManager: IPC events API is available');
+
+            window.kaiAPI.events.on('queue:updated', (event, mainQueue) => {
+                console.log('📥 Received queue update from main process:', mainQueue);
+                this.queue = mainQueue || [];
+                // Don't reset currentIndex - it should persist across queue updates
+                this.updateQueueDisplay();
+                // Sync currentIndex after queue update
+                this.syncCurrentIndex();
+            });
+
+            // Listen for song started notifications to sync currentIndex
+            window.kaiAPI.events.on('queue:songStarted', (event, songPath) => {
+                console.log('🎵 Song started notification received in renderer:', songPath);
+                this.notifySongStarted(songPath);
+            });
+
+            // Add a test listener to see if any IPC events are coming through
+            window.kaiAPI.events.on('song:loaded', (event, data) => {
+                console.log('🔍 Test: song:loaded event received:', data);
+            });
+        } else {
+            console.error('❌ QueueManager: IPC events API not available!');
+        }
 
         // Player sidebar queue controls
         document.getElementById('playerClearQueueBtn')?.addEventListener('click', () => {
@@ -52,21 +87,38 @@ class QueueManager {
     }
 
     // Add song to queue
-    addSong(songData) {
+    async addSong(songData) {
         const queueItem = {
-            id: Date.now() + Math.random(), // Unique ID
             path: songData.path,
             title: songData.title || songData.name.replace('.kai', ''),
             artist: songData.artist || 'Unknown Artist',
             duration: songData.duration,
-            folder: songData.folder,
-            addedAt: new Date()
+            requester: 'KJ', // Songs added from UI are by the KJ
+            addedVia: 'ui'
         };
-        
-        this.queue.push(queueItem);
-        this.updateQueueDisplay();
-        
+
+        // Add to main process queue (single source of truth)
+        if (window.kaiAPI && window.kaiAPI.queue) {
+            await window.kaiAPI.queue.addSong(queueItem);
+        }
+
+        // Refresh display from main queue
+        this.refreshQueueFromMain();
+
         return queueItem;
+    }
+
+    // Refresh queue display from main process (single source of truth)
+    async refreshQueueFromMain() {
+        if (window.kaiAPI && window.kaiAPI.queue) {
+            try {
+                const mainQueue = await window.kaiAPI.queue.get();
+                this.queue = mainQueue || [];
+                this.updateQueueDisplay();
+            } catch (error) {
+                console.error('Failed to refresh queue from main:', error);
+            }
+        }
     }
 
     // Add song to top of queue (for immediate loading)
@@ -114,10 +166,15 @@ class QueueManager {
     }
 
     // Clear entire queue
-    clearQueue() {
-        this.queue = [];
+    async clearQueue() {
+        // Clear queue in main process (source of truth)
+        if (window.kaiAPI && window.kaiAPI.queue) {
+            await window.kaiAPI.queue.clear();
+        }
+
+        // Reset local state and refresh from main
         this.currentIndex = -1;
-        this.updateQueueDisplay();
+        await this.refreshQueueFromMain();
     }
 
     // Get next song in queue
@@ -267,17 +324,65 @@ class QueueManager {
 
     // Notify queue that a song started playing
     notifySongStarted(songPath) {
+        console.log('🔍 notifySongStarted called with path:', songPath);
+        console.log('🔍 Current queue:', this.queue.map(item => ({ path: item.path, title: item.title })));
+
         // Find the song in the queue and update currentIndex
         const index = this.queue.findIndex(item => item.path === songPath);
+        console.log('🔍 Found song at index:', index);
+
         if (index !== -1) {
+            console.log(`🎯 Setting currentIndex from ${this.currentIndex} to ${index}`);
             this.currentIndex = index;
             this.isPlaying = true;
             this.updateQueueDisplay();
+            console.log('✅ Queue display updated with currentIndex:', this.currentIndex);
         } else {
+            console.log('❌ Song not found in queue, resetting currentIndex');
             // Song not in queue, reset tracking
             this.currentIndex = -1;
             this.isPlaying = true;
             this.updateQueueDisplay();
+        }
+    }
+
+    // Sync currentIndex with the currently loaded song
+    async syncCurrentIndex() {
+        try {
+            // Get the current song from the main process (this will be the last loaded song)
+            const currentSong = await window.kaiAPI.song?.getCurrentSong?.();
+
+            if (currentSong && currentSong.path) {
+                console.log('🔄 Syncing currentIndex with loaded song:', currentSong.path);
+
+                // Find this song in the queue
+                const index = this.queue.findIndex(item => item.path === currentSong.path);
+                if (index !== -1) {
+                    console.log(`🎯 Found loaded song in queue at index ${index}, setting as current`);
+                    this.currentIndex = index;
+                    this.isPlaying = true;
+                    this.updateQueueDisplay();
+                } else {
+                    console.log('🔍 Loaded song not found in queue, keeping current state');
+                    // Don't reset currentIndex - the loaded song might not be from the queue
+                    // Only update display if we have a valid currentIndex
+                    if (this.currentIndex >= 0) {
+                        this.updateQueueDisplay();
+                    }
+                }
+            } else {
+                console.log('🔍 No song currently loaded');
+                // Only reset if we're sure there's no current song
+                // Keep existing currentIndex if it's valid to preserve queue state
+                if (this.currentIndex >= this.queue.length) {
+                    this.currentIndex = -1;
+                }
+                this.isPlaying = false;
+            }
+        } catch (error) {
+            console.error('❌ Error syncing currentIndex:', error);
+            this.currentIndex = -1;
+            this.isPlaying = false;
         }
     }
 
@@ -350,13 +455,16 @@ class QueueManager {
         const itemsHTML = this.queue.map((item, index) => {
             const isCurrentSong = index === this.currentIndex;
             const itemClass = isCurrentSong ? 'player-queue-item current' : 'player-queue-item';
+
             
+            const requesterText = item.requester ? ` • Singer: ${item.requester}` : '';
+
             return `
                 <div class="${itemClass}" data-item-id="${item.id}">
                     <div class="queue-item-number">${index + 1}</div>
                     <div class="queue-item-info">
                         <div class="queue-item-title" title="${item.title}">${item.title}</div>
-                        <div class="queue-item-artist" title="${item.artist}">${item.artist}</div>
+                        <div class="queue-item-artist" title="${item.artist}${requesterText}">${item.artist}${requesterText}</div>
                     </div>
                     <div class="queue-item-actions">
                         <button class="queue-item-btn play-queue-sidebar-btn" data-item-id="${item.id}" title="Play Now">▶️</button>

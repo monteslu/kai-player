@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
+const session = require('express-session');
 
 class WebServer {
     constructor(mainApp) {
@@ -25,10 +26,22 @@ class WebServer {
         this.app.use(cors());
         this.app.use(express.json());
         this.app.use(express.urlencoded({ extended: true }));
+
+        // Session middleware
+        this.app.use(session({
+            secret: 'kai-player-admin-secret',
+            resave: false,
+            saveUninitialized: false,
+            cookie: {
+                secure: false, // Set to true if using HTTPS
+                httpOnly: true,
+                maxAge: 24 * 60 * 60 * 1000 // 24 hours
+            }
+        }));
         
-        // Serve static files for the web interface
-        this.app.use('/static', express.static(path.join(__dirname, '../web-static')));
-        
+        // Serve static files (shared between main app and web interface)
+        this.app.use('/static', express.static(path.join(__dirname, '../../static')));
+
         // Serve Butterchurn libraries for the screenshot generator (both root and admin paths)
         this.app.use('/lib', express.static(path.join(__dirname, '../renderer/lib')));
         this.app.use('/admin/lib', express.static(path.join(__dirname, '../renderer/lib')));
@@ -44,34 +57,99 @@ class WebServer {
     setupRoutes() {
         // Main song request page for users
         this.app.get('/', (req, res) => {
-            res.sendFile(path.join(__dirname, '../web-static/song-request.html'));
+            res.sendFile(path.join(__dirname, '../../static/song-request.html'));
+        });
+
+        // Admin page for KJs
+        this.app.get('/admin', (req, res) => {
+            res.sendFile(path.join(__dirname, '../../static/admin.html'));
+        });
+
+        // Check if admin password is set
+        this.app.get('/admin/check-auth', (req, res) => {
+            try {
+                const passwordHash = this.mainApp.settings?.get('server.adminPasswordHash');
+                res.json({
+                    passwordSet: !!passwordHash,
+                    authenticated: !!req.session.isAdmin
+                });
+            } catch (error) {
+                console.error('Error checking auth:', error);
+                res.status(500).json({ error: 'Server error' });
+            }
+        });
+
+        // Admin login endpoint
+        this.app.post('/admin/login', async (req, res) => {
+            try {
+                const { password } = req.body;
+
+                if (!password) {
+                    return res.status(400).json({ error: 'Password required' });
+                }
+
+                const passwordHash = this.mainApp.settings?.get('server.adminPasswordHash');
+
+                if (!passwordHash) {
+                    return res.status(403).json({ error: 'No admin password set' });
+                }
+
+                const bcrypt = require('bcrypt');
+                const isValid = await bcrypt.compare(password, passwordHash);
+
+                if (isValid) {
+                    req.session.isAdmin = true;
+                    res.json({ success: true, message: 'Login successful' });
+                } else {
+                    res.status(401).json({ error: 'Invalid password' });
+                }
+            } catch (error) {
+                console.error('Error during login:', error);
+                res.status(500).json({ error: 'Server error' });
+            }
+        });
+
+        // Admin logout endpoint
+        this.app.post('/admin/logout', (req, res) => {
+            req.session.destroy((err) => {
+                if (err) {
+                    console.error('Session destroy error:', err);
+                    res.status(500).json({ error: 'Logout failed' });
+                } else {
+                    res.json({ success: true, message: 'Logged out successfully' });
+                }
+            });
         });
 
         // Get available songs for the request interface
-        this.app.get('/api/songs', (req, res) => {
+        this.app.get('/api/songs', async (req, res) => {
             try {
                 const search = req.query.search || '';
                 const limit = parseInt(req.query.limit) || 50;
-                
+
+                console.log('API: Getting songs from main app...');
+
                 // Get songs from the main app's library
-                const allSongs = this.mainApp.getLibrarySongs?.() || [];
-                
+                const allSongs = await this.mainApp.getLibrarySongs?.() || [];
+
+                console.log(`API: Found ${allSongs.length} songs`);
+
                 let songs = allSongs;
                 if (search) {
                     const searchLower = search.toLowerCase();
-                    songs = allSongs.filter(song => 
+                    songs = allSongs.filter(song =>
                         song.title.toLowerCase().includes(searchLower) ||
                         song.artist.toLowerCase().includes(searchLower)
                     );
                 }
-                
+
                 const limitedSongs = songs.slice(0, limit).map(song => ({
                     id: song.path,
                     title: song.title,
                     artist: song.artist,
                     duration: song.duration
                 }));
-                
+
                 res.json({
                     songs: limitedSongs,
                     total: songs.length,
@@ -84,20 +162,20 @@ class WebServer {
         });
 
         // Submit song request
-        this.app.post('/api/request', (req, res) => {
+        this.app.post('/api/request', async (req, res) => {
             try {
                 if (!this.settings.allowSongRequests) {
                     return res.status(403).json({ error: 'Song requests are currently disabled' });
                 }
 
                 const { songId, requesterName, message } = req.body;
-                
+
                 if (!songId || !requesterName) {
                     return res.status(400).json({ error: 'Song ID and requester name are required' });
                 }
 
                 // Find the song in the library
-                const allSongs = this.mainApp.getLibrarySongs?.() || [];
+                const allSongs = await this.mainApp.getLibrarySongs?.() || [];
                 const song = allSongs.find(s => s.path === songId);
                 
                 if (!song) {
@@ -123,7 +201,7 @@ class WebServer {
 
                 // If auto-approval is enabled, add to queue immediately
                 if (!this.settings.requireKJApproval) {
-                    this.addToQueue(request);
+                    await this.addToQueue(request);
                     request.status = 'queued';
                 }
 
@@ -174,19 +252,19 @@ class WebServer {
             });
         });
 
-        this.app.post('/admin/requests/:id/approve', (req, res) => {
+        this.app.post('/admin/requests/:id/approve', async (req, res) => {
             const requestId = parseFloat(req.params.id);
             const request = this.songRequests.find(r => r.id === requestId);
-            
+
             if (!request) {
                 return res.status(404).json({ error: 'Request not found' });
             }
 
             if (request.status === 'pending') {
                 request.status = 'approved';
-                this.addToQueue(request);
+                await this.addToQueue(request);
                 request.status = 'queued';
-                
+
                 res.json({ success: true, request });
             } else {
                 res.status(400).json({ error: 'Request is not pending' });
@@ -220,7 +298,7 @@ class WebServer {
 
         // Screenshot generator utility (admin only - no linking from user interface)
         this.app.get('/admin/screenshot-generator', (req, res) => {
-            res.sendFile(path.join(__dirname, '../web-static/screenshot-generator.html'));
+            res.sendFile(path.join(__dirname, '../../static/screenshot-generator.html'));
         });
 
         // Butterchurn screenshot API - case insensitive filename matching
@@ -271,9 +349,55 @@ class WebServer {
                 requireApproval: this.settings.requireKJApproval
             });
         });
+
+        // Admin queue management endpoints
+        this.app.get('/admin/queue', async (req, res) => {
+            try {
+                const queue = await this.mainApp.getQueue?.() || [];
+                const currentSong = await this.mainApp.getCurrentSong?.() || null;
+                res.json({
+                    queue,
+                    currentSong
+                });
+            } catch (error) {
+                console.error('Error fetching admin queue:', error);
+                res.status(500).json({ error: 'Failed to fetch queue' });
+            }
+        });
+
+        // Player control endpoints
+        this.app.post('/admin/player/play', async (req, res) => {
+            try {
+                await this.mainApp.playerPlay?.();
+                res.json({ success: true, message: 'Play command sent' });
+            } catch (error) {
+                console.error('Error sending play command:', error);
+                res.status(500).json({ error: 'Failed to send play command' });
+            }
+        });
+
+        this.app.post('/admin/player/next', async (req, res) => {
+            try {
+                await this.mainApp.playerNext?.();
+                res.json({ success: true, message: 'Next command sent' });
+            } catch (error) {
+                console.error('Error sending next command:', error);
+                res.status(500).json({ error: 'Failed to send next command' });
+            }
+        });
+
+        this.app.post('/admin/queue/reset', async (req, res) => {
+            try {
+                await this.mainApp.clearQueue?.();
+                res.json({ success: true, message: 'Queue reset' });
+            } catch (error) {
+                console.error('Error resetting queue:', error);
+                res.status(500).json({ error: 'Failed to reset queue' });
+            }
+        });
     }
 
-    addToQueue(request) {
+    async addToQueue(request) {
         // Add the song to the main app's queue
         if (this.mainApp.addSongToQueue) {
             const queueItem = {
@@ -281,7 +405,7 @@ class WebServer {
                 requester: request.requesterName,
                 addedVia: 'web-request'
             };
-            this.mainApp.addSongToQueue(queueItem);
+            await this.mainApp.addSongToQueue(queueItem);
         }
     }
 

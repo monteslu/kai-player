@@ -4,7 +4,27 @@ const fs = require('fs');
 const path = require('path');
 
 class KaiWriter {
+  static saveLocks = new Map(); // Track ongoing save operations
+
   static async save(kaiData, originalFilePath) {
+    // Prevent concurrent saves to the same file
+    if (this.saveLocks.has(originalFilePath)) {
+      console.log('KaiWriter: Save already in progress for', originalFilePath, '- skipping duplicate request');
+      return this.saveLocks.get(originalFilePath);
+    }
+
+    const savePromise = this._performSave(kaiData, originalFilePath);
+    this.saveLocks.set(originalFilePath, savePromise);
+
+    try {
+      const result = await savePromise;
+      return result;
+    } finally {
+      this.saveLocks.delete(originalFilePath);
+    }
+  }
+
+  static async _performSave(kaiData, originalFilePath) {
     return new Promise((resolve, reject) => {
       console.log('KaiWriter: Starting save process for', originalFilePath);
       
@@ -105,7 +125,8 @@ class KaiWriter {
 
   static createUpdatedKaiFile(originalFilePath, updatedSongJson, originalEntries) {
     return new Promise((resolve, reject) => {
-      const tempFilePath = originalFilePath + '.tmp';
+      // Use unique temporary filename to prevent conflicts
+      const tempFilePath = originalFilePath + '.tmp.' + Date.now() + '.' + Math.random().toString(36).substr(2, 9);
       const zipFile = new yazl.ZipFile();
 
       // Add updated song.json

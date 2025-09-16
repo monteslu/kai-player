@@ -2800,3 +2800,282 @@ body {
     background: #dc3545;
     color: white;
 }
+
+/* Server Tab Styles */
+.server-container {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+}
+
+.server-header {
+    padding: 20px;
+    background: #2e2e2e;
+    border-bottom: 1px solid #444;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.server-header h2 {
+    color: #fff;
+    margin: 0;
+    font-size: 1.4rem;
+}
+
+.server-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.9rem;
+    color: #ccc;
+}
+
+.status-indicator {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+.status-indicator.online {
+    background: #28a745;
+    box-shadow: 0 0 10px rgba(40, 167, 69, 0.3);
+}
+
+.status-indicator.offline {
+    background: #dc3545;
+}
+
+.server-content {
+    flex: 1;
+    padding: 20px;
+    overflow-y: auto;
+}
+
+.server-section {
+    background: #2a2a2a;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 20px;
+    border: 1px solid #3a3a3a;
+}
+
+.server-section h3 {
+    color: #fff;
+    margin: 0 0 15px 0;
+    font-size: 1.1rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.server-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.control-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.control-row label {
+    color: #ccc;
+    font-weight: 500;
+}
+
+.control-group {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.settings-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.setting-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.setting-row label {
+    color: #ccc;
+    font-weight: 500;
+    min-width: 120px;
+}
+
+.setting-input {
+    flex: 1;
+    min-width: 200px;
+    padding: 8px 12px;
+    background: #3a3a3a;
+    border: 1px solid #4a4a4a;
+    border-radius: 4px;
+    color: #ffffff;
+    font-size: 0.95rem;
+}
+
+.setting-input:focus {
+    outline: none;
+    border-color: #007acc;
+    box-shadow: 0 0 0 2px rgba(0, 122, 204, 0.2);
+}
+
+.password-group {
+    display: flex;
+    flex: 1;
+    gap: 10px;
+}
+
+.password-group .setting-input {
+    flex: 1;
+}
+
+.setting-description {
+    width: 100%;
+    color: #999;
+    font-size: 0.85rem;
+    margin-top: 5px;
+}
+
+.password-status {
+    color: #ffc107;
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.password-status.set {
+    color: #28a745;
+}
+
+.save-btn, .action-btn {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    text-decoration: none;
+}
+
+.save-btn {
+    background: #007acc;
+    color: white;
+}
+
+.save-btn:hover {
+    background: #0066aa;
+}
+
+.action-btn {
+    background: #4a4a4a;
+    color: white;
+}
+
+.action-btn:hover {
+    background: #5a5a5a;
+}
+
+.action-btn:disabled {
+    background: #2a2a2a;
+    color: #666;
+    cursor: not-allowed;
+}
+
+.action-btn.danger {
+    background: #dc3545;
+}
+
+.action-btn.danger:hover {
+    background: #c82333;
+}
+
+.requests-summary {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 20px;
+}
+
+.summary-stats {
+    display: flex;
+    gap: 30px;
+}
+
+.stat-item {
+    text-align: center;
+}
+
+.stat-value {
+    display: block;
+    font-size: 1.8rem;
+    font-weight: bold;
+    color: #007acc;
+}
+
+.stat-label {
+    display: block;
+    font-size: 0.85rem;
+    color: #999;
+    margin-top: 4px;
+}
+
+.requests-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+/* Responsive adjustments for server tab */
+@media (max-width: 768px) {
+    .server-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+
+    .control-row,
+    .setting-row {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .control-group {
+        justify-content: space-between;
+    }
+
+    .requests-summary {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .summary-stats {
+        justify-content: space-around;
+    }
+
+    .requests-actions {
+        justify-content: stretch;
+    }
+
+    .requests-actions .action-btn {
+        flex: 1;
+        justify-content: center;
+    }
+}

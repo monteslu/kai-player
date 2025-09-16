@@ -47,7 +47,7 @@ class SettingsAPI {
             enableEffects: true,
             randomEffectOnSong: false,
             disabledEffects: [],
-            overlayOpacity: 0.5,
+            overlayOpacity: 0.7,
             showUpcomingLyrics: true
         });
     }

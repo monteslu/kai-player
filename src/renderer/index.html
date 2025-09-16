@@ -115,6 +115,7 @@
                     <button class="tab-btn" data-tab="coaching">Coaching</button>
                     <button class="tab-btn" data-tab="effects">Effects</button>
                     <button class="tab-btn" data-tab="requests">Song Requests</button>
+                    <button class="tab-btn" data-tab="server">Server</button>
                     <button class="tab-btn" data-tab="editor">Lyrics Editor</button>
                 </div>
 
@@ -379,6 +380,124 @@
                                     </div>
                                     <div id="requestHistoryList" class="requests-list">
                                         <div class="no-requests">No recent activity</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Server Tab -->
+                    <div id="server-tab" class="tab-pane">
+                        <div class="server-container">
+                            <div class="server-header">
+                                <h2>Web Server Settings</h2>
+                                <div class="server-status" id="serverStatus">
+                                    <span class="status-indicator offline" id="statusIndicator"></span>
+                                    <span id="statusText">Checking...</span>
+                                </div>
+                            </div>
+
+                            <div class="server-content">
+                                <!-- Server Control -->
+                                <div class="server-section">
+                                    <h3>Server Control</h3>
+                                    <div class="server-controls">
+                                        <div class="control-row">
+                                            <label>Server Status:</label>
+                                            <div class="control-group">
+                                                <span id="serverUrl">Not running</span>
+                                                <button id="openServerBtn" class="action-btn" disabled>
+                                                    <span class="material-icons">open_in_new</span>
+                                                    Open in Browser
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Server Settings -->
+                                <div class="server-section">
+                                    <h3>General Settings</h3>
+                                    <div class="settings-grid">
+                                        <div class="setting-row">
+                                            <label for="serverName">Server Name:</label>
+                                            <input type="text" id="serverName" class="setting-input" placeholder="Loukai Karaoke">
+                                        </div>
+
+                                        <div class="setting-row">
+                                            <label class="checkbox-label">
+                                                <input type="checkbox" id="allowSongRequests" checked>
+                                                <span>Allow Song Requests</span>
+                                            </label>
+                                        </div>
+
+                                        <div class="setting-row">
+                                            <label class="checkbox-label">
+                                                <input type="checkbox" id="requireKJApproval" checked>
+                                                <span>Require KJ Approval</span>
+                                            </label>
+                                        </div>
+
+                                        <div class="setting-row">
+                                            <button id="saveServerSettings" class="save-btn">
+                                                <span class="material-icons">save</span>
+                                                Save Settings
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Admin Password -->
+                                <div class="server-section">
+                                    <h3>Admin Security</h3>
+                                    <div class="settings-grid">
+                                        <div class="setting-row">
+                                            <label for="adminPassword">Admin Password:</label>
+                                            <div class="password-group">
+                                                <input type="password" id="adminPassword" class="setting-input" placeholder="Enter new admin password">
+                                                <button id="setPasswordBtn" class="action-btn">
+                                                    <span class="material-icons">security</span>
+                                                    Set Password
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        <div class="setting-description">
+                                            KJs will need this password to access the admin panel
+                                        </div>
+
+                                        <div class="setting-row">
+                                            <div class="password-status" id="passwordStatus">
+                                                No admin password set
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Song Requests -->
+                                <div class="server-section">
+                                    <h3>Song Requests</h3>
+                                    <div class="requests-summary">
+                                        <div class="summary-stats">
+                                            <div class="stat-item">
+                                                <span class="stat-value" id="pendingRequests">0</span>
+                                                <span class="stat-label">Pending</span>
+                                            </div>
+                                            <div class="stat-item">
+                                                <span class="stat-value" id="totalRequests">0</span>
+                                                <span class="stat-label">Total</span>
+                                            </div>
+                                        </div>
+                                        <div class="requests-actions">
+                                            <button id="openAdminBtn" class="action-btn">
+                                                <span class="material-icons">admin_panel_settings</span>
+                                                Open Admin Panel
+                                            </button>
+                                            <button id="clearRequestsBtn" class="action-btn danger">
+                                                <span class="material-icons">delete_sweep</span>
+                                                Clear All Requests
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
                             </div>

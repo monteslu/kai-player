@@ -1,0 +1,1321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KJ Admin - Loukai Karaoke</title>
+    <style>
+        /* Material Icons Font */
+        @font-face {
+            font-family: 'Material Icons';
+            font-style: normal;
+            font-weight: 400;
+            src: url('/static/fonts/material-icons.woff2') format('woff2');
+            font-display: swap;
+        }
+
+        .material-icons {
+            font-family: 'Material Icons';
+            font-weight: normal;
+            font-style: normal;
+            font-size: 24px;
+            line-height: 1;
+            letter-spacing: normal;
+            text-transform: none;
+            display: inline-block;
+            white-space: nowrap;
+            word-wrap: normal;
+            direction: ltr;
+            -webkit-font-feature-settings: 'liga';
+            -webkit-font-smoothing: antialiased;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #1a1a1a;
+            color: #ffffff;
+            min-height: 100vh;
+            margin: 0;
+            padding: 0;
+        }
+
+        /* Header */
+        .header {
+            background: #2a2a2a;
+            border-bottom: 1px solid #3a3a3a;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .header h1 {
+            font-size: 1.8rem;
+            color: #ffffff;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .header .badge {
+            background: #ff6b6b;
+            color: white;
+            font-size: 0.8rem;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-weight: 500;
+        }
+
+        .back-link {
+            background: #4a4a4a;
+            color: #fff;
+            padding: 10px 20px;
+            border-radius: 4px;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: background 0.2s;
+            border: 1px solid #666;
+        }
+
+        .back-link:hover {
+            background: #5a5a5a;
+        }
+
+        /* Container */
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+            display: grid;
+            grid-template-columns: 1fr 350px;
+            gap: 20px;
+        }
+
+        /* Main Content */
+        .main-content {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        /* Settings Panel */
+        .settings-panel {
+            background: #2a2a2a;
+            border-radius: 8px;
+            border: 1px solid #3a3a3a;
+            padding: 20px;
+            height: fit-content;
+        }
+
+        .settings-title {
+            font-size: 1.2rem;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .setting-row {
+            margin-bottom: 20px;
+        }
+
+        .setting-label {
+            display: block;
+            margin-bottom: 8px;
+            color: #ccc;
+            font-size: 0.9rem;
+        }
+
+        .setting-control {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .toggle-switch {
+            position: relative;
+            width: 50px;
+            height: 26px;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #4a4a4a;
+            transition: .3s;
+            border-radius: 26px;
+        }
+
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 20px;
+            width: 20px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .3s;
+            border-radius: 50%;
+        }
+
+        input:checked + .toggle-slider {
+            background-color: #007acc;
+        }
+
+        input:checked + .toggle-slider:before {
+            transform: translateX(24px);
+        }
+
+        .setting-description {
+            color: #999;
+            font-size: 0.85rem;
+            margin-top: 5px;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .text-input {
+            flex: 1;
+            padding: 8px 12px;
+            background: #3a3a3a;
+            border: 1px solid #4a4a4a;
+            border-radius: 4px;
+            color: #ffffff;
+            font-size: 0.95rem;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: background 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .btn-primary {
+            background: #007acc;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #0066aa;
+        }
+
+        .btn-secondary {
+            background: #4a4a4a;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #5a5a5a;
+        }
+
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #c82333;
+        }
+
+        /* Player Controls */
+        .player-controls {
+            display: flex;
+            gap: 10px;
+            margin-left: auto;
+        }
+
+        .player-controls .btn {
+            font-size: 0.85rem;
+            padding: 6px 12px;
+        }
+
+        /* Queue List */
+        .queue-list {
+            padding: 15px;
+        }
+
+        .queue-item {
+            padding: 12px;
+            border: 1px solid #3a3a3a;
+            border-radius: 6px;
+            margin-bottom: 10px;
+            background: #222;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .queue-item.current {
+            border-left: 4px solid #007acc;
+            background: #1a2f3a;
+        }
+
+        .queue-item-index {
+            background: #444;
+            color: #fff;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            min-width: 30px;
+            text-align: center;
+        }
+
+        .queue-item.current .queue-item-index {
+            background: #007acc;
+        }
+
+        .queue-item-info {
+            flex: 1;
+        }
+
+        .queue-item-title {
+            font-weight: 500;
+            color: #ffffff;
+            margin-bottom: 2px;
+        }
+
+        .queue-item-artist {
+            font-size: 0.9rem;
+            color: #bbbbbb;
+        }
+
+        .queue-item-requester {
+            font-size: 0.8rem;
+            color: #888;
+            margin-top: 2px;
+        }
+
+        /* Requests Section */
+        .requests-section {
+            background: #2a2a2a;
+            border-radius: 8px;
+            border: 1px solid #3a3a3a;
+            overflow: hidden;
+        }
+
+        .section-header {
+            padding: 15px 20px;
+            background: #333;
+            border-bottom: 1px solid #3a3a3a;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .section-title {
+            font-size: 1.1rem;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .requests-count {
+            background: #4a4a4a;
+            color: white;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 0.85rem;
+        }
+
+        .requests-list {
+            max-height: 600px;
+            overflow-y: auto;
+        }
+
+        .requests-list::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .requests-list::-webkit-scrollbar-track {
+            background: #1a1a1a;
+        }
+
+        .requests-list::-webkit-scrollbar-thumb {
+            background: #4a4a4a;
+            border-radius: 4px;
+        }
+
+        .request-item {
+            padding: 15px 20px;
+            border-bottom: 1px solid #333;
+            transition: background 0.2s;
+        }
+
+        .request-item:hover {
+            background: #333;
+        }
+
+        .request-item.pending {
+            border-left: 3px solid #ffc107;
+        }
+
+        .request-item.approved {
+            border-left: 3px solid #28a745;
+        }
+
+        .request-item.rejected {
+            border-left: 3px solid #dc3545;
+            opacity: 0.6;
+        }
+
+        .request-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 10px;
+        }
+
+        .request-info {
+            flex: 1;
+        }
+
+        .request-song {
+            font-size: 1rem;
+            color: #ffffff;
+            margin-bottom: 4px;
+        }
+
+        .request-artist {
+            font-size: 0.9rem;
+            color: #999;
+            margin-bottom: 8px;
+        }
+
+        .request-requester {
+            font-size: 0.9rem;
+            color: #007acc;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .request-message {
+            background: #3a3a3a;
+            padding: 8px 12px;
+            border-radius: 4px;
+            margin-top: 10px;
+            font-size: 0.9rem;
+            color: #ccc;
+        }
+
+        .request-time {
+            color: #666;
+            font-size: 0.85rem;
+            margin-top: 8px;
+        }
+
+        .request-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .action-btn {
+            padding: 6px 12px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: background 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .action-btn .material-icons {
+            font-size: 18px;
+        }
+
+        .approve-btn {
+            background: #28a745;
+            color: white;
+        }
+
+        .approve-btn:hover {
+            background: #218838;
+        }
+
+        .reject-btn {
+            background: #dc3545;
+            color: white;
+        }
+
+        .reject-btn:hover {
+            background: #c82333;
+        }
+
+        .status-badge {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            text-transform: uppercase;
+        }
+
+        .status-pending {
+            background: #ffc107;
+            color: #000;
+        }
+
+        .status-approved {
+            background: #28a745;
+            color: white;
+        }
+
+        .status-rejected {
+            background: #dc3545;
+            color: white;
+        }
+
+        .status-queued {
+            background: #007acc;
+            color: white;
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #666;
+        }
+
+        .empty-icon {
+            font-size: 64px;
+            margin-bottom: 20px;
+            opacity: 0.3;
+        }
+
+        /* Messages */
+        .message {
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .message-success {
+            background: #1a4a1a;
+            border: 1px solid #2a5a2a;
+            color: #4ade80;
+        }
+
+        .message-error {
+            background: #4a1a1a;
+            border: 1px solid #5a2a2a;
+            color: #f87171;
+        }
+
+        /* Stats */
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: #3a3a3a;
+            padding: 15px;
+            border-radius: 4px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: #007acc;
+        }
+
+        .stat-label {
+            font-size: 0.85rem;
+            color: #999;
+            margin-top: 5px;
+        }
+
+        /* Login Modal */
+        .login-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .login-content {
+            background: #2a2a2a;
+            border-radius: 8px;
+            padding: 40px;
+            max-width: 400px;
+            width: 90%;
+            border: 1px solid #3a3a3a;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        }
+
+        .login-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .login-header h2 {
+            color: #fff;
+            margin-bottom: 10px;
+            font-size: 1.5rem;
+        }
+
+        .login-header p {
+            color: #999;
+            font-size: 0.9rem;
+        }
+
+        .login-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: space-between;
+            margin-top: 20px;
+        }
+
+        .login-buttons .btn {
+            flex: 1;
+            justify-content: center;
+        }
+
+        .login-error {
+            color: #f87171;
+            font-size: 0.9rem;
+            margin-top: 10px;
+            text-align: center;
+            min-height: 20px;
+        }
+
+        /* Warning message style */
+        .message-warning {
+            background: #663c00;
+            border: 1px solid #996600;
+            color: #ffcc00;
+        }
+
+        /* Responsive */
+        @media (max-width: 1024px) {
+            .container {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .header {
+                flex-direction: column;
+                gap: 15px;
+                align-items: stretch;
+            }
+
+            .stats-row {
+                grid-template-columns: 1fr;
+            }
+
+            .request-header {
+                flex-direction: column;
+                gap: 10px;
+            }
+
+            .request-actions {
+                width: 100%;
+            }
+
+            .action-btn {
+                flex: 1;
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <div class="header">
+        <div class="header-left">
+            <h1>
+                <span class="material-icons">admin_panel_settings</span>
+                KJ Admin Panel
+            </h1>
+            <span class="badge">ADMIN</span>
+        </div>
+        <div class="header-right">
+            <button onclick="logout()" class="back-link" style="border: none; background: none; cursor: pointer;">
+                <span class="material-icons">logout</span>
+                <span>Logout</span>
+            </button>
+            <a href="/" class="back-link">
+                <span class="material-icons">arrow_back</span>
+                <span>User View</span>
+            </a>
+        </div>
+    </div>
+
+    <!-- Main Container -->
+    <div class="container">
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Stats -->
+            <div class="stats-row">
+                <div class="stat-card">
+                    <div class="stat-value" id="statPending">0</div>
+                    <div class="stat-label">Pending</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="statApproved">0</div>
+                    <div class="stat-label">Approved</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="statTotal">0</div>
+                    <div class="stat-label">Total Requests</div>
+                </div>
+            </div>
+
+            <!-- Queue Section -->
+            <div class="requests-section">
+                <div class="section-header">
+                    <div class="section-title">
+                        <span class="material-icons">playlist_play</span>
+                        Queue & Player Controls
+                    </div>
+                    <div class="player-controls">
+                        <button class="btn btn-secondary" id="playBtn">
+                            <span class="material-icons">play_arrow</span>
+                            Play
+                        </button>
+                        <button class="btn btn-secondary" id="nextBtn">
+                            <span class="material-icons">skip_next</span>
+                            Next
+                        </button>
+                        <button class="btn btn-danger" id="resetQueueBtn">
+                            <span class="material-icons">clear_all</span>
+                            Reset Queue
+                        </button>
+                    </div>
+                </div>
+                <div class="queue-list" id="queueList">
+                    <div class="empty-state">
+                        <div class="empty-icon material-icons">queue</div>
+                        <div>Queue is empty</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Requests Section -->
+            <div class="requests-section">
+                <div class="section-header">
+                    <div class="section-title">
+                        <span class="material-icons">queue_music</span>
+                        Song Requests
+                    </div>
+                    <div class="requests-count" id="requestsCount">0 requests</div>
+                </div>
+                <div class="requests-list" id="requestsList">
+                    <div class="empty-state">
+                        <div class="empty-icon material-icons">inbox</div>
+                        <div>No song requests yet</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Settings Panel -->
+        <div class="settings-panel">
+            <div class="settings-title">
+                <span class="material-icons">settings</span>
+                Settings
+            </div>
+
+            <div id="messageArea"></div>
+
+            <div class="setting-row">
+                <label class="setting-label">Server Name</label>
+                <div class="input-group">
+                    <input type="text"
+                           id="serverName"
+                           class="text-input"
+                           placeholder="Karaoke Server">
+                    <button class="btn btn-primary" onclick="updateServerName()">
+                        <span class="material-icons" style="font-size: 18px;">save</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="setting-row">
+                <label class="setting-label">Allow Song Requests</label>
+                <div class="setting-control">
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="allowRequests" onchange="updateSettings()">
+                        <span class="toggle-slider"></span>
+                    </label>
+                    <span id="allowRequestsLabel">Enabled</span>
+                </div>
+                <div class="setting-description">
+                    Enable or disable song requests from users
+                </div>
+            </div>
+
+            <div class="setting-row">
+                <label class="setting-label">Require KJ Approval</label>
+                <div class="setting-control">
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="requireApproval" onchange="updateSettings()">
+                        <span class="toggle-slider"></span>
+                    </label>
+                    <span id="requireApprovalLabel">Enabled</span>
+                </div>
+                <div class="setting-description">
+                    When disabled, requests are automatically added to queue
+                </div>
+            </div>
+
+            <div class="setting-row" style="margin-top: 30px;">
+                <button class="btn btn-danger" onclick="clearAllRequests()" style="width: 100%; justify-content: center;">
+                    <span class="material-icons" style="font-size: 18px;">delete_sweep</span>
+                    Clear All Requests
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Login Modal -->
+    <div class="login-modal" id="loginModal">
+        <div class="login-content">
+            <div class="login-header">
+                <h2>KJ Admin Login</h2>
+                <p>Enter your admin password to access the admin panel</p>
+            </div>
+            <form id="loginForm">
+                <div class="form-group">
+                    <label for="adminPassword">Admin Password:</label>
+                    <input type="password" id="adminPassword" class="form-input" required placeholder="Enter admin password">
+                </div>
+                <div class="login-buttons">
+                    <button type="button" class="btn btn-secondary" onclick="goToUserView()">
+                        <span class="material-icons">arrow_back</span>
+                        Back to User View
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        <span class="material-icons">login</span>
+                        Login
+                    </button>
+                </div>
+                <div id="loginError" class="login-error"></div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        let songRequests = [];
+        let settings = {};
+        let isLoggedIn = false;
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            checkLoginStatus();
+        });
+
+        // Check if user needs to login
+        async function checkLoginStatus() {
+            try {
+                const response = await fetch('/admin/check-auth');
+                const result = await response.json();
+
+                if (!result.passwordSet) {
+                    // No password set, allow access
+                    isLoggedIn = true;
+                    showAdminPanel();
+                    showMessage('No admin password set. Please set one in the main app for security.', 'warning');
+                } else if (result.authenticated) {
+                    // Already authenticated via session
+                    isLoggedIn = true;
+                    showAdminPanel();
+                } else {
+                    // Password is set, require login
+                    showLoginModal();
+                }
+            } catch (error) {
+                console.error('Failed to check auth status:', error);
+                showLoginModal();
+            }
+        }
+
+        // Show login modal
+        function showLoginModal() {
+            document.getElementById('loginModal').style.display = 'flex';
+            document.querySelector('.container').style.display = 'none';
+            setTimeout(() => {
+                document.getElementById('adminPassword').focus();
+            }, 100);
+        }
+
+        // Show admin panel
+        function showAdminPanel() {
+            document.getElementById('loginModal').style.display = 'none';
+            document.querySelector('.container').style.display = 'grid';
+
+            // Load all data
+            loadAllData();
+
+            // Wire up player control buttons
+            document.getElementById('playBtn').addEventListener('click', playMusic);
+            document.getElementById('nextBtn').addEventListener('click', nextSong);
+            document.getElementById('resetQueueBtn').addEventListener('click', resetQueue);
+
+            // Refresh requests every 5 seconds
+            setInterval(loadRequests, 5000);
+        }
+
+        // Handle login form
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('loginForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                await handleLogin();
+            });
+        });
+
+        // Login handler
+        async function handleLogin() {
+            const password = document.getElementById('adminPassword').value;
+            const errorDiv = document.getElementById('loginError');
+
+            if (!password) {
+                errorDiv.textContent = 'Please enter a password';
+                return;
+            }
+
+            try {
+                const response = await fetch('/admin/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ password })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    isLoggedIn = true;
+                    document.getElementById('adminPassword').value = '';
+                    errorDiv.textContent = '';
+                    showAdminPanel();
+                } else {
+                    errorDiv.textContent = result.error || 'Invalid password';
+                    document.getElementById('adminPassword').value = '';
+                    document.getElementById('adminPassword').focus();
+                }
+            } catch (error) {
+                console.error('Login error:', error);
+                errorDiv.textContent = 'Login failed. Please try again.';
+            }
+        }
+
+        // Go back to user view
+        function goToUserView() {
+            window.location.href = '/';
+        }
+
+        // Logout function
+        async function logout() {
+            try {
+                await fetch('/admin/logout', { method: 'POST' });
+            } catch (error) {
+                console.error('Logout error:', error);
+            }
+
+            // Reset login state
+            isLoggedIn = false;
+
+            // Show login modal
+            showLoginModal();
+
+            // Clear any stored data
+            songRequests = [];
+            settings = {};
+        }
+
+        // Load settings
+        async function loadSettings() {
+            try {
+                const response = await fetch('/admin/requests');
+                const data = await response.json();
+
+                settings = data.settings || {};
+                songRequests = data.requests || [];
+
+                // Update UI
+                document.getElementById('serverName').value = settings.serverName || '';
+                document.getElementById('allowRequests').checked = settings.allowSongRequests !== false;
+                document.getElementById('requireApproval').checked = settings.requireKJApproval !== false;
+
+                updateToggleLabels();
+            } catch (error) {
+                console.error('Failed to load settings:', error);
+                showMessage('Failed to load settings', 'error');
+            }
+        }
+
+        // Load requests
+        async function loadRequests() {
+            try {
+                const response = await fetch('/admin/requests');
+                const data = await response.json();
+
+                songRequests = data.requests || [];
+                displayRequests();
+                updateStats();
+            } catch (error) {
+                console.error('Failed to load requests:', error);
+            }
+        }
+
+        // Display requests
+        function displayRequests() {
+            const container = document.getElementById('requestsList');
+
+            if (songRequests.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon material-icons">inbox</div>
+                        <div>No song requests yet</div>
+                    </div>
+                `;
+                return;
+            }
+
+            // Sort requests: pending first, then by timestamp
+            const sortedRequests = [...songRequests].sort((a, b) => {
+                if (a.status === 'pending' && b.status !== 'pending') return -1;
+                if (a.status !== 'pending' && b.status === 'pending') return 1;
+                return new Date(b.timestamp) - new Date(a.timestamp);
+            });
+
+            container.innerHTML = sortedRequests.map(request => {
+                const time = new Date(request.timestamp);
+                const timeStr = time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+                return `
+                    <div class="request-item ${request.status}">
+                        <div class="request-header">
+                            <div class="request-info">
+                                <div class="request-song">${escapeHtml(request.song.title)}</div>
+                                <div class="request-artist">${escapeHtml(request.song.artist)}</div>
+                                <div class="request-requester">
+                                    <span class="material-icons" style="font-size: 16px;">person</span>
+                                    ${escapeHtml(request.requesterName)}
+                                </div>
+                                ${request.message ? `
+                                    <div class="request-message">
+                                        <em>"${escapeHtml(request.message)}"</em>
+                                    </div>
+                                ` : ''}
+                                <div class="request-time">${timeStr}</div>
+                            </div>
+                            <div class="request-actions">
+                                ${request.status === 'pending' ? `
+                                    <button class="action-btn approve-btn" onclick="approveRequest('${request.id}')">
+                                        <span class="material-icons">check</span>
+                                        Approve
+                                    </button>
+                                    <button class="action-btn reject-btn" onclick="rejectRequest('${request.id}')">
+                                        <span class="material-icons">close</span>
+                                        Reject
+                                    </button>
+                                ` : `
+                                    <span class="status-badge status-${request.status}">${request.status}</span>
+                                `}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            document.getElementById('requestsCount').textContent = `${songRequests.length} requests`;
+        }
+
+        // Update stats
+        function updateStats() {
+            const pending = songRequests.filter(r => r.status === 'pending').length;
+            const approved = songRequests.filter(r => r.status === 'approved' || r.status === 'queued').length;
+
+            document.getElementById('statPending').textContent = pending;
+            document.getElementById('statApproved').textContent = approved;
+            document.getElementById('statTotal').textContent = songRequests.length;
+        }
+
+        // Approve request
+        async function approveRequest(requestId) {
+            try {
+                const response = await fetch(`/admin/requests/${requestId}/approve`, {
+                    method: 'POST'
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showMessage('Request approved and added to queue', 'success');
+                    await loadRequests();
+                } else {
+                    showMessage(result.error || 'Failed to approve request', 'error');
+                }
+            } catch (error) {
+                console.error('Approve error:', error);
+                showMessage('Failed to approve request', 'error');
+            }
+        }
+
+        // Reject request
+        async function rejectRequest(requestId) {
+            try {
+                const response = await fetch(`/admin/requests/${requestId}/reject`, {
+                    method: 'POST'
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showMessage('Request rejected', 'success');
+                    await loadRequests();
+                } else {
+                    showMessage(result.error || 'Failed to reject request', 'error');
+                }
+            } catch (error) {
+                console.error('Reject error:', error);
+                showMessage('Failed to reject request', 'error');
+            }
+        }
+
+        // Update settings
+        async function updateSettings() {
+            const newSettings = {
+                serverName: document.getElementById('serverName').value || settings.serverName,
+                allowSongRequests: document.getElementById('allowRequests').checked,
+                requireKJApproval: document.getElementById('requireApproval').checked
+            };
+
+            try {
+                const response = await fetch('/admin/settings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(newSettings)
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    settings = result.settings;
+                    showMessage('Settings updated', 'success');
+                    updateToggleLabels();
+                } else {
+                    showMessage('Failed to update settings', 'error');
+                }
+            } catch (error) {
+                console.error('Settings error:', error);
+                showMessage('Failed to update settings', 'error');
+            }
+        }
+
+        // Update server name
+        async function updateServerName() {
+            const serverName = document.getElementById('serverName').value.trim();
+            if (!serverName) {
+                showMessage('Please enter a server name', 'error');
+                return;
+            }
+
+            await updateSettings();
+        }
+
+        // Update toggle labels
+        function updateToggleLabels() {
+            document.getElementById('allowRequestsLabel').textContent =
+                document.getElementById('allowRequests').checked ? 'Enabled' : 'Disabled';
+            document.getElementById('requireApprovalLabel').textContent =
+                document.getElementById('requireApproval').checked ? 'Enabled' : 'Disabled';
+        }
+
+        // Clear all requests
+        async function clearAllRequests() {
+            if (!confirm('Are you sure you want to clear all song requests? This cannot be undone.')) {
+                return;
+            }
+
+            // For now, we'll just clear them locally
+            // In a real implementation, this would call an API endpoint
+            songRequests = [];
+            displayRequests();
+            updateStats();
+            showMessage('All requests cleared', 'success');
+        }
+
+        // Show message
+        function showMessage(text, type = 'success') {
+            const messageArea = document.getElementById('messageArea');
+
+            const message = document.createElement('div');
+            message.className = `message message-${type}`;
+
+            const icon = type === 'success' ? 'check_circle' : 'error';
+
+            message.innerHTML = `
+                <span class="material-icons">${icon}</span>
+                <span>${text}</span>
+            `;
+
+            messageArea.innerHTML = '';
+            messageArea.appendChild(message);
+
+            // Auto remove after 3 seconds
+            setTimeout(() => {
+                message.remove();
+            }, 3000);
+        }
+
+        // Helper function
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Queue management functions
+        let queueData = { queue: [], currentSong: null };
+
+        // Load queue data
+        async function loadQueue() {
+            try {
+                const response = await fetch('/admin/queue');
+                queueData = await response.json();
+                displayQueue();
+            } catch (error) {
+                console.error('Error loading queue:', error);
+            }
+        }
+
+        // Display queue
+        function displayQueue() {
+            const container = document.getElementById('queueList');
+
+            if (queueData.queue.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon material-icons">queue</div>
+                        <div>Queue is empty</div>
+                    </div>
+                `;
+                return;
+            }
+
+            const html = queueData.queue.map((item, index) => {
+                const isCurrent = queueData.currentSong && item.path === queueData.currentSong.path;
+                const requesterText = item.requester ? ` • Singer: ${item.requester}` : '';
+
+                return `
+                    <div class="queue-item ${isCurrent ? 'current' : ''}">
+                        <div class="queue-item-index">${index + 1}</div>
+                        <div class="queue-item-info">
+                            <div class="queue-item-title">${escapeHtml(item.title || 'Unknown Title')}</div>
+                            <div class="queue-item-artist">${escapeHtml(item.artist || 'Unknown Artist')}${escapeHtml(requesterText)}</div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            container.innerHTML = html;
+        }
+
+        // Player control functions
+        async function playMusic() {
+            try {
+                const response = await fetch('/admin/player/play', { method: 'POST' });
+                const result = await response.json();
+                showMessage(result.message || 'Play command sent');
+            } catch (error) {
+                console.error('Error sending play command:', error);
+                showMessage('Failed to send play command', 'error');
+            }
+        }
+
+        async function nextSong() {
+            try {
+                const response = await fetch('/admin/player/next', { method: 'POST' });
+                const result = await response.json();
+                showMessage(result.message || 'Next command sent');
+                // Refresh queue after next command
+                setTimeout(loadQueue, 500);
+            } catch (error) {
+                console.error('Error sending next command:', error);
+                showMessage('Failed to send next command', 'error');
+            }
+        }
+
+        async function resetQueue() {
+            if (!confirm('Are you sure you want to reset the queue? This will clear all songs.')) {
+                return;
+            }
+
+            try {
+                const response = await fetch('/admin/queue/reset', { method: 'POST' });
+                const result = await response.json();
+                showMessage(result.message || 'Queue reset');
+                loadQueue(); // Refresh queue display
+            } catch (error) {
+                console.error('Error resetting queue:', error);
+                showMessage('Failed to reset queue', 'error');
+            }
+        }
+
+        // Enhanced data loading
+        async function loadAllData() {
+            await Promise.all([
+                loadRequests(),
+                loadSettings(),
+                loadQueue()
+            ]);
+        }
+
+        // Auto-refresh queue every 5 seconds
+        setInterval(loadQueue, 5000);
+    </script>
+</body>
+</html>

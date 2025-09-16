@@ -263,7 +263,7 @@ class PlayerController {
 
     async setPosition(positionSec) {
         this.currentPosition = Math.max(0, Math.min(this.songDuration, positionSec));
-        
+
         if (this.audioEngine) {
             try {
                 await this.audioEngine.seek(this.currentPosition);
@@ -271,7 +271,14 @@ class PlayerController {
                 console.error('Seek error:', error);
             }
         }
-        
+
+        // Update karaoke renderer's time position immediately after seeking
+        if (this.karaokeRenderer) {
+            this.karaokeRenderer.setCurrentTime(this.currentPosition);
+            // Reset the locked upcoming lyric so it recalculates based on new position
+            this.karaokeRenderer.lockedUpcomingIndex = null;
+        }
+
         this.updateTimeDisplay();
         this.updateProgressBar();
         this.updateActiveLyrics();
