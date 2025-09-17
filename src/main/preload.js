@@ -93,13 +93,35 @@ const api = {
     get: (key, defaultValue) => ipcRenderer.invoke('settings:get', key, defaultValue),
     set: (key, value) => ipcRenderer.invoke('settings:set', key, value),
     getAll: () => ipcRenderer.invoke('settings:getAll'),
-    updateBatch: (updates) => ipcRenderer.invoke('settings:updateBatch', updates)
+    updateBatch: (updates) => ipcRenderer.invoke('settings:updateBatch', updates),
+    onUpdate: (callback) => ipcRenderer.on('settings:update', callback),
+    removeUpdateListener: (callback) => ipcRenderer.removeListener('settings:update', callback)
   },
 
   queue: {
     addSong: (queueItem) => ipcRenderer.invoke('queue:addSong', queueItem),
     get: () => ipcRenderer.invoke('queue:get'),
     clear: () => ipcRenderer.invoke('queue:clear')
+  },
+
+  effect: {
+    onNext: (callback) => ipcRenderer.on('effect:next', callback),
+    onPrevious: (callback) => ipcRenderer.on('effect:previous', callback),
+    removeNextListener: (callback) => ipcRenderer.removeListener('effect:next', callback),
+    removePreviousListener: (callback) => ipcRenderer.removeListener('effect:previous', callback)
+  },
+
+  admin: {
+    onPlay: (callback) => ipcRenderer.on('admin:play', callback),
+    onNext: (callback) => ipcRenderer.on('admin:next', callback),
+    onRestart: (callback) => ipcRenderer.on('admin:restart', callback),
+    removePlayListener: (callback) => ipcRenderer.removeListener('admin:play', callback),
+    removeNextListener: (callback) => ipcRenderer.removeListener('admin:next', callback),
+    removeRestartListener: (callback) => ipcRenderer.removeListener('admin:restart', callback)
+  },
+
+  renderer: {
+    sendPlaybackState: (state) => ipcRenderer.send('renderer:playbackState', state)
   },
 
   events: {

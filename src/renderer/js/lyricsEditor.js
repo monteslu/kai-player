@@ -231,6 +231,7 @@ class LyricsEditor {
                         <label>Proposed:</label>
                         <div class="text-content">${rejection.new_text}</div>
                         <button class="copy-text-btn" title="Copy proposed text">📋 Copy</button>
+                        <button class="accept-text-btn" title="Accept proposed text and replace current lyric">✅ Accept</button>
                     </div>
                 </div>
                 <div class="rejection-details">
@@ -265,6 +266,12 @@ class LyricsEditor {
                 }, 2000);
             }
         });
+
+        // Add accept functionality
+        const acceptBtn = container.querySelector('.accept-text-btn');
+        acceptBtn.addEventListener('click', () => {
+            this.acceptRejection(rejectionIndex);
+        });
         
         return container;
     }
@@ -273,6 +280,36 @@ class LyricsEditor {
         this.rejections.splice(rejectionIndex, 1);
         this.renderEditor();
         this.notifyChange();
+    }
+
+    acceptRejection(rejectionIndex) {
+        const rejection = this.rejections[rejectionIndex];
+        if (!rejection) return;
+
+        // Find the lyric line to update (line numbers are 1-based, array indices are 0-based)
+        const lineIndex = rejection.line_num - 1;
+
+        if (lineIndex >= 0 && lineIndex < this.lyricsData.length) {
+            // Update the lyric text with the proposed text
+            if (typeof this.lyricsData[lineIndex] === 'string') {
+                // Convert string to object format if needed
+                this.lyricsData[lineIndex] = {
+                    text: rejection.new_text,
+                    start: lineIndex * 3,
+                    end: (lineIndex * 3) + 3
+                };
+            } else {
+                // Update existing object
+                this.lyricsData[lineIndex].text = rejection.new_text;
+            }
+
+            // Remove the rejection from the list
+            this.rejections.splice(rejectionIndex, 1);
+
+            // Re-render and notify of changes
+            this.renderEditor();
+            this.notifyChange();
+        }
     }
     
     updateLineData(index, property, value) {

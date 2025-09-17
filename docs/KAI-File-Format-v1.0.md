@@ -27,7 +27,7 @@
   - **KAI-CUSTOM**: `song.json.audio.sources[]` lists arbitrary roles/files.
 
 ## 4. Optional contents (root)
-- `features/` — precomputed analysis (any subset): `vocals_f0.json`, `notes_ref.json`, `onsets_ref.json`, `tempo_map.json`, `keys.json`, `chords.json`, `vocal_activity.json`, `mfcc_ref.json`
+- `features/` — precomputed analysis (any subset): `vocals_f0.json`, `vocal_pitch.json`, `notes_ref.json`, `onsets_ref.json`, `tempo_map.json`, `keys.json`, `chords.json`, `vocal_activity.json`, `mfcc_ref.json`
 - `assets/` — auxiliary audio (e.g., `assets/click.mp3`, `assets/count_in.wav`).
 
 ## 5. ZIP layout (examples)
@@ -91,6 +91,13 @@ All time values are seconds (float). Use UTF-8 and LF newlines.
   },
   "meter": { "bpm": 100.0 },
   "singers": [ { "id": "A", "name": "Lead", "guide": "vocals.mp3" } ],
+  "vocal_pitch": {
+    "quantization_type": "midi_cents",     // default: midi_cents | note_only_rle | segments | delta_encoded
+    "sample_rate_hz": 25,                  // for midi_cents and delta_encoded types
+    "quant_data": [                        // format depends on quantization_type
+      [60, 15], [60, 12], [62, -10], ...   // midi_cents: [note, cents_offset]
+    ]
+  },
   "lines": [
     {
       "start": 10.5,
@@ -150,7 +157,46 @@ All time values are seconds (float). Use UTF-8 and LF newlines.
 }
 ```
 
-### 6.1 Lyrics Line Format
+### 6.1 Vocal Pitch Format
+
+The optional `vocal_pitch` property contains quantized pitch data from vocal analysis, primarily for auto-tune and pitch visualization features.
+
+| Property | Type | Required | Description |
+|----------|------|----------|-------------|
+| `quantization_type` | string | Yes | Type of quantization: `midi_cents` (default), `note_only_rle`, `segments`, or `delta_encoded` |
+| `sample_rate_hz` | number | Conditional | Sample rate in Hz (required for `midi_cents` and `delta_encoded` types) |
+| `quant_data` | array | Yes | Quantized pitch data (format depends on `quantization_type`) |
+
+**Quantization Types:**
+
+1. **`midi_cents`** (default) - MIDI note + cents offset at fixed sample rate
+   - Best for auto-tune applications with predictable size (~11KB for 3-min song at 25Hz)
+   - `quant_data`: Array of `[note, cents]` pairs where note is MIDI (0-127, 0=silence) and cents is offset (-50 to +50)
+   - Example: `[[60, 15], [60, 12], [62, -10], [0, 0]]`
+
+2. **`note_only_rle`** - Run-length encoded MIDI notes only
+   - Most compact (~1-5KB) but loses microtonal detail
+   - `quant_data`: Array of `[note, duration_ms]` pairs
+   - Example: `[[60, 500], [62, 700], [0, 300]]` (C4 for 500ms, D4 for 700ms, silence for 300ms)
+
+3. **`segments`** - Time-based pitch segments
+   - Compact (~2-5KB) with variable timing, good for sparse vocals
+   - `quant_data`: Array of objects with `t` (start time in ms), `d` (duration in ms), `n` (MIDI note), `c` (cents offset)
+   - Example: `[{"t": 0, "d": 500, "n": 60, "c": 15}, {"t": 500, "d": 700, "n": 62, "c": -10}]`
+
+4. **`delta_encoded`** - Delta compression from initial pitch
+   - Good compression (~20-30KB) but requires sequential decoding
+   - `quant_data`: Object with `initial` (starting MIDI+cents) and `deltas` (array of pitch changes)
+   - `sample_rate_hz` required to determine timing
+   - Example: `{"initial": [60, 0], "deltas": [0, 2, -1, 0, 3, -3]}`
+
+**Notes:**
+- MIDI note 0 represents silence/no pitch
+- Cents offsets range from -50 to +50 (100 cents = 1 semitone)
+- Players not supporting auto-tune can safely ignore this property
+- Large pitch data may be stored in `features/vocal_pitch.json` instead
+
+### 6.2 Lyrics Line Format
 
 Each lyric line in the `lines[]` array is an object with the following properties:
 
@@ -171,7 +217,7 @@ Each lyric line in the `lines[]` array is an object with the following propertie
 - The `disabled` property enables selective lyric editing without losing original content
 - The `backup` property enables differentiation between lead and backup singer vocals for multi-singer songs
 
-### 6.2 Metadata policy (ID3 ingestion & fallbacks)
+### 6.3 Metadata policy (ID3 ingestion & fallbacks)
 - Packers **MUST** attempt to read ID3v2.4/2.3/2.2 (and v1) from the **source MP3**.
 - Canonical fields go to `song.song`; optional `meta.id3.normalized/raw` may be included for provenance.
 - **Fallbacks:** if `title` missing, set to **filename stem**; if `artist` missing, use `"Unknown Artist"`. Always set `song.source_filename`.

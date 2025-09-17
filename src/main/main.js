@@ -1,6 +1,7 @@
 const { app, BrowserWindow, ipcMain, dialog, Menu } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const { io } = require('socket.io-client');
 const AudioEngine = require('./audioEngine');
 const KaiLoader = require('../utils/kaiLoader');
 const KaiWriter = require('../utils/kaiWriter');
@@ -16,7 +17,9 @@ class KaiPlayerApp {
     this.isDev = process.argv.includes('--dev');
     this.settings = new SettingsManager();
     this.webServer = null;
+    this.socket = null;
     this.songQueue = [];
+    this.positionTimer = null;
     this.libraryManager = null;
     this.canvasStreaming = {
       isStreaming: false,
@@ -26,10 +29,21 @@ class KaiPlayerApp {
       inflight: 0,
       MAX_INFLIGHT: 2
     };
+
+    // Store renderer playback state for position broadcasting
+    this.rendererPlaybackState = {
+      isPlaying: false,
+      currentTime: 0
+    };
   }
 
   async initialize() {
     await app.whenReady();
+
+    // Disable Electron's default error dialogs
+    app.commandLine.appendSwitch('disable-dev-shm-usage');
+    app.commandLine.appendSwitch('no-sandbox');
+
     await this.settings.load();
     this.createMainWindow();
     this.createApplicationMenu();
@@ -64,6 +78,28 @@ class KaiPlayerApp {
       const iconPath = path.join(process.cwd(), 'static', 'images', 'logo.png');
       app.dock?.setIcon(iconPath);
     }
+
+    // Handle renderer process errors without showing dialogs
+    this.mainWindow.webContents.on('crashed', (event) => {
+      console.error('🚨 Renderer process crashed:', event);
+    });
+
+    this.mainWindow.webContents.on('unresponsive', () => {
+      console.error('🚨 Renderer process became unresponsive');
+    });
+
+    // Prevent JavaScript errors from showing as alert dialogs
+    this.mainWindow.webContents.on('console-message', (event, level, message, line, sourceId) => {
+      if (level === 3) { // Error level
+        console.error(`🚨 Renderer error at ${sourceId}:${line}:`, message);
+        event.preventDefault();
+      }
+    });
+
+    // Handle renderer process errors
+    this.mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
+      console.error('🚨 Renderer failed to load:', errorCode, errorDescription);
+    });
 
     if (this.isDev) {
       this.mainWindow.webContents.openDevTools();
@@ -1344,6 +1380,7 @@ class KaiPlayerApp {
     ipcMain.handle('queue:clear', () => {
       this.songQueue = [];
       this.sendToRenderer('queue:updated', this.songQueue);
+      this.broadcastQueueUpdate();
       return { success: true };
     });
 
@@ -1357,6 +1394,55 @@ class KaiPlayerApp {
         };
       }
       return null;
+    });
+
+    // Effects management IPC handlers
+    ipcMain.handle('effects:getList', async () => {
+      try {
+        // Send message to renderer to get effects list
+        return await this.sendToRendererAndWait('effects:getList');
+      } catch (error) {
+        console.error('Failed to get effects list:', error);
+        return [];
+      }
+    });
+
+    ipcMain.handle('effects:getCurrent', async () => {
+      try {
+        return await this.sendToRendererAndWait('effects:getCurrent');
+      } catch (error) {
+        console.error('Failed to get current effect:', error);
+        return null;
+      }
+    });
+
+    ipcMain.handle('effects:getDisabled', async () => {
+      try {
+        return await this.sendToRendererAndWait('effects:getDisabled');
+      } catch (error) {
+        console.error('Failed to get disabled effects:', error);
+        return [];
+      }
+    });
+
+    ipcMain.handle('effects:select', async (event, effectName) => {
+      try {
+        this.sendToRenderer('effects:select', effectName);
+        return { success: true };
+      } catch (error) {
+        console.error('Failed to select effect:', error);
+        return { success: false, error: error.message };
+      }
+    });
+
+    ipcMain.handle('effects:toggle', async (event, effectName, enabled) => {
+      try {
+        this.sendToRenderer('effects:toggle', { effectName, enabled });
+        return { success: true };
+      } catch (error) {
+        console.error('Failed to toggle effect:', error);
+        return { success: false, error: error.message };
+      }
     });
 
     // Settings management IPC handlers
@@ -1384,6 +1470,12 @@ class KaiPlayerApp {
         return { success: false, error: error.message };
       }
     });
+
+    // Renderer playback state updates
+    ipcMain.on('renderer:playbackState', (event, state) => {
+      // Store the renderer playback state for position broadcasting
+      this.rendererPlaybackState = state;
+    });
   }
 
   async scanForKaiFiles(folderPath) {
@@ -1403,9 +1495,7 @@ class KaiPlayerApp {
         } else if (entry.name.toLowerCase().endsWith('.kai')) {
           // Get file stats and metadata
           const stats = await fs.stat(fullPath);
-          console.log('📖 Extracting metadata from:', entry.name);
           const metadata = await this.extractKaiMetadata(fullPath);
-          console.log('📖 Extracted metadata:', metadata);
           
           files.push({
             name: entry.name,
@@ -1573,6 +1663,11 @@ class KaiPlayerApp {
       this.sendToRenderer('song:loaded', kaiData.metadata || {});
       this.sendToRenderer('song:data', kaiData);
 
+      // Broadcast song loaded to web clients via Socket.IO
+      if (this.webServer) {
+        this.webServer.broadcastSongLoaded(kaiData);
+      }
+
       // Notify queue manager that this song is now current
       console.log('📡 Main: Sending queue:songStarted IPC event for:', filePath);
 
@@ -1646,22 +1741,139 @@ class KaiPlayerApp {
     }
   }
 
+  sendToRendererAndWait(channel, ...args) {
+    return new Promise((resolve) => {
+      if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+        // Create a one-time listener for the response
+        const responseChannel = `${channel}-response`;
+        const listener = (event, data) => {
+          ipcMain.removeListener(responseChannel, listener);
+          resolve(data);
+        };
+        ipcMain.once(responseChannel, listener);
+
+        // Send the request
+        this.mainWindow.webContents.send(channel);
+
+        // Timeout after 5 seconds
+        setTimeout(() => {
+          ipcMain.removeListener(responseChannel, listener);
+          resolve(null);
+        }, 5000);
+      } else {
+        resolve(null);
+      }
+    });
+  }
+
   // Web Server Integration Methods
   async initializeWebServer() {
     try {
       this.webServer = new WebServer(this);
       const port = await this.webServer.start(3069);
-      
+
       console.log(`🌐 Web server started at http://localhost:${port}`);
       console.log(`📱 Song requests available at: http://localhost:${port}`);
-      
+
+      // Connect to Socket.IO server
+      await this.connectToSocketServer(port);
+
+      // Start position broadcasting timer
+      this.startPositionBroadcasting();
+
       // Notify renderer about web server
       this.sendToRenderer('webServer:started', { port });
-      
+
     } catch (error) {
       console.error('Failed to start web server:', error);
       // Don't fail the entire app if web server fails
     }
+  }
+
+  async connectToSocketServer(port) {
+    try {
+      this.socket = io(`http://localhost:${port}`);
+
+      this.socket.on('connect', () => {
+        console.log('📡 Connected to Socket.IO server');
+
+        // Identify as electron app
+        this.socket.emit('identify', { type: 'electron-app' });
+      });
+
+      this.socket.on('disconnect', () => {
+        console.log('📡 Disconnected from Socket.IO server');
+      });
+
+      this.socket.on('new-song-request', (request) => {
+        console.log('🎵 New song request received:', request);
+
+        // Notify renderer about new request
+        this.sendToRenderer('songRequest:new', request);
+      });
+
+      this.socket.on('connect_error', (error) => {
+        console.error('Socket connection error:', error);
+      });
+
+      this.socket.on('effect-control', (data) => {
+        console.log('🎨 Effect control received:', data.action);
+        this.handleEffectControl(data.action);
+      });
+
+      this.socket.on('settings-update', (settings) => {
+        console.log('🔧 Settings update received from server:', settings);
+        this.handleSettingsUpdate(settings);
+      });
+
+    } catch (error) {
+      console.error('Failed to connect to Socket.IO server:', error);
+    }
+  }
+
+  // Socket.IO helper methods
+  broadcastQueueUpdate() {
+    if (this.socket && this.socket.connected) {
+      this.socket.emit('queue-updated', {
+        queue: this.songQueue,
+        currentSong: this.currentSong
+      });
+    }
+  }
+
+  broadcastPlayerState(state) {
+    if (this.socket && this.socket.connected) {
+      this.socket.emit('player-state', state);
+    }
+  }
+
+  broadcastSettingsChange(settings) {
+    if (this.socket && this.socket.connected) {
+      this.socket.emit('settings-changed', settings);
+    }
+  }
+
+  handleEffectControl(action) {
+    // Send effect control command to renderer process
+    if (action === 'previous') {
+      this.sendToRenderer('effect:previous', {});
+      console.log('🎨 Sent previous effect command to renderer');
+    } else if (action === 'next') {
+      this.sendToRenderer('effect:next', {});
+      console.log('🎨 Sent next effect command to renderer');
+    }
+  }
+
+  handleSettingsUpdate(settings) {
+    // Update webServer settings
+    if (this.webServer) {
+      // Update without triggering another broadcast to avoid loops
+      this.webServer.settings = { ...this.webServer.settings, ...settings };
+    }
+
+    // Send settings update to renderer to update UI
+    this.sendToRenderer('settings:update', settings);
+    console.log('🔧 Settings update sent to renderer');
   }
 
   // Methods called by WebServer
@@ -1677,13 +1889,10 @@ class KaiPlayerApp {
       const files = await this.scanForKaiFiles(songsFolder);
       const songs = [];
 
-      console.log(`getLibrarySongs: Processing ${files.length} files`);
 
       for (const file of files) {
         try {
           // scanForKaiFiles already includes metadata in the file object
-          console.log(`Processing file: ${file.path}`);
-          console.log(`File metadata:`, file);
 
           if (file.title && file.artist) {
             const song = {
@@ -1693,16 +1902,13 @@ class KaiPlayerApp {
               duration: file.duration || 0
             };
             songs.push(song);
-            console.log(`Added song:`, song);
           } else {
-            console.log(`Skipping file ${file.path} - missing title or artist`);
           }
         } catch (error) {
           console.error('Error processing song:', error);
         }
       }
 
-      console.log(`getLibrarySongs: Returning ${songs.length} songs`);
 
       return songs;
     } catch (error) {
@@ -1720,12 +1926,16 @@ class KaiPlayerApp {
   }
 
   async addSongToQueue(queueItem) {
+    console.log('🎵 MAIN addSongToQueue called with:', queueItem);
+
     if (!this.songQueue) {
       this.songQueue = [];
+      console.log('🎵 Initialized empty song queue');
     }
 
     // Check if queue was empty before adding
     const wasEmpty = this.songQueue.length === 0;
+    console.log('🎵 Queue was empty:', wasEmpty, 'current length:', this.songQueue.length);
 
     const newQueueItem = {
       id: Date.now() + Math.random(),
@@ -1738,20 +1948,29 @@ class KaiPlayerApp {
       addedAt: new Date()
     };
 
+    console.log('🎵 Created new queue item:', newQueueItem);
     this.songQueue.push(newQueueItem);
+    console.log('🎵 Queue length after adding:', this.songQueue.length);
 
     // If queue was empty, automatically load and start playing the first song
     if (wasEmpty) {
       console.log(`🎵 Queue was empty, auto-loading "${queueItem.title}"`);
       try {
         await this.loadKaiFile(queueItem.path);
+        console.log('✅ Successfully auto-loaded song from queue');
       } catch (error) {
         console.error('❌ Failed to auto-load song from queue:', error);
       }
     }
 
     // Notify renderer about queue update
+    console.log('🎵 Notifying renderer about queue update...');
     this.sendToRenderer('queue:updated', this.songQueue);
+
+    // Broadcast queue update to web clients
+    console.log('🎵 Broadcasting queue update to web clients...');
+    this.broadcastQueueUpdate();
+
     console.log(`➕ Added "${queueItem.title}" to queue (requested by ${queueItem.requester})`);
   }
 
@@ -1761,17 +1980,54 @@ class KaiPlayerApp {
     console.log(`🎤 New song request: "${request.song.title}" by ${request.requesterName}`);
   }
 
-  // Player control methods for web admin
-  async playerPlay() {
-    // Trigger the same play action as the UI button
-    if (this.mainWindow && !this.mainWindow.isDestroyed()) {
-      this.mainWindow.webContents.executeJavaScript(`
-        if (window.appInstance && window.appInstance.togglePlayback) {
-          window.appInstance.togglePlayback();
-        }
-      `).catch(err => console.log('Play command error:', err));
+  // Effects management methods for web server
+  async getEffectsList() {
+    try {
+      return await this.sendToRendererAndWait('effects:getList');
+    } catch (error) {
+      console.error('Failed to get effects list:', error);
+      return [];
     }
   }
+
+  async getCurrentEffect() {
+    try {
+      return await this.sendToRendererAndWait('effects:getCurrent');
+    } catch (error) {
+      console.error('Failed to get current effect:', error);
+      return null;
+    }
+  }
+
+  async getDisabledEffects() {
+    try {
+      return await this.sendToRendererAndWait('effects:getDisabled');
+    } catch (error) {
+      console.error('Failed to get disabled effects:', error);
+      return [];
+    }
+  }
+
+  async selectEffect(effectName) {
+    try {
+      this.sendToRenderer('effects:select', effectName);
+      return { success: true };
+    } catch (error) {
+      console.error('Failed to select effect:', error);
+      throw error;
+    }
+  }
+
+  async toggleEffect(effectName, enabled) {
+    try {
+      this.sendToRenderer('effects:toggle', { effectName, enabled });
+      return { success: true };
+    } catch (error) {
+      console.error('Failed to toggle effect:', error);
+      throw error;
+    }
+  }
+
 
   async playerNext() {
     // Trigger the same next action as the UI button
@@ -1818,6 +2074,7 @@ class KaiPlayerApp {
 
   updateWebServerSettings(settings) {
     if (this.webServer) {
+      // Update webServer settings (which saves to persistent storage and broadcasts)
       this.webServer.updateSettings(settings);
     }
   }
@@ -1826,8 +2083,92 @@ class KaiPlayerApp {
     return this.webServer ? this.webServer.getSongRequests() : [];
   }
 
+  // Player control methods for web server
+  async playerPlay() {
+    console.log('🎮 Admin play command - sending IPC message to renderer');
+
+    // Send IPC command to renderer instead of executing JavaScript
+    if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+      console.log('🎮 Main window is ready, sending admin:play IPC message');
+      this.mainWindow.webContents.send('admin:play');
+      console.log('🎮 IPC message admin:play sent successfully');
+    } else {
+      console.log('🎮 ERROR: mainWindow not available or destroyed');
+    }
+  }
+
+  async playerNext() {
+    // Move to next song in queue
+    if (this.songQueue.length > 0) {
+      this.songQueue.shift(); // Remove current song
+      this.broadcastQueueUpdate();
+
+      if (this.songQueue.length > 0) {
+        // Load next song
+        const nextSong = this.songQueue[0];
+        await this.loadKaiFile(nextSong.path);
+      } else {
+        // No more songs, stop playback
+        if (this.audioEngine) {
+          this.audioEngine.stop();
+        }
+        this.currentSong = null;
+        this.sendToRenderer('song:stopped', {});
+      }
+    }
+  }
+
+  async clearQueue() {
+    this.songQueue = [];
+    this.sendToRenderer('queue:updated', this.songQueue);
+    this.broadcastQueueUpdate();
+  }
+
+  getCurrentSong() {
+    return this.currentSong;
+  }
+
+  getQueue() {
+    return this.songQueue;
+  }
+
+  // Position broadcasting timer
+  startPositionBroadcasting() {
+    if (this.positionTimer) {
+      clearInterval(this.positionTimer);
+    }
+
+    this.positionTimer = setInterval(() => {
+      const hasWebServer = !!this.webServer;
+      const hasCurrentSong = !!this.currentSong;
+
+      if (hasWebServer && hasCurrentSong) {
+        // Use renderer playback state instead of main audio engine
+        const currentTime = this.rendererPlaybackState.currentTime || 0;
+        const isPlaying = this.rendererPlaybackState.isPlaying || false;
+
+        const songId = this.currentSong.metadata ?
+          `${this.currentSong.metadata.title} - ${this.currentSong.metadata.artist}` :
+          'Unknown Song';
+
+        this.webServer.broadcastPlaybackPosition(currentTime, isPlaying, songId);
+      } else {
+      }
+    }, 1000); // Every second
+  }
+
   // Clean up web server on app close
   cleanup() {
+    if (this.positionTimer) {
+      clearInterval(this.positionTimer);
+      this.positionTimer = null;
+    }
+
+    if (this.socket) {
+      this.socket.disconnect();
+      this.socket = null;
+    }
+
     if (this.webServer) {
       this.webServer.stop();
     }
@@ -1835,6 +2176,15 @@ class KaiPlayerApp {
 }
 
 const kaiApp = new KaiPlayerApp();
+
+// Handle uncaught exceptions and errors without showing alert dialogs
+process.on('uncaughtException', (error) => {
+  console.error('🚨 Uncaught Exception:', error);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('🚨 Unhandled Rejection at:', promise, 'reason:', reason);
+});
 
 app.on('window-all-closed', () => {
   // Clean up web server

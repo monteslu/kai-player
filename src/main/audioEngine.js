@@ -33,6 +33,9 @@ class AudioEngine extends EventEmitter {
     this.songData = null;
     this.xrunCount = 0;
     this.latencyMs = 0;
+    this.playStartTime = 0;
+    this.playStartPosition = 0;
+    this.positionTimer = null;
   }
 
   initialize() {
@@ -255,15 +258,23 @@ class AudioEngine extends EventEmitter {
   }
 
   play() {
+    console.log('🎵 MAIN AudioEngine.play() called');
     if (!this.initialized || !this.songData) return false;
 
     try {
       this.isPlaying = true;
-      
+
+      // Start timer-based position tracking as backup
+      this.playStartTime = Date.now();
+      this.playStartPosition = this.currentPosition;
+      this.startPositionTimer();
+
+      console.log('🎵 MAIN AudioEngine.play() - started timer, isPlaying =', this.isPlaying);
+
       if (this.audioStreams.PA) this.audioStreams.PA.start();
       if (this.audioStreams.IEM) this.audioStreams.IEM.start();
       if (this.audioStreams.input) this.audioStreams.input.start();
-      
+
       return true;
     } catch (error) {
       console.error('Failed to start playback:', error);
@@ -274,6 +285,7 @@ class AudioEngine extends EventEmitter {
   pause() {
     try {
       this.isPlaying = false;
+      this.stopPositionTimer();
       
       if (this.audioStreams.PA) this.audioStreams.PA.stop();
       if (this.audioStreams.IEM) this.audioStreams.IEM.stop();
@@ -293,6 +305,34 @@ class AudioEngine extends EventEmitter {
     } catch (error) {
       console.error('Failed to seek:', error);
       return false;
+    }
+  }
+
+  getCurrentTime() {
+    // Return current position in seconds, using timer-based tracking if playing
+    if (this.isPlaying && this.playStartTime > 0) {
+      const elapsedMs = Date.now() - this.playStartTime;
+      const elapsedSamples = Math.floor((elapsedMs / 1000) * this.sampleRate);
+      return (this.playStartPosition + elapsedSamples) / this.sampleRate;
+    }
+    return this.currentPosition / this.sampleRate;
+  }
+
+  startPositionTimer() {
+    this.stopPositionTimer();
+    this.positionTimer = setInterval(() => {
+      if (this.isPlaying && this.playStartTime > 0) {
+        const elapsedMs = Date.now() - this.playStartTime;
+        const elapsedSamples = Math.floor((elapsedMs / 1000) * this.sampleRate);
+        this.currentPosition = this.playStartPosition + elapsedSamples;
+      }
+    }, 100); // Update every 100ms
+  }
+
+  stopPositionTimer() {
+    if (this.positionTimer) {
+      clearInterval(this.positionTimer);
+      this.positionTimer = null;
     }
   }
 

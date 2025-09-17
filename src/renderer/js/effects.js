@@ -476,6 +476,45 @@ class EffectsManager {
         }
     }
 
+    // Navigate to next effect
+    nextEffect() {
+        if (!this.filteredPresets || this.filteredPresets.length === 0) {
+            console.log('No effects available');
+            return;
+        }
+
+        let currentIndex = -1;
+        if (this.currentEffect) {
+            currentIndex = this.filteredPresets.findIndex(p => p.name === this.currentEffect.name);
+        }
+
+        const nextIndex = (currentIndex + 1) % this.filteredPresets.length;
+        const nextEffect = this.filteredPresets[nextIndex];
+
+        console.log(`🎨 Next effect: ${nextEffect.name}`);
+        this.selectEffect(nextEffect.name);
+    }
+
+    // Navigate to previous effect
+    previousEffect() {
+        if (!this.filteredPresets || this.filteredPresets.length === 0) {
+            console.log('No effects available');
+            return;
+        }
+
+        let currentIndex = 0;
+        if (this.currentEffect) {
+            currentIndex = this.filteredPresets.findIndex(p => p.name === this.currentEffect.name);
+            if (currentIndex === -1) currentIndex = 0;
+        }
+
+        const prevIndex = currentIndex === 0 ? this.filteredPresets.length - 1 : currentIndex - 1;
+        const prevEffect = this.filteredPresets[prevIndex];
+
+        console.log(`🎨 Previous effect: ${prevEffect.name}`);
+        this.selectEffect(prevEffect.name);
+    }
+
 }
 
 // Initialize when DOM is loaded

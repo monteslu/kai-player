@@ -105,7 +105,7 @@ class RendererAudioEngine {
                 }
 
                 // Load IEM mono vocals setting
-                const iemMonoVocals = await window.settingsAPI.getSetting('iemMonoVocals', true);
+                const iemMonoVocals = await window.settingsAPI.get('iemMonoVocals', true);
                 this.mixerState.iemMonoVocals = iemMonoVocals;
             }
         } catch (error) {

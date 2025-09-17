@@ -668,6 +668,223 @@
                 justify-content: center;
             }
         }
+
+        /* Effects Styles */
+        .effects-controls {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .current-effect {
+            color: #ccc;
+            font-size: 0.9rem;
+        }
+
+        .effects-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .effect-item {
+            display: flex;
+            align-items: center;
+            padding: 12px 20px;
+            border-bottom: 1px solid #333;
+            transition: background 0.2s;
+        }
+
+        .effect-item:hover {
+            background: #333;
+        }
+
+        .effect-item:last-child {
+            border-bottom: none;
+        }
+
+        .effect-item.current {
+            background: rgba(0, 122, 204, 0.2);
+            border-left: 3px solid #007acc;
+        }
+
+        .effect-item.disabled {
+            opacity: 0.5;
+        }
+
+        .effect-info {
+            flex: 1;
+            margin-right: 15px;
+        }
+
+        .effect-name {
+            font-size: 1rem;
+            color: #ffffff;
+            margin-bottom: 2px;
+        }
+
+        .effect-author {
+            font-size: 0.85rem;
+            color: #999;
+        }
+
+        .effect-actions {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .effect-toggle {
+            position: relative;
+            width: 40px;
+            height: 20px;
+        }
+
+        .effect-toggle input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .effect-toggle .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 20px;
+        }
+
+        .effect-toggle .slider:before {
+            position: absolute;
+            content: "";
+            height: 16px;
+            width: 16px;
+            left: 2px;
+            bottom: 2px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        .effect-toggle input:checked + .slider {
+            background-color: #007acc;
+        }
+
+        .effect-toggle input:checked + .slider:before {
+            transform: translateX(20px);
+        }
+
+        /* Effect thumbnails - same as main app */
+        .effect-preview {
+            position: relative;
+            width: 120px;
+            height: 80px;
+            background: #1a1a1a;
+            overflow: hidden;
+            border-radius: 4px;
+            margin-right: 15px;
+            flex-shrink: 0;
+        }
+
+        .effect-screenshot {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.2s;
+        }
+
+        .effect-item:hover .effect-screenshot {
+            transform: scale(1.05);
+        }
+
+        .effect-fallback {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #1a1a1a;
+            color: #666;
+        }
+
+        .effect-fallback .material-icons {
+            font-size: 32px;
+        }
+
+        .select-effect-btn {
+            background: #007acc;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            transition: background 0.2s;
+        }
+
+        .select-effect-btn:hover {
+            background: #0066aa;
+        }
+
+        .select-effect-btn:disabled {
+            background: #4a4a4a;
+            color: #999;
+            cursor: not-allowed;
+        }
+
+        /* Tab System */
+        .tabs {
+            display: flex;
+            background: #333;
+            border-bottom: 1px solid #444;
+            margin: 20px;
+            border-radius: 8px 8px 0 0;
+            overflow: hidden;
+        }
+
+        .tab {
+            flex: 1;
+            padding: 15px 20px;
+            background: #333;
+            color: #ccc;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border-right: 1px solid #444;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .tab:last-child {
+            border-right: none;
+        }
+
+        .tab:hover {
+            background: #444;
+            color: #fff;
+        }
+
+        .tab.active {
+            background: #007acc;
+            color: #fff;
+        }
+
+        .tab-content {
+            display: none;
+            margin: 0 20px 20px 20px;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
     </style>
 </head>
 <body>
@@ -712,7 +929,24 @@
                 </div>
             </div>
 
-            <!-- Queue Section -->
+            <!-- Tab Navigation -->
+            <div class="tabs">
+                <div class="tab active" data-tab="queue">
+                    <span class="material-icons">playlist_play</span>
+                    Queue & Player
+                </div>
+                <div class="tab" data-tab="requests">
+                    <span class="material-icons">queue_music</span>
+                    Song Requests
+                </div>
+                <div class="tab" data-tab="effects">
+                    <span class="material-icons">auto_fix_high</span>
+                    Visual Effects
+                </div>
+            </div>
+
+            <!-- Queue Tab Content -->
+            <div class="tab-content active" id="queue-tab">
             <div class="requests-section">
                 <div class="section-header">
                     <div class="section-title">
@@ -728,6 +962,14 @@
                             <span class="material-icons">skip_next</span>
                             Next
                         </button>
+                        <button class="btn btn-secondary" id="prevEffectBtn">
+                            <span class="material-icons">skip_previous</span>
+                            Prev Effect
+                        </button>
+                        <button class="btn btn-secondary" id="nextEffectBtn">
+                            <span class="material-icons">skip_next</span>
+                            Next Effect
+                        </button>
                         <button class="btn btn-danger" id="resetQueueBtn">
                             <span class="material-icons">clear_all</span>
                             Reset Queue
@@ -741,8 +983,10 @@
                     </div>
                 </div>
             </div>
+            </div>
 
-            <!-- Requests Section -->
+            <!-- Requests Tab Content -->
+            <div class="tab-content" id="requests-tab">
             <div class="requests-section">
                 <div class="section-header">
                     <div class="section-title">
@@ -757,6 +1001,34 @@
                         <div>No song requests yet</div>
                     </div>
                 </div>
+            </div>
+            </div>
+
+            <!-- Effects Tab Content -->
+            <div class="tab-content" id="effects-tab">
+            <div class="requests-section">
+                <div class="section-header">
+                    <div class="section-title">
+                        <span class="material-icons">auto_fix_high</span>
+                        Visual Effects
+                    </div>
+                    <div class="effects-controls">
+                        <div class="current-effect">
+                            Current: <span id="currentEffectName">None</span>
+                        </div>
+                        <button class="btn btn-secondary" id="randomEffectBtn">
+                            <span class="material-icons">shuffle</span>
+                            Random
+                        </button>
+                    </div>
+                </div>
+                <div class="effects-list" id="effectsList">
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        <div>Loading effects...</div>
+                    </div>
+                </div>
+            </div>
             </div>
         </div>
 
@@ -810,6 +1082,20 @@
                 </div>
             </div>
 
+            <div class="setting-row">
+                <label class="setting-label">Stream Vocals to Clients</label>
+                <div class="setting-control">
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="streamVocals" onchange="updateSettings()">
+                        <span class="toggle-slider"></span>
+                    </label>
+                    <span id="streamVocalsLabel">Disabled</span>
+                </div>
+                <div class="setting-description">
+                    Stream vocals audio to web clients for synchronized playback (LAN only)
+                </div>
+            </div>
+
             <div class="setting-row" style="margin-top: 30px;">
                 <button class="btn btn-danger" onclick="clearAllRequests()" style="width: 100%; justify-content: center;">
                     <span class="material-icons" style="font-size: 18px;">delete_sweep</span>
@@ -846,10 +1132,12 @@
         </div>
     </div>
 
+    <script src="/socket.io/socket.io.js"></script>
     <script>
         let songRequests = [];
         let settings = {};
         let isLoggedIn = false;
+        let socket = null;
 
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
@@ -895,13 +1183,22 @@
             document.getElementById('loginModal').style.display = 'none';
             document.querySelector('.container').style.display = 'grid';
 
+            // Initialize Socket.IO connection now that we're authenticated
+            initializeSocket();
+
             // Load all data
             loadAllData();
 
             // Wire up player control buttons
             document.getElementById('playBtn').addEventListener('click', playMusic);
             document.getElementById('nextBtn').addEventListener('click', nextSong);
+            document.getElementById('prevEffectBtn').addEventListener('click', prevEffect);
+            document.getElementById('nextEffectBtn').addEventListener('click', nextEffect);
             document.getElementById('resetQueueBtn').addEventListener('click', resetQueue);
+            document.getElementById('randomEffectBtn').addEventListener('click', selectRandomEffect);
+
+            // Setup tab functionality
+            setupTabs();
 
             // Refresh requests every 5 seconds
             setInterval(loadRequests, 5000);
@@ -987,6 +1284,7 @@
                 document.getElementById('serverName').value = settings.serverName || '';
                 document.getElementById('allowRequests').checked = settings.allowSongRequests !== false;
                 document.getElementById('requireApproval').checked = settings.requireKJApproval !== false;
+                document.getElementById('streamVocals').checked = settings.streamVocalsToClients === true;
 
                 updateToggleLabels();
             } catch (error) {
@@ -1125,12 +1423,42 @@
             }
         }
 
+        // Effect control functions
+        async function prevEffect() {
+            try {
+                if (socket && socket.connected) {
+                    socket.emit('effect-control', { action: 'previous' });
+                    showMessage('Previous effect command sent');
+                } else {
+                    showMessage('Not connected to server', 'error');
+                }
+            } catch (error) {
+                console.error('Error sending previous effect command:', error);
+                showMessage('Failed to send previous effect command', 'error');
+            }
+        }
+
+        async function nextEffect() {
+            try {
+                if (socket && socket.connected) {
+                    socket.emit('effect-control', { action: 'next' });
+                    showMessage('Next effect command sent');
+                } else {
+                    showMessage('Not connected to server', 'error');
+                }
+            } catch (error) {
+                console.error('Error sending next effect command:', error);
+                showMessage('Failed to send next effect command', 'error');
+            }
+        }
+
         // Update settings
         async function updateSettings() {
             const newSettings = {
                 serverName: document.getElementById('serverName').value || settings.serverName,
                 allowSongRequests: document.getElementById('allowRequests').checked,
-                requireKJApproval: document.getElementById('requireApproval').checked
+                requireKJApproval: document.getElementById('requireApproval').checked,
+                streamVocalsToClients: document.getElementById('streamVocals').checked
             };
 
             try {
@@ -1172,6 +1500,8 @@
                 document.getElementById('allowRequests').checked ? 'Enabled' : 'Disabled';
             document.getElementById('requireApprovalLabel').textContent =
                 document.getElementById('requireApproval').checked ? 'Enabled' : 'Disabled';
+            document.getElementById('streamVocalsLabel').textContent =
+                document.getElementById('streamVocals').checked ? 'Enabled' : 'Disabled';
         }
 
         // Clear all requests
@@ -1305,13 +1635,287 @@
             }
         }
 
+        // Effects management
+        let effectsData = { effects: [], currentEffect: null, disabledEffects: [] };
+
+        async function loadEffects() {
+            try {
+                const response = await fetch('/admin/effects');
+                effectsData = await response.json();
+                displayEffects();
+                updateCurrentEffectDisplay();
+            } catch (error) {
+                console.error('Failed to load effects:', error);
+                document.getElementById('effectsList').innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon material-icons">error_outline</div>
+                        <div>Failed to load effects</div>
+                    </div>
+                `;
+            }
+        }
+
+        function sanitizeFilename(name) {
+            // Match exactly what the screenshot generator uses
+            return name.replace(/[^a-zA-Z0-9-_\s]/g, '_');
+        }
+
+        function displayEffects() {
+            const container = document.getElementById('effectsList');
+
+            if (effectsData.effects.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon material-icons">auto_fix_off</div>
+                        <div>No effects available</div>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = effectsData.effects.map(effect => {
+                const isDisabled = effectsData.disabledEffects.includes(effect.name);
+                const isCurrent = effectsData.currentEffect === effect.name;
+                const sanitizedName = sanitizeFilename(effect.name);
+                const screenshotPath = `/static/images/butterchurn-screenshots/${sanitizedName}.png`;
+
+                return `
+                    <div class="effect-item ${isCurrent ? 'current' : ''} ${isDisabled ? 'disabled' : ''}">
+                        <div class="effect-preview">
+                            <img src="${screenshotPath}" alt="${escapeHtml(effect.displayName)}" class="effect-screenshot"
+                                 onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                            <div class="effect-fallback" style="display: none;">
+                                <span class="material-icons">image_not_supported</span>
+                            </div>
+                        </div>
+                        <div class="effect-info">
+                            <div class="effect-name">${escapeHtml(effect.displayName)}</div>
+                            <div class="effect-author">by ${escapeHtml(effect.author)}</div>
+                        </div>
+                        <div class="effect-actions">
+                            <label class="effect-toggle">
+                                <input type="checkbox" ${!isDisabled ? 'checked' : ''}
+                                       onchange="toggleEffect('${effect.name.replace(/'/g, "\\'")}', this.checked)">
+                                <span class="slider"></span>
+                            </label>
+                            <button class="select-effect-btn"
+                                    onclick="selectEffect('${effect.name.replace(/'/g, "\\'")}')"
+                                    ${isDisabled ? 'disabled' : ''}>
+                                ${isCurrent ? 'Current' : 'Select'}
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function updateCurrentEffectDisplay() {
+            const currentEffectSpan = document.getElementById('currentEffectName');
+            if (effectsData.currentEffect) {
+                const currentEffect = effectsData.effects.find(e => e.name === effectsData.currentEffect);
+                if (currentEffect) {
+                    currentEffectSpan.textContent = currentEffect.displayName;
+                } else {
+                    currentEffectSpan.textContent = effectsData.currentEffect;
+                }
+            } else {
+                currentEffectSpan.textContent = 'None';
+            }
+        }
+
+        async function selectEffect(effectName) {
+            try {
+                const response = await fetch('/admin/effects/select', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ effectName })
+                });
+
+                const result = await response.json();
+                if (result.success) {
+                    showMessage(result.message || 'Effect selected', 'success');
+                    // Refresh effects after a moment to update current effect
+                    setTimeout(loadEffects, 500);
+                } else {
+                    showMessage(result.error || 'Failed to select effect', 'error');
+                }
+            } catch (error) {
+                console.error('Error selecting effect:', error);
+                showMessage('Failed to select effect', 'error');
+            }
+        }
+
+        async function toggleEffect(effectName, enabled) {
+            try {
+                const response = await fetch('/admin/effects/toggle', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ effectName, enabled })
+                });
+
+                const result = await response.json();
+                if (result.success) {
+                    // Update local state
+                    if (enabled) {
+                        effectsData.disabledEffects = effectsData.disabledEffects.filter(name => name !== effectName);
+                    } else {
+                        if (!effectsData.disabledEffects.includes(effectName)) {
+                            effectsData.disabledEffects.push(effectName);
+                        }
+                    }
+                    // Refresh display
+                    displayEffects();
+                    showMessage(result.message || `Effect ${enabled ? 'enabled' : 'disabled'}`, 'success');
+                } else {
+                    showMessage(result.error || 'Failed to toggle effect', 'error');
+                    // Refresh to restore correct state
+                    loadEffects();
+                }
+            } catch (error) {
+                console.error('Error toggling effect:', error);
+                showMessage('Failed to toggle effect', 'error');
+                // Refresh to restore correct state
+                loadEffects();
+            }
+        }
+
+        async function selectRandomEffect() {
+            // Filter out disabled effects
+            const enabledEffects = effectsData.effects.filter(effect =>
+                !effectsData.disabledEffects.includes(effect.name)
+            );
+
+            if (enabledEffects.length === 0) {
+                showMessage('No enabled effects available for random selection', 'error');
+                return;
+            }
+
+            // Select a random effect
+            const randomIndex = Math.floor(Math.random() * enabledEffects.length);
+            const randomEffect = enabledEffects[randomIndex];
+
+            await selectEffect(randomEffect.name);
+        }
+
+        // Tab functionality
+        function setupTabs() {
+            const tabs = document.querySelectorAll('.tab');
+            const tabContents = document.querySelectorAll('.tab-content');
+
+            tabs.forEach(tab => {
+                tab.addEventListener('click', () => {
+                    const targetTab = tab.dataset.tab;
+
+                    // Remove active class from all tabs and content
+                    tabs.forEach(t => t.classList.remove('active'));
+                    tabContents.forEach(tc => tc.classList.remove('active'));
+
+                    // Add active class to clicked tab
+                    tab.classList.add('active');
+
+                    // Show corresponding content
+                    const targetContent = document.getElementById(`${targetTab}-tab`);
+                    if (targetContent) {
+                        targetContent.classList.add('active');
+                    }
+
+                    // Load data for the selected tab
+                    switch (targetTab) {
+                        case 'queue':
+                            loadQueue();
+                            break;
+                        case 'requests':
+                            loadRequests();
+                            break;
+                        case 'effects':
+                            loadEffects();
+                            break;
+                    }
+                });
+            });
+        }
+
         // Enhanced data loading
         async function loadAllData() {
             await Promise.all([
                 loadRequests(),
                 loadSettings(),
-                loadQueue()
+                loadQueue(),
+                loadEffects()
             ]);
+        }
+
+        // Socket.IO connection
+        function initializeSocket() {
+            socket = io();
+
+            socket.on('connect', () => {
+                console.log('Admin connected to server');
+                // Identify as admin client
+                socket.emit('identify', { type: 'admin' });
+            });
+
+            socket.on('disconnect', () => {
+                console.log('Admin disconnected from server');
+            });
+
+            // Listen for queue updates
+            socket.on('queue-update', (queueData) => {
+                updateQueueFromSocket(queueData);
+            });
+
+            // Listen for player state updates
+            socket.on('player-state-update', (state) => {
+                updatePlayerStateFromSocket(state);
+            });
+
+            // Listen for new song requests
+            socket.on('new-song-request', (request) => {
+                console.log('New song request received:', request);
+                loadRequests(); // Refresh the requests list
+            });
+
+            // Listen for settings updates
+            socket.on('settings-update', (settings) => {
+                updateSettingsFromSocket(settings);
+            });
+        }
+
+        function updateQueueFromSocket(queueData) {
+            // Update the queue display without making an API call
+            if (queueData.queue) {
+                renderQueue(queueData.queue);
+            }
+            console.log('Queue updated via socket:', queueData);
+        }
+
+        function updatePlayerStateFromSocket(state) {
+            // Update any player state indicators
+            console.log('Player state updated via socket:', state);
+        }
+
+        function updateSettingsFromSocket(settings) {
+            // Update settings without making an API call
+            Object.assign(window.settings, settings);
+
+            // Update the UI elements
+            if (settings.serverName !== undefined) {
+                document.getElementById('serverName').value = settings.serverName;
+            }
+            if (settings.allowSongRequests !== undefined) {
+                document.getElementById('allowRequests').checked = settings.allowSongRequests;
+            }
+            if (settings.requireKJApproval !== undefined) {
+                document.getElementById('requireApproval').checked = settings.requireKJApproval;
+            }
+            if (settings.streamVocalsToClients !== undefined) {
+                document.getElementById('streamVocals').checked = settings.streamVocalsToClients;
+            }
+
+            // Update toggle labels
+            updateToggleLabels();
+
+            console.log('Settings updated via socket:', settings);
         }
 
         // Auto-refresh queue every 5 seconds

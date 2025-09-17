@@ -86,11 +86,18 @@ class LibraryManager {
             this.songs = result.files || [];
             this.filteredSongs = [...this.songs];
             
-            // Sort by name
-            this.filteredSongs.sort((a, b) => a.name.localeCompare(b.name));
+            // Sort by title (or name if no title)
+            this.filteredSongs.sort((a, b) => {
+                const titleA = a.title || a.name;
+                const titleB = b.title || b.name;
+                return titleA.localeCompare(titleB);
+            });
             
             this.updateLibraryDisplay();
-            
+
+            // Also refresh the web server cache so web UI stays in sync
+            this.refreshWebServerCache();
+
         } catch (error) {
             console.error('❌ Failed to scan library:', error);
             this.showEmptyState('Error scanning library');
@@ -112,6 +119,13 @@ class LibraryManager {
                        (song.stems && song.stems.some(stem => stem.toLowerCase().includes(term)));
             });
         }
+
+        // Sort filtered results by title (or name if no title)
+        this.filteredSongs.sort((a, b) => {
+            const titleA = a.title || a.name;
+            const titleB = b.title || b.name;
+            return titleA.localeCompare(titleB);
+        });
 
         this.updateLibraryDisplay();
     }
@@ -335,13 +349,11 @@ class LibraryManager {
                     this.showToast(`Added "${title}" to queue`);
                 }
             } else {
-                console.error('❌ Queue manager not available');
-                alert('Queue system not initialized');
+                console.error('❌ Queue manager not available - Queue system not initialized');
             }
             
         } catch (error) {
-            console.error('❌ Failed to queue song:', error);
-            alert('Failed to queue song: ' + error.message);
+            console.error('❌ Failed to queue song:', error.message);
         }
     }
 
@@ -462,18 +474,37 @@ class LibraryManager {
         const toast = document.createElement('div');
         toast.className = 'toast';
         toast.textContent = message;
-        
+
         // Add to DOM
         document.body.appendChild(toast);
-        
+
         // Show toast
         setTimeout(() => toast.classList.add('show'), 10);
-        
+
         // Hide and remove toast
         setTimeout(() => {
             toast.classList.remove('show');
             setTimeout(() => document.body.removeChild(toast), 300);
         }, 3000);
+    }
+
+    async refreshWebServerCache() {
+        try {
+            // Refresh the web server's songs cache by calling the web server directly
+            // This ensures the web UI alphabet navigation and search stay in sync
+            console.log('🔄 Refreshing web server cache...');
+
+            // Get reference to the main app which has the web server
+            const mainApp = require('@electron/remote').getGlobal('mainApp');
+            if (mainApp && mainApp.webServer) {
+                await mainApp.webServer.refreshSongsCache();
+                console.log('✅ Web server cache refreshed');
+            } else {
+                console.log('⚠️ Web server not available for cache refresh');
+            }
+        } catch (error) {
+            console.error('❌ Failed to refresh web server cache:', error);
+        }
     }
 }
 

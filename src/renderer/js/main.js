@@ -1,5 +1,8 @@
+console.log('🎮 main.js loaded and executing');
+
 class KaiPlayerApp {
     constructor() {
+        console.log('🎮 KaiPlayerApp constructor called');
         this.currentSong = null;
         this.isPlaying = false;
         this.currentPosition = 0;
@@ -213,7 +216,7 @@ class KaiPlayerApp {
 
             // Save preference
             if (window.settingsAPI) {
-                window.settingsAPI.setSetting('iemMonoVocals', enabled);
+                window.settingsAPI.set('iemMonoVocals', enabled);
             }
         });
 
@@ -274,6 +277,101 @@ class KaiPlayerApp {
             if (this.mixer) {
                 this.mixer.updateState(state);
             }
+        });
+
+        // Effect control event listeners
+        kaiAPI.effect.onNext(() => {
+            console.log('🎨 Received next effect command from admin');
+            if (window.effectsManager) {
+                window.effectsManager.nextEffect();
+            }
+        });
+
+        kaiAPI.effect.onPrevious(() => {
+            console.log('🎨 Received previous effect command from admin');
+            if (window.effectsManager) {
+                window.effectsManager.previousEffect();
+            }
+        });
+
+        // Effects management handlers for admin interface - need to handle as IPC responses
+        kaiAPI.events.on('effects:getList', (event) => {
+            if (window.effectsManager && window.effectsManager.presets) {
+                const effects = window.effectsManager.presets.map(preset => ({
+                    name: preset.name,
+                    displayName: preset.displayName || preset.name,
+                    author: preset.author || 'Unknown',
+                    category: preset.category || 'uncategorized'
+                }));
+                event.sender.send('effects:getList-response', effects);
+            } else {
+                event.sender.send('effects:getList-response', []);
+            }
+        });
+
+        kaiAPI.events.on('effects:getCurrent', (event) => {
+            let currentEffect = null;
+            if (this.player && this.player.karaokeRenderer) {
+                const renderer = this.player.karaokeRenderer;
+                if (renderer.effectType === 'butterchurn' && renderer.currentPreset) {
+                    currentEffect = renderer.currentPreset;
+                }
+            }
+            event.sender.send('effects:getCurrent-response', currentEffect);
+        });
+
+        kaiAPI.events.on('effects:getDisabled', (event) => {
+            let disabledEffects = [];
+            if (window.effectsManager && window.effectsManager.disabledEffects) {
+                disabledEffects = Array.from(window.effectsManager.disabledEffects);
+            }
+            event.sender.send('effects:getDisabled-response', disabledEffects);
+        });
+
+        kaiAPI.events.on('effects:select', (event, effectName) => {
+            console.log('🎨 Admin selecting effect:', effectName);
+            if (window.effectsManager) {
+                window.effectsManager.selectEffect(effectName);
+            }
+        });
+
+        kaiAPI.events.on('effects:toggle', (event, data) => {
+            console.log('🎨 Admin toggling effect:', data.effectName, 'enabled:', data.enabled);
+            if (window.effectsManager) {
+                if (data.enabled) {
+                    window.effectsManager.disabledEffects.delete(data.effectName);
+                } else {
+                    window.effectsManager.disabledEffects.add(data.effectName);
+                }
+                window.effectsManager.saveDisabledEffects();
+                window.effectsManager.filterAndDisplayPresets();
+            }
+        });
+
+        // Admin control event listeners
+        console.log('🎮 Setting up admin IPC listeners...');
+        console.log('🎮 kaiAPI.admin exists:', !!kaiAPI.admin);
+        console.log('🎮 kaiAPI.admin.onPlay exists:', !!(kaiAPI.admin && kaiAPI.admin.onPlay));
+
+        kaiAPI.admin.onPlay(() => {
+            console.log('🎮 Received play command from admin');
+            this.togglePlayback();
+        });
+
+        kaiAPI.admin.onNext(() => {
+            console.log('🎮 Received next command from admin');
+            this.nextTrack();
+        });
+
+        kaiAPI.admin.onRestart(() => {
+            console.log('🎮 Received restart command from admin');
+            this.restartTrack();
+        });
+
+        // Settings update event listeners
+        kaiAPI.settings.onUpdate((event, settings) => {
+            console.log('🔧 Received settings update from server:', settings);
+            this.updateServerSettingsUI(settings);
         });
 
         kaiAPI.song.onData(async (event, songData) => {
@@ -582,6 +680,7 @@ class KaiPlayerApp {
                 document.getElementById('serverName').value = settings.serverName || '';
                 document.getElementById('allowSongRequests').checked = settings.allowSongRequests !== false;
                 document.getElementById('requireKJApproval').checked = settings.requireKJApproval !== false;
+                document.getElementById('streamVocalsToClients').checked = settings.streamVocalsToClients === true;
             }
 
             // Check if admin password is set
@@ -604,7 +703,8 @@ class KaiPlayerApp {
             const settings = {
                 serverName: document.getElementById('serverName').value || 'Loukai Karaoke',
                 allowSongRequests: document.getElementById('allowSongRequests').checked,
-                requireKJApproval: document.getElementById('requireKJApproval').checked
+                requireKJApproval: document.getElementById('requireKJApproval').checked,
+                streamVocalsToClients: document.getElementById('streamVocalsToClients').checked
             };
 
             await window.kaiAPI.webServer.updateSettings(settings);
@@ -612,6 +712,27 @@ class KaiPlayerApp {
         } catch (error) {
             console.error('Failed to save server settings:', error);
             this.showServerMessage('Failed to save settings', 'error');
+        }
+    }
+
+    updateServerSettingsUI(settings) {
+        // Update the UI elements with new settings without triggering save
+        try {
+            if (settings.serverName !== undefined) {
+                document.getElementById('serverName').value = settings.serverName;
+            }
+            if (settings.allowSongRequests !== undefined) {
+                document.getElementById('allowSongRequests').checked = settings.allowSongRequests;
+            }
+            if (settings.requireKJApproval !== undefined) {
+                document.getElementById('requireKJApproval').checked = settings.requireKJApproval;
+            }
+            if (settings.streamVocalsToClients !== undefined) {
+                document.getElementById('streamVocalsToClients').checked = settings.streamVocalsToClients;
+            }
+            console.log('🔧 Server settings UI updated');
+        } catch (error) {
+            console.error('Error updating server settings UI:', error);
         }
     }
 
@@ -1024,17 +1145,23 @@ class KaiPlayerApp {
                 if (this.player) {
                     await this.player.pause();
                 }
+
+                // Broadcast playback state to main process
+                this.broadcastPlaybackState();
             } else {
                 await this.audioEngine.play();
                 this.isPlaying = true;
                 this.updatePlayButton('⏸');
                 this.startPositionUpdater();
-                
+
                 // Also play the player controller
                 if (this.player) {
                     await this.player.play();
                 }
             }
+
+            // Broadcast playback state to main process for position broadcasting
+            this.broadcastPlaybackState();
         } catch (error) {
             console.error('Playback error:', error);
             this.updateStatus('Playback error');
@@ -1048,10 +1175,22 @@ class KaiPlayerApp {
         }
     }
 
+    broadcastPlaybackState() {
+        // Send current playback state to main process for position broadcasting
+        const currentTime = this.audioEngine ? this.audioEngine.getCurrentPosition() : 0;
+
+        if (typeof kaiAPI !== 'undefined' && kaiAPI.renderer) {
+            kaiAPI.renderer.sendPlaybackState({
+                isPlaying: this.isPlaying,
+                currentTime: currentTime
+            });
+        }
+    }
+
     handleSongEnded() {
         this.isPlaying = false;
         this.updatePlayButton('▶');
-        
+
         // Also update the player controller's state
         if (this.player) {
             this.player.isPlaying = false;
@@ -1060,6 +1199,9 @@ class KaiPlayerApp {
                 this.player.karaokeRenderer.setPlaying(false);
             }
         }
+
+        // Broadcast playback state to main process
+        this.broadcastPlaybackState();
         
         // Update status
         this.updateStatus('Song ended');
@@ -1117,6 +1259,13 @@ class KaiPlayerApp {
                         clearInterval(this.positionTimer);
                         this.positionTimer = null;
                     }
+                }
+
+                // Broadcast updated position to main process every 5 updates (~500ms)
+                if (!this.positionUpdateCounter) this.positionUpdateCounter = 0;
+                this.positionUpdateCounter++;
+                if (this.positionUpdateCounter % 5 === 0) {
+                    this.broadcastPlaybackState();
                 }
             }
         }, 100);
@@ -1182,7 +1331,7 @@ class KaiPlayerApp {
             }
 
             // Load and set IEM mono vocals checkbox state
-            const iemMonoVocals = await window.settingsAPI.getSetting('iemMonoVocals', true);
+            const iemMonoVocals = await window.settingsAPI.get('iemMonoVocals', true);
             const checkbox = document.getElementById('iemMonoVocals');
             if (checkbox) {
                 checkbox.checked = iemMonoVocals;

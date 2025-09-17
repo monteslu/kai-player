@@ -446,6 +446,13 @@
                                         </div>
 
                                         <div class="setting-row">
+                                            <label class="checkbox-label">
+                                                <input type="checkbox" id="streamVocalsToClients">
+                                                <span>Stream Vocals to Clients (LAN only)</span>
+                                            </label>
+                                        </div>
+
+                                        <div class="setting-row">
                                             <button id="saveServerSettings" class="save-btn">
                                                 <span class="material-icons">save</span>
                                                 Save Settings
@@ -628,12 +635,12 @@
                     console.log('Save button clicked');
                     
                     if (!window.currentSongData) {
-                        alert('No song data available to save');
+                        console.error('No song data available to save');
                         return;
                     }
                     
                     if (!window.currentSongData.originalFilePath) {
-                        alert('No original file path available for saving');
+                        console.error('No original file path available for saving');
                         return;
                     }
                     
@@ -678,12 +685,10 @@
                             // Update the current song data cache
                             window.currentSongData = updatedSongData;
                         } else {
-                            alert('Failed to save changes: ' + (result.error || 'Unknown error'));
-                            console.error('Save failed:', result.error);
+                            console.error('Failed to save changes:', result.error || 'Unknown error');
                         }
                     } catch (error) {
-                        alert('Error saving changes: ' + error.message);
-                        console.error('Save error:', error);
+                        console.error('Error saving changes:', error.message);
                     }
                 });
             } else {

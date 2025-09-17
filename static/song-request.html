@@ -73,35 +73,6 @@
         }
 
 
-        /* Search Section */
-        .search-section {
-            background: #2a2a2a;
-            border-radius: 8px;
-            padding: 20px;
-            margin-bottom: 20px;
-            border: 1px solid #3a3a3a;
-        }
-
-        .search-box {
-            width: 100%;
-            padding: 12px 20px;
-            font-size: 16px;
-            background: #3a3a3a;
-            border: 1px solid #4a4a4a;
-            border-radius: 4px;
-            color: #ffffff;
-            outline: none;
-            transition: all 0.2s ease;
-        }
-
-        .search-box:focus {
-            border-color: #007acc;
-            box-shadow: 0 0 0 2px rgba(0, 122, 204, 0.2);
-        }
-
-        .search-box::placeholder {
-            color: #999;
-        }
 
         /* Songs List */
         .songs-section {
@@ -252,8 +223,14 @@
         }
 
         .modal-song-info {
-            color: #999;
-            font-size: 0.95rem;
+            color: #ffffff;
+            font-size: 1.2rem;
+            font-weight: bold;
+            margin-bottom: 10px;
+            padding: 10px;
+            background: #333;
+            border-radius: 6px;
+            border-left: 4px solid #007acc;
         }
 
         .form-group {
@@ -318,6 +295,202 @@
 
         .btn-secondary:hover {
             background: #5a5a5a;
+        }
+
+        /* Quick Search Section */
+        .quick-search-section {
+            background: #2a2a2a;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 20px;
+            border: 1px solid #3a3a3a;
+            position: relative;
+        }
+
+        .quick-search-title {
+            font-size: 1rem;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #fff;
+        }
+
+        .quick-search-input {
+            width: 100%;
+            padding: 12px;
+            background: #3a3a3a;
+            border: 1px solid #4a4a4a;
+            border-radius: 6px;
+            color: #fff;
+            font-size: 1rem;
+        }
+
+        .quick-search-input:focus {
+            outline: none;
+            border-color: #007bff;
+            background: #444;
+        }
+
+        .quick-search-dropdown {
+            position: absolute;
+            top: 100%;
+            left: 15px;
+            right: 15px;
+            background: #3a3a3a;
+            border: 1px solid #4a4a4a;
+            border-top: none;
+            border-radius: 0 0 6px 6px;
+            max-height: 300px;
+            overflow-y: auto;
+            z-index: 1000;
+            display: none;
+        }
+
+        .quick-search-item {
+            padding: 12px;
+            border-bottom: 1px solid #4a4a4a;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .quick-search-item:last-child {
+            border-bottom: none;
+        }
+
+        .quick-search-item:hover {
+            background: #4a4a4a;
+        }
+
+        .quick-search-song-info {
+            flex: 1;
+        }
+
+        .quick-search-title-text {
+            font-weight: bold;
+            color: #fff;
+            margin-bottom: 2px;
+        }
+
+        .quick-search-artist {
+            color: #ccc;
+            font-size: 0.9rem;
+        }
+
+        .quick-search-request-btn {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.8rem;
+        }
+
+        .quick-search-request-btn:hover {
+            background: #0056b3;
+        }
+
+        /* Alphabet Navigation */
+        .alphabet-nav {
+            margin: 15px 0;
+            padding: 15px;
+            background: #3a3a3a;
+            border-radius: 6px;
+            border: 1px solid #4a4a4a;
+        }
+
+        .alphabet-title {
+            color: #ccc;
+            font-size: 0.9rem;
+            margin-bottom: 10px;
+        }
+
+        .alphabet-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+
+        .alphabet-btn {
+            background: #4a4a4a;
+            color: #fff;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: bold;
+            transition: all 0.2s;
+            min-width: 36px;
+            text-align: center;
+        }
+
+        .alphabet-btn:hover {
+            background: #007bff;
+        }
+
+        .alphabet-btn.active {
+            background: #007bff;
+            box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.3);
+        }
+
+        .alphabet-btn.disabled {
+            background: #2a2a2a;
+            color: #666;
+            cursor: not-allowed;
+        }
+
+        /* Page Navigation */
+        .page-nav {
+            margin: 15px 0;
+            padding: 10px;
+            background: #3a3a3a;
+            border-radius: 6px;
+            border: 1px solid #4a4a4a;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .page-info {
+            color: #ccc;
+            font-size: 0.9rem;
+        }
+
+        .page-buttons {
+            display: flex;
+            gap: 5px;
+        }
+
+        .page-btn {
+            background: #4a4a4a;
+            color: #fff;
+            border: none;
+            padding: 6px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            transition: all 0.2s;
+            min-width: 32px;
+        }
+
+        .page-btn:hover {
+            background: #007bff;
+        }
+
+        .page-btn.active {
+            background: #007bff;
+        }
+
+        .page-btn:disabled {
+            background: #2a2a2a;
+            color: #666;
+            cursor: not-allowed;
         }
 
         /* Queue Section */
@@ -576,13 +749,20 @@
 
     <!-- Main Container -->
     <div class="container">
-        <!-- Search Section -->
-        <div class="search-section">
-            <input type="text"
-                   class="search-box"
-                   id="searchBox"
-                   placeholder="Search for songs by title or artist..."
-                   autocomplete="off">
+        <!-- Quick Search Section -->
+        <div class="quick-search-section">
+            <div class="quick-search-title">
+                <span class="material-icons">search</span>
+                <span>Quick Song Search</span>
+            </div>
+            <input
+                type="text"
+                id="quickSearchInput"
+                class="quick-search-input"
+                placeholder="Search songs to request..."
+                autocomplete="off"
+            >
+            <div id="quickSearchDropdown" class="quick-search-dropdown"></div>
         </div>
 
         <!-- Songs Section -->
@@ -590,6 +770,20 @@
             <div class="section-header">
                 <div class="section-title">Available Songs</div>
                 <div class="songs-count" id="songsCount">0 songs</div>
+            </div>
+
+            <!-- Alphabet Navigation -->
+            <div class="alphabet-nav" id="alphabetNav">
+                <div class="alphabet-title">Browse by Artist:</div>
+                <div class="alphabet-buttons" id="alphabetButtons">
+                    <!-- Will be populated with available letters -->
+                </div>
+            </div>
+
+            <!-- Page Navigation -->
+            <div class="page-nav" id="pageNav" style="display: none;">
+                <div class="page-info" id="pageInfo"></div>
+                <div class="page-buttons" id="pageButtons"></div>
             </div>
             <div class="songs-list" id="songsList">
                 <div class="loading">
@@ -648,16 +842,20 @@
         </div>
     </div>
 
+    <script src="/socket.io/socket.io.js"></script>
     <script>
         let allSongs = [];
         let filteredSongs = [];
+        let quickSearchSongs = []; // Store current quick search results
         let selectedSong = null;
         let serverSettings = {};
         let userName = null;
+        let socket = null;
 
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
             setupNamePrompt();
+            initializeSocket();
         });
 
         function setupNamePrompt() {
@@ -741,16 +939,27 @@
         }
 
         // Load songs
+        // Pagination state
+        let currentLetter = '';
+        let currentPage = 1;
+        let availableLetters = [];
+
+        // Load available letters and setup alphabet navigation
         async function loadSongs() {
             try {
-                const response = await fetch('/api/songs?limit=1000');
+                const response = await fetch('/api/letters');
                 const data = await response.json();
 
-                allSongs = data.songs || [];
-                filteredSongs = allSongs;
+                availableLetters = data.letters || [];
 
-                displaySongs();
-                updateSongCount();
+                // Create alphabet buttons
+                createAlphabetButtons(availableLetters);
+
+                // Load first available letter by default (A if available)
+                const firstLetter = availableLetters.includes('A') ? 'A' : availableLetters[0];
+                if (firstLetter) {
+                    loadLetterPage(firstLetter, 1);
+                }
             } catch (error) {
                 console.error('Failed to load songs:', error);
                 document.getElementById('songsList').innerHTML = `
@@ -760,6 +969,17 @@
                     </div>
                 `;
             }
+        }
+
+        function createAlphabetButtons(availableLetters) {
+            const buttonsContainer = document.getElementById('alphabetButtons');
+            const allLetters = [...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split(''), '#'];
+
+            buttonsContainer.innerHTML = allLetters.map(letter => {
+                const hasContent = availableLetters.includes(letter);
+                const classes = hasContent ? 'alphabet-btn' : 'alphabet-btn disabled';
+                return `<button class="${classes}" ${hasContent ? `onclick="loadLetterPage('${letter}', 1)"` : 'disabled'}>${letter}</button>`;
+            }).join('');
         }
 
         // Display songs
@@ -792,6 +1012,7 @@
                 </div>
             `).join('');
         }
+
 
         // Load queue
         async function loadQueue() {
@@ -839,22 +1060,19 @@
 
         // Setup event listeners
         function setupEventListeners() {
-            // Search
-            document.getElementById('searchBox').addEventListener('input', (e) => {
-                const search = e.target.value.toLowerCase();
-
-                if (search.trim() === '') {
-                    filteredSongs = allSongs;
-                } else {
-                    filteredSongs = allSongs.filter(song =>
-                        song.title.toLowerCase().includes(search) ||
-                        song.artist.toLowerCase().includes(search)
-                    );
-                }
-
-                displaySongs();
-                updateSongCount();
-            });
+            // Quick Search
+            const quickSearchInput = document.getElementById('quickSearchInput');
+            if (quickSearchInput) {
+                quickSearchInput.addEventListener('input', handleQuickSearch);
+                quickSearchInput.addEventListener('focus', () => {
+                    if (quickSearchInput.value.trim()) {
+                        showQuickSearchDropdown();
+                    }
+                });
+                quickSearchInput.addEventListener('blur', () => {
+                    setTimeout(hideQuickSearchDropdown, 150);
+                });
+            }
 
             // Request form
             document.getElementById('requestForm').addEventListener('submit', async (e) => {
@@ -877,22 +1095,13 @@
                 return;
             }
 
-            selectedSong = allSongs.find(s => s.id === songId);
-            if (!selectedSong) return;
+            selectedSong = filteredSongs.find(s => s.id === songId);
+            if (!selectedSong) {
+                console.error('Song not found for request:', songId);
+                return;
+            }
 
-            // Show modal
-            document.getElementById('modalSongInfo').textContent =
-                `${selectedSong.title} - ${selectedSong.artist}`;
-
-            // Show the user's name
-            document.getElementById('requesterDisplay').textContent = userName;
-
-            document.getElementById('requestModal').classList.add('active');
-
-            // Focus message input
-            setTimeout(() => {
-                document.getElementById('message').focus();
-            }, 100);
+            showRequestModal(selectedSong);
         }
 
         // Close modal
@@ -913,30 +1122,40 @@
                 return;
             }
 
+            console.log('🎤 Submitting request for:', selectedSong.id, 'by', userName);
+
             try {
+                const requestData = {
+                    songId: selectedSong.id,
+                    requesterName: userName,
+                    message
+                };
+
+                console.log('📤 Request data:', requestData);
+
                 const response = await fetch('/api/request', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        songId: selectedSong.id,
-                        requesterName: userName,
-                        message
-                    })
+                    body: JSON.stringify(requestData)
                 });
 
+                console.log('📥 Response status:', response.status);
                 const result = await response.json();
+                console.log('📥 Response data:', result);
 
                 if (result.success) {
+                    console.log('✅ Request successful:', result.message);
                     showMessage(result.message || 'Song requested successfully!', 'success');
                     closeRequestModal();
 
                     // Reload queue after a moment
                     setTimeout(loadQueue, 1000);
                 } else {
+                    console.error('❌ Request failed:', result.error);
                     showMessage(result.error || 'Failed to submit request', 'error');
                 }
             } catch (error) {
-                console.error('Request error:', error);
+                console.error('❌ Request error:', error);
                 showMessage('Failed to submit request. Please try again.', 'error');
             }
         }
@@ -959,7 +1178,7 @@
 
             document.querySelector('.container').insertBefore(
                 message,
-                document.querySelector('.search-section')
+                document.querySelector('.songs-section')
             );
 
             // Auto remove after 5 seconds
@@ -981,12 +1200,275 @@
             document.getElementById('songsCount').textContent = text;
         }
 
+        // Socket.IO connection
+        function initializeSocket() {
+            socket = io();
+
+            socket.on('connect', () => {
+                console.log('Connected to server');
+                // Identify as web-ui client
+                socket.emit('identify', { type: 'web-ui' });
+            });
+
+            socket.on('disconnect', () => {
+                console.log('Disconnected from server');
+            });
+
+            // Listen for queue updates
+            socket.on('queue-update', (queueData) => {
+                updateQueueDisplay(queueData);
+            });
+
+            // Listen for player state updates
+            socket.on('player-state-update', (state) => {
+                updatePlayerStateDisplay(state);
+            });
+
+            // Listen for settings updates
+            socket.on('settings-update', (settings) => {
+                serverSettings = settings;
+                updateUIBasedOnSettings();
+            });
+
+            // Listen for song changes
+            socket.on('song-changed', (songData) => {
+                handleSongChanged(songData);
+            });
+
+            // Listen for library refresh notifications
+            socket.on('library-refreshed', (data) => {
+                console.log('📚 Library refreshed on server:', data);
+                // Reload the alphabet navigation
+                loadSongs();
+            });
+
+        }
+
+        function updateQueueDisplay(queueData) {
+            // Update the current queue display if it exists
+            console.log('Queue updated:', queueData);
+            // You can add UI elements to show current queue here
+        }
+
+        function updatePlayerStateDisplay(state) {
+            // Update player state display if needed
+            console.log('Player state updated:', state);
+            // You can add UI elements to show current playing song here
+        }
+
+        function updateUIBasedOnSettings() {
+            // Update UI based on server settings
+            console.log('Settings updated:', serverSettings);
+            // This could disable/enable request functionality based on settings
+        }
+
+
+
+        function handleSongChanged(songData) {
+            console.log('Song changed:', songData);
+            // Update UI to show current song info
+            updateCurrentSongDisplay(songData);
+        }
+
+        function updateCurrentSongDisplay(songData) {
+            // You can add UI elements here to show the currently playing song
+            console.log(`Now playing: ${songData.title} - ${songData.artist}`);
+        }
+
         // Helper functions
         function formatDuration(seconds) {
             if (!seconds) return '';
             const mins = Math.floor(seconds / 60);
             const secs = Math.floor(seconds % 60);
             return `${mins}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        // Quick Search Functions
+        async function handleQuickSearch(e) {
+            const searchTerm = e.target.value.trim();
+            const dropdown = document.getElementById('quickSearchDropdown');
+
+            if (!searchTerm) {
+                hideQuickSearchDropdown();
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/songs?search=${encodeURIComponent(searchTerm)}&limit=8`);
+                const data = await response.json();
+
+                if (data.songs && data.songs.length > 0) {
+                    displayQuickSearchResults(data.songs);
+                    showQuickSearchDropdown();
+                } else {
+                    dropdown.innerHTML = '<div class="quick-search-item">No songs found</div>';
+                    showQuickSearchDropdown();
+                }
+            } catch (error) {
+                console.error('Quick search error:', error);
+                dropdown.innerHTML = '<div class="quick-search-item">Search error</div>';
+                showQuickSearchDropdown();
+            }
+        }
+
+        function displayQuickSearchResults(songs) {
+            // Store the songs for quick access
+            quickSearchSongs = songs;
+
+            const dropdown = document.getElementById('quickSearchDropdown');
+            dropdown.innerHTML = songs.map((song, index) => `
+                <div class="quick-search-item">
+                    <div class="quick-search-song-info">
+                        <div class="quick-search-title-text">${escapeHtml(song.title)}</div>
+                        <div class="quick-search-artist">${escapeHtml(song.artist)}</div>
+                    </div>
+                    <button class="quick-search-request-btn" onclick="requestSongFromQuickSearch(${index})">
+                        Request
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        function showQuickSearchDropdown() {
+            const dropdown = document.getElementById('quickSearchDropdown');
+            if (dropdown) {
+                dropdown.style.display = 'block';
+            }
+        }
+
+        function hideQuickSearchDropdown() {
+            const dropdown = document.getElementById('quickSearchDropdown');
+            if (dropdown) {
+                dropdown.style.display = 'none';
+            }
+        }
+
+        function requestSongFromQuickSearch(songIndex) {
+            if (!serverSettings.allowRequests) {
+                showMessage('Song requests are currently disabled', 'info');
+                return;
+            }
+
+            hideQuickSearchDropdown();
+            document.getElementById('quickSearchInput').value = '';
+
+            // Get the song from stored quick search results
+            const song = quickSearchSongs[songIndex];
+            if (song) {
+                showRequestModal(song);
+            } else {
+                console.error('Song not found at index:', songIndex);
+                showMessage('Song not found', 'error');
+            }
+        }
+
+        function showRequestModal(song) {
+            selectedSong = song;
+
+            // Show modal with song info
+            document.getElementById('modalSongInfo').textContent =
+                `${song.title} - ${song.artist}`;
+
+            // Show the user's name
+            document.getElementById('requesterDisplay').textContent = userName;
+
+            document.getElementById('requestModal').classList.add('active');
+
+            // Focus message input
+            setTimeout(() => {
+                document.getElementById('message').focus();
+            }, 100);
+        }
+
+        async function loadLetterPage(letter, page = 1) {
+            currentLetter = letter;
+            currentPage = page;
+
+            // Update active alphabet button
+            document.querySelectorAll('.alphabet-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            document.querySelector(`.alphabet-btn[onclick*="'${letter}'"]`)?.classList.add('active');
+
+            try {
+                // Show loading
+                document.getElementById('songsList').innerHTML = `
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        <div>Loading songs...</div>
+                    </div>
+                `;
+
+                // Fetch songs for this letter and page
+                const response = await fetch(`/api/songs/letter/${letter}?page=${page}&limit=100`);
+                const data = await response.json();
+
+                // Update display
+                filteredSongs = data.songs || [];
+                displaySongs();
+                updateSongCount();
+
+                // Setup pagination if needed
+                if (data.pagination) {
+                    setupPageNavigation(letter, data.pagination);
+                }
+            } catch (error) {
+                console.error('Failed to load letter page:', error);
+                document.getElementById('songsList').innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon material-icons">error_outline</div>
+                        <div>Failed to load songs. Please try again.</div>
+                    </div>
+                `;
+            }
+        }
+
+        function setupPageNavigation(letter, pagination) {
+            const pageNav = document.getElementById('pageNav');
+            const pageInfo = document.getElementById('pageInfo');
+            const pageButtons = document.getElementById('pageButtons');
+
+            if (pagination.totalPages <= 1) {
+                pageNav.style.display = 'none';
+                return;
+            }
+
+            pageNav.style.display = 'flex';
+
+            // Update page info
+            const startSong = (pagination.currentPage - 1) * pagination.songsPerPage + 1;
+            const endSong = Math.min(pagination.currentPage * pagination.songsPerPage, pagination.totalSongs);
+            pageInfo.textContent = `Showing ${startSong}-${endSong} of ${pagination.totalSongs} songs by artists starting with "${letter}"`;
+
+            // Create page buttons
+            let buttonsHTML = '';
+
+            // Previous button
+            if (pagination.hasPreviousPage) {
+                buttonsHTML += `<button class="page-btn" onclick="loadLetterPage('${letter}', ${pagination.currentPage - 1})">‹ Prev</button>`;
+            }
+
+            // Page number buttons (show up to 5 around current page)
+            const maxButtons = 5;
+            let startPage = Math.max(1, pagination.currentPage - Math.floor(maxButtons / 2));
+            let endPage = Math.min(pagination.totalPages, startPage + maxButtons - 1);
+
+            // Adjust start if we're near the end
+            if (endPage - startPage < maxButtons - 1) {
+                startPage = Math.max(1, endPage - maxButtons + 1);
+            }
+
+            for (let i = startPage; i <= endPage; i++) {
+                const classes = i === pagination.currentPage ? 'page-btn active' : 'page-btn';
+                buttonsHTML += `<button class="${classes}" onclick="loadLetterPage('${letter}', ${i})">${i}</button>`;
+            }
+
+            // Next button
+            if (pagination.hasNextPage) {
+                buttonsHTML += `<button class="page-btn" onclick="loadLetterPage('${letter}', ${pagination.currentPage + 1})">Next ›</button>`;
+            }
+
+            pageButtons.innerHTML = buttonsHTML;
         }
 
         function escapeHtml(text) {
