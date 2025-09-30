@@ -1,0 +1,110 @@
+.player-settings-panel {
+  padding: 20px;
+  height: 100%;
+  overflow-y: auto;
+}
+
+.player-settings-panel.loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+}
+
+.settings-section {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+.settings-section h3 {
+  margin: 0 0 20px 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--border-primary);
+  padding-bottom: 12px;
+}
+
+.setting-row {
+  display: flex;
+  align-items: center;
+  padding: 12px 0;
+  gap: 12px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.setting-row input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+}
+
+.setting-row > span {
+  flex: 1;
+  font-size: 15px;
+  color: var(--text-primary);
+}
+
+.slider-row {
+  flex-direction: column;
+  align-items: stretch;
+  cursor: default;
+}
+
+.slider-row label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+.slider-row span {
+  font-size: 14px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.slider-row input[type="range"] {
+  width: 100%;
+  height: 6px;
+  background: var(--bg-tertiary);
+  border-radius: 3px;
+  outline: none;
+  -webkit-appearance: none;
+}
+
+.slider-row input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  background: var(--accent-primary);
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.slider-row input[type="range"]::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  background: var(--accent-primary);
+  border-radius: 50%;
+  cursor: pointer;
+  border: none;
+}
+
+.slider-row input[type="range"]:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.slider-row input[type="range"]:disabled::-webkit-slider-thumb {
+  cursor: not-allowed;
+}
+
+.slider-row input[type="range"]:disabled::-moz-range-thumb {
+  cursor: not-allowed;
+}

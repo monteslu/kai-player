@@ -100,18 +100,23 @@ All time values are seconds (float). Use UTF-8 and LF newlines.
   },
   "lines": [
     {
+      "singer_id": "A",
       "start": 10.5,
       "end": 13.2,
       "text": "Hello world, this is a test",
+      "word_timing": [[0.0, 0.3], [0.4, 0.8], [0.9, 1.1], [1.2, 1.4], [1.5, 1.6], [1.7, 2.7]],
       "disabled": false
     },
     {
+      "singer_id": "B",
       "start": 12.0,
       "end": 13.5,
       "text": "(Hello world)",
+      "word_timing": [[0.0, 0.6], [0.7, 1.5]],
       "backup": true
     },
     {
+      "singer_id": "A",
       "start": 14.0,
       "end": 17.5,
       "text": "Another line of lyrics",
@@ -226,11 +231,28 @@ Each lyric line in the `lines[]` array is an object with the following propertie
 
 | Property | Type | Required | Description |
 |----------|------|----------|-------------|
+| `singer_id` | string | No | References a singer from the `singers` array |
 | `start` | number | Yes | Start time in seconds (float) |
 | `end` | number | Yes | End time in seconds (float) |
 | `text` | string | Yes | Lyric text content |
+| `word_timing` | array | No | Optional word-level timing pairs relative to line start (see below) |
 | `disabled` | boolean | No | If `true`, line is hidden during playback but preserved in editor. Defaults to `false` if omitted. |
 | `backup` | boolean | No | If `true`, line represents backup singer vocals. Defaults to `false` if omitted (lead singer). |
+
+**Optional Word-Level Timing:**
+
+When word-level timing is available (e.g., from Whisper transcription), each line may include a `word_timing` array containing timing pairs for each word:
+
+```
+"word_timing": [[start, end], [start, end], ...]
+```
+
+- Each pair represents `[start_time, end_time]` in seconds relative to the line's start time
+- Words correspond to space-separated tokens in the `text` field (in order)
+- All times are relative to the line's `start` time (i.e., first word typically starts at 0.0)
+- Example: For text "Hello world", `[[0.0, 0.5], [0.6, 1.2]]` means:
+  - "Hello" runs from line_start+0.0 to line_start+0.5
+  - "world" runs from line_start+0.6 to line_start+1.2
 
 **Notes:**
 - Time values must be non-negative and `end >= start`
@@ -240,6 +262,9 @@ Each lyric line in the `lines[]` array is an object with the following propertie
 - Empty `text` is permitted for instrumental sections
 - The `disabled` property enables selective lyric editing without losing original content
 - The `backup` property enables differentiation between lead and backup singer vocals for multi-singer songs
+- Word-level timing is optional and may not be present in all files
+- Players that don't support word-level highlighting can ignore the `word_timing` array
+- When `word_timing` is present, the number of timing pairs should match the number of space-separated words in `text`
 
 ### 6.3 Metadata policy (ID3 ingestion & fallbacks)
 - Packers **MUST** attempt to read ID3v2.4/2.3/2.2 (and v1) from the **source MP3**.

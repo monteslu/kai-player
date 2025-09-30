@@ -9,11 +9,16 @@ class QueueManager {
     }
 
     async initializeQueue() {
-        // Load initial queue state from main process
+        // Load initial queue state from main process (AppState is canonical)
         await this.refreshQueueFromMain();
 
         // Check if there's a currently loaded song and sync currentIndex
         this.syncCurrentIndex();
+
+        // Poll for queue updates every 2 seconds as backup (AppState changes push via IPC)
+        setInterval(() => {
+            this.refreshQueueFromMain();
+        }, 2000);
     }
 
     setupEventListeners() {
@@ -122,45 +127,39 @@ class QueueManager {
     }
 
     // Add song to top of queue (for immediate loading)
-    addSongToTop(songData) {
+    async addSongToTop(songData) {
         const queueItem = {
-            id: Date.now() + Math.random(), // Unique ID
             path: songData.path,
             title: songData.title || songData.name.replace('.kai', ''),
             artist: songData.artist || 'Unknown Artist',
             duration: songData.duration,
-            folder: songData.folder,
-            addedAt: new Date()
+            requester: 'KJ',
+            addedVia: 'ui'
         };
-        
-        // Add to beginning of queue
-        this.queue.unshift(queueItem);
-        
-        // Adjust current index since we inserted at the beginning
-        if (this.currentIndex >= 0) {
-            this.currentIndex++;
+
+        // Add to main process queue (it will be added at the end)
+        if (window.kaiAPI && window.kaiAPI.queue) {
+            await window.kaiAPI.queue.addSong(queueItem);
         }
-        
-        this.updateQueueDisplay();
-        
-        return queueItem;
+
+        // Refresh display from main queue
+        await this.refreshQueueFromMain();
+
+        // Return the last added item (will have id from AppState)
+        const queue = await window.kaiAPI.queue.get();
+        return queue[queue.length - 1];
     }
 
     // Remove song from queue by ID
-    removeSong(itemId) {
-        const index = this.queue.findIndex(item => item.id === itemId);
-        if (index !== -1) {
-            const removed = this.queue.splice(index, 1)[0];
-            
-            // Adjust current index if necessary
-            if (index < this.currentIndex) {
-                this.currentIndex--;
-            } else if (index === this.currentIndex) {
-                this.currentIndex = -1; // Current song was removed
-            }
-            
-            this.updateQueueDisplay();
-            return removed;
+    async removeSong(itemId) {
+        // Remove from main process queue (source of truth)
+        if (window.kaiAPI && window.kaiAPI.queue) {
+            const result = await window.kaiAPI.queue.removeSong(itemId);
+
+            // Refresh display from main queue
+            await this.refreshQueueFromMain();
+
+            return result.removed;
         }
         return null;
     }
@@ -493,10 +492,10 @@ class QueueManager {
 
         // Remove from sidebar queue
         document.querySelectorAll('.remove-queue-sidebar-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
+            btn.addEventListener('click', async (e) => {
                 e.stopPropagation();
                 const itemId = parseFloat(btn.dataset.itemId);
-                this.removeSong(itemId);
+                await this.removeSong(itemId);
             });
         });
     }

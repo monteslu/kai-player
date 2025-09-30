@@ -7,6 +7,8 @@ const KaiLoader = require('../utils/kaiLoader');
 const KaiWriter = require('../utils/kaiWriter');
 const SettingsManager = require('./settingsManager');
 const WebServer = require('./webServer');
+const AppState = require('./appState');
+const StatePersistence = require('./statePersistence');
 
 class KaiPlayerApp {
   constructor() {
@@ -35,6 +37,80 @@ class KaiPlayerApp {
       isPlaying: false,
       currentTime: 0
     };
+
+    // Canonical application state
+    this.appState = new AppState();
+
+    // State persistence
+    this.statePersistence = new StatePersistence(this.appState);
+
+    // Set up state change listeners
+    this.setupStateListeners();
+  }
+
+  setupStateListeners() {
+    // When playback state changes, broadcast to web clients
+    this.appState.on('playbackStateChanged', (playbackState, changes) => {
+      if (this.webServer) {
+        this.webServer.broadcastPlaybackState(playbackState);
+      }
+    });
+
+    // When current song changes, broadcast to web clients
+    this.appState.on('currentSongChanged', (song) => {
+      if (this.webServer && song) {
+        this.webServer.broadcastSongLoaded({
+          songId: `${song.title} - ${song.artist}`,
+          title: song.title,
+          artist: song.artist,
+          duration: song.duration
+        });
+      }
+    });
+
+    // When queue changes, broadcast to web clients and renderer
+    this.appState.on('queueChanged', (queue) => {
+      // Broadcast to web clients
+      if (this.webServer) {
+        this.webServer.io?.emit('queue-update', {
+          queue,
+          currentSong: this.appState.state.currentSong
+        });
+      }
+
+      // Send to renderer
+      this.sendToRenderer('queue:updated', queue);
+    });
+
+    // When mixer changes, broadcast to web clients
+    this.appState.on('mixerChanged', (mixer) => {
+      if (this.webServer) {
+        this.webServer.io?.emit('mixer-update', mixer);
+      }
+    });
+
+    // When effects change, broadcast to web clients
+    this.appState.on('effectsChanged', (effects) => {
+      if (this.webServer) {
+        // Get disabled effects from settings, not AppState
+        const waveformPrefs = this.settings.get('waveformPreferences', {});
+        const effectsWithCorrectDisabled = {
+          ...effects,
+          disabled: waveformPrefs.disabledEffects || []
+        };
+        this.webServer.io?.emit('effects-update', effectsWithCorrectDisabled);
+      }
+    });
+
+    // When preferences change, broadcast to web clients AND renderer
+    this.appState.on('preferencesChanged', (preferences) => {
+      if (this.webServer) {
+        this.webServer.io?.emit('preferences-update', preferences);
+      }
+
+      // Send to renderer so it can sync
+      this.sendToRenderer('preferences:updated', preferences);
+    });
   }
 
   async initialize() {
@@ -45,12 +121,19 @@ class KaiPlayerApp {
     app.commandLine.appendSwitch('no-sandbox');
 
     await this.settings.load();
+
+    // Load persisted state (queue, mixer, effects)
+    await this.statePersistence.load();
+
     this.createMainWindow();
     this.createApplicationMenu();
     this.setupIPC();
     this.initializeAudioEngine();
     await this.initializeWebServer();
-    
+
+    // Start periodic state persistence
+    this.statePersistence.startPeriodicSave();
+
     // Check if songs folder is set, prompt if not
     await this.checkSongsFolder();
   }
@@ -1347,10 +1430,10 @@ class KaiPlayerApp {
 
     ipcMain.handle('webServer:approveRequest', async (event, requestId) => {
       try {
-        const response = await fetch(`http://localhost:${this.getWebServerPort()}/admin/requests/${requestId}/approve`, {
-          method: 'POST'
-        });
-        return await response.json();
+        if (this.webServer) {
+          return await this.webServer.approveRequest(requestId);
+        }
+        return { error: 'Web server not available' };
       } catch (error) {
         return { error: error.message };
       }
@@ -1358,10 +1441,10 @@ class KaiPlayerApp {
 
     ipcMain.handle('webServer:rejectRequest', async (event, requestId) => {
       try {
-        const response = await fetch(`http://localhost:${this.getWebServerPort()}/admin/requests/${requestId}/reject`, {
-          method: 'POST'
-        });
-        return await response.json();
+        if (this.webServer) {
+          return await this.webServer.rejectRequest(requestId);
+        }
+        return { error: 'Web server not available' };
       } catch (error) {
         return { error: error.message };
       }
@@ -1386,14 +1469,18 @@ class KaiPlayerApp {
       return { success: true };
     });
 
+    ipcMain.handle('queue:removeSong', async (event, itemId) => {
+      const removed = this.appState.removeFromQueue(itemId);
+      this.songQueue = this.appState.getQueue();
+      return { success: !!removed, removed };
+    });
+
     ipcMain.handle('queue:get', () => {
       return this.getQueue();
     });
 
-    ipcMain.handle('queue:clear', () => {
-      this.songQueue = [];
-      this.sendToRenderer('queue:updated', this.songQueue);
-      this.broadcastQueueUpdate();
+    ipcMain.handle('queue:clear', async () => {
+      await this.clearQueue();
       return { success: true };
     });
 
@@ -1465,6 +1552,16 @@ class KaiPlayerApp {
 
     ipcMain.handle('settings:set', (event, key, value) => {
       this.settings.set(key, value);
+
+      // Broadcast settings changes to web admin clients
+      if (this.webServer && this.webServer.io) {
+        if (key === 'waveformPreferences') {
+          this.webServer.io.to('admin-clients').emit('settings:waveform', value);
+        } else if (key === 'autoTunePreferences') {
+          this.webServer.io.to('admin-clients').emit('settings:autotune', value);
+        }
+      }
+
       return { success: true };
     });
 
@@ -1484,10 +1581,37 @@ class KaiPlayerApp {
       }
     });
 
-    // Renderer playback state updates
+    // Renderer playback state updates (legacy - keeping for compatibility)
     ipcMain.on('renderer:playbackState', (event, state) => {
       // Store the renderer playback state for position broadcasting
       this.rendererPlaybackState = state;
+    });
+
+    // NEW: Renderer state updates to AppState
+    ipcMain.on('renderer:updatePlaybackState', (event, updates) => {
+      this.appState.updatePlaybackState(updates);
+    });
+
+    ipcMain.on('renderer:songLoaded', (event, songData) => {
+      this.appState.setCurrentSong(songData);
+      // Also update legacy currentSong for compatibility
+      this.currentSong = {
+        metadata: songData,
+        filePath: songData.path
+      };
+    });
+
+    ipcMain.on('renderer:updateMixerState', (event, mixerState) => {
+      this.appState.updateMixerState(mixerState);
+    });
+
+    ipcMain.on('renderer:updateEffectsState', (event, effectsState) => {
+      this.appState.updateEffectsState(effectsState);
+    });
+
+    // Add handler to get current app state
+    ipcMain.handle('app:getState', () => {
+      return this.appState.getSnapshot();
     });
   }
 
@@ -1818,11 +1942,25 @@ class KaiPlayerApp {
         console.log('📡 Disconnected from Socket.IO server');
       });
 
-      this.socket.on('new-song-request', (request) => {
-        console.log('🎵 New song request received:', request);
+      this.socket.on('song-request', (request) => {
+        console.log('🎵 Song request received:', request);
 
         // Notify renderer about new request
         this.sendToRenderer('songRequest:new', request);
+      });
+
+      this.socket.on('request-approved', (request) => {
+        console.log('✅ Request approved:', request);
+
+        // Notify renderer about approved request
+        this.sendToRenderer('songRequest:approved', request);
+      });
+
+      this.socket.on('request-rejected', (request) => {
+        console.log('❌ Request rejected:', request);
+
+        // Notify renderer about rejected request
+        this.sendToRenderer('songRequest:rejected', request);
       });
 
       this.socket.on('connect_error', (error) => {
@@ -1848,7 +1986,7 @@ class KaiPlayerApp {
   broadcastQueueUpdate() {
     if (this.socket && this.socket.connected) {
       this.socket.emit('queue-updated', {
-        queue: this.songQueue,
+        queue: this.appState.getQueue(),
         currentSong: this.currentSong
       });
     }
@@ -1931,39 +2069,31 @@ class KaiPlayerApp {
   }
 
   getQueue() {
-    return this.songQueue || [];
+    return this.appState.getQueue();
   }
 
   getCurrentSong() {
+    // Return from AppState for consistency
+    if (this.appState.state.currentSong) {
+      return this.appState.state.currentSong;
+    }
+    // Fallback to legacy for compatibility
     return this.currentSong;
   }
 
   async addSongToQueue(queueItem) {
     console.log('🎵 MAIN addSongToQueue called with:', queueItem);
 
-    if (!this.songQueue) {
-      this.songQueue = [];
-      console.log('🎵 Initialized empty song queue');
-    }
-
     // Check if queue was empty before adding
-    const wasEmpty = this.songQueue.length === 0;
-    console.log('🎵 Queue was empty:', wasEmpty, 'current length:', this.songQueue.length);
+    const wasEmpty = this.appState.state.queue.length === 0;
+    console.log('🎵 Queue was empty:', wasEmpty, 'current length:', this.appState.state.queue.length);
 
-    const newQueueItem = {
-      id: Date.now() + Math.random(),
-      path: queueItem.path,
-      title: queueItem.title,
-      artist: queueItem.artist,
-      duration: queueItem.duration,
-      requester: queueItem.requester,
-      addedVia: queueItem.addedVia || 'web-request',
-      addedAt: new Date()
-    };
-
+    // Add to AppState (canonical source of truth)
+    const newQueueItem = this.appState.addToQueue(queueItem);
     console.log('🎵 Created new queue item:', newQueueItem);
-    this.songQueue.push(newQueueItem);
-    console.log('🎵 Queue length after adding:', this.songQueue.length);
+
+    // Also update legacy songQueue for compatibility
+    this.songQueue = this.appState.getQueue();
 
     // If queue was empty, automatically load and start playing the first song
     if (wasEmpty) {
@@ -1975,14 +2105,6 @@ class KaiPlayerApp {
         console.error('❌ Failed to auto-load song from queue:', error);
       }
     }
-
-    // Notify renderer about queue update
-    console.log('🎵 Notifying renderer about queue update...');
-    this.sendToRenderer('queue:updated', this.songQueue);
-
-    // Broadcast queue update to web clients
-    console.log('🎵 Broadcasting queue update to web clients...');
-    this.broadcastQueueUpdate();
 
     console.log(`➕ Added "${queueItem.title}" to queue (requested by ${queueItem.requester})`);
   }
@@ -2042,27 +2164,9 @@ class KaiPlayerApp {
   }
 
 
-  async playerNext() {
-    // Trigger the same next action as the UI button
-    if (this.mainWindow && !this.mainWindow.isDestroyed()) {
-      this.mainWindow.webContents.executeJavaScript(`
-        if (window.queueManager && window.queueManager.loadNext) {
-          window.queueManager.loadNext();
-        }
-      `).catch(err => console.log('Next command error:', err));
-    }
-  }
+  // Removed duplicate playerNext() - see below for correct implementation
 
-  async clearQueue() {
-    // Trigger the same clear action as the UI button
-    if (this.mainWindow && !this.mainWindow.isDestroyed()) {
-      this.mainWindow.webContents.executeJavaScript(`
-        if (window.queueManager && window.queueManager.clearQueue) {
-          window.queueManager.clearQueue();
-        }
-      `).catch(err => console.log('Clear queue command error:', err));
-    }
-  }
+  // clearQueue() moved below - uses AppState
 
   async getCurrentSong() {
     if (this.currentSong && this.currentSong.metadata) {
@@ -2100,50 +2204,81 @@ class KaiPlayerApp {
   async playerPlay() {
     console.log('🎮 Admin play command - sending IPC message to renderer');
 
-    // Send IPC command to renderer instead of executing JavaScript
     if (this.mainWindow && !this.mainWindow.isDestroyed()) {
-      console.log('🎮 Main window is ready, sending admin:play IPC message');
       this.mainWindow.webContents.send('admin:play');
-      console.log('🎮 IPC message admin:play sent successfully');
+      return { success: true };
     } else {
-      console.log('🎮 ERROR: mainWindow not available or destroyed');
+      throw new Error('Main window not available');
+    }
+  }
+
+  async playerPause() {
+    if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+      this.mainWindow.webContents.send('admin:play'); // Same button toggles play/pause
+      return { success: true };
+    } else {
+      throw new Error('Main window not available');
+    }
+  }
+
+  async playerRestart() {
+    if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+      this.mainWindow.webContents.send('admin:restart');
+      return { success: true };
+    } else {
+      throw new Error('Main window not available');
+    }
+  }
+
+  async playerSeek(position) {
+    if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+      this.mainWindow.webContents.send('player:seek', position);
+      return { success: true };
+    } else {
+      throw new Error('Main window not available');
     }
   }
 
   async playerNext() {
-    // Move to next song in queue
-    if (this.songQueue.length > 0) {
-      this.songQueue.shift(); // Remove current song
-      this.broadcastQueueUpdate();
+    // Move to next song in queue using AppState
+    const queue = this.appState.getQueue();
 
-      if (this.songQueue.length > 0) {
-        // Load next song
-        const nextSong = this.songQueue[0];
+    if (queue.length > 0) {
+      // Remove first song from queue
+      const currentSong = queue[0];
+      if (currentSong && currentSong.id) {
+        this.appState.removeFromQueue(currentSong.id);
+      }
+
+      // Update legacy queue
+      this.songQueue = this.appState.getQueue();
+
+      // Load next song if there is one
+      const newQueue = this.appState.getQueue();
+      if (newQueue.length > 0) {
+        const nextSong = newQueue[0];
         await this.loadKaiFile(nextSong.path);
       } else {
-        // No more songs, stop playback
-        if (this.audioEngine) {
-          this.audioEngine.stop();
-        }
+        // No more songs, send stop command to renderer
+        this.mainWindow?.webContents.send('admin:restart'); // This will stop/reset
         this.currentSong = null;
-        this.sendToRenderer('song:stopped', {});
       }
     }
+
+    return { success: true };
   }
 
   async clearQueue() {
+    this.appState.clearQueue();
+    // Update legacy queue for compatibility
     this.songQueue = [];
-    this.sendToRenderer('queue:updated', this.songQueue);
-    this.broadcastQueueUpdate();
   }
 
   getCurrentSong() {
     return this.currentSong;
   }
 
-  getQueue() {
-    return this.songQueue;
-  }
+  // Removed duplicate - using appState.getQueue() above
 
   // Position broadcasting timer
   startPositionBroadcasting() {
@@ -2153,25 +2288,24 @@ class KaiPlayerApp {
 
     this.positionTimer = setInterval(() => {
       const hasWebServer = !!this.webServer;
-      const hasCurrentSong = !!this.currentSong;
+      const hasCurrentSong = !!this.appState.state.currentSong;
 
       if (hasWebServer && hasCurrentSong) {
-        // Use renderer playback state instead of main audio engine
-        const currentTime = this.rendererPlaybackState.currentTime || 0;
-        const isPlaying = this.rendererPlaybackState.isPlaying || false;
+        // Get interpolated position from AppState
+        const currentTime = this.appState.getCurrentPosition();
+        const isPlaying = this.appState.state.playback.isPlaying;
 
-        const songId = this.currentSong.metadata ?
-          `${this.currentSong.metadata.title} - ${this.currentSong.metadata.artist}` :
+        const songId = this.appState.state.currentSong ?
+          `${this.appState.state.currentSong.title} - ${this.appState.state.currentSong.artist}` :
           'Unknown Song';
 
         this.webServer.broadcastPlaybackPosition(currentTime, isPlaying, songId);
-      } else {
       }
     }, 1000); // Every second
   }
 
   // Clean up web server on app close
-  cleanup() {
+  async cleanup() {
     if (this.positionTimer) {
       clearInterval(this.positionTimer);
       this.positionTimer = null;
@@ -2184,6 +2318,11 @@ class KaiPlayerApp {
 
     if (this.webServer) {
       this.webServer.stop();
+    }
+
+    // Save state before exiting
+    if (this.statePersistence) {
+      await this.statePersistence.cleanup();
     }
   }
 }
@@ -2199,10 +2338,10 @@ process.on('unhandledRejection', (reason, promise) => {
   console.error('🚨 Unhandled Rejection at:', promise, 'reason:', reason);
 });
 
-app.on('window-all-closed', () => {
-  // Clean up web server
-  kaiApp.cleanup();
-  
+app.on('window-all-closed', async () => {
+  // Clean up web server and save state
+  await kaiApp.cleanup();
+
   // Quit the app when all windows are closed, even on macOS
   app.quit();
 });

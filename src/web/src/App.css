@@ -1,0 +1,324 @@
+@import './styles/theme.css';
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-family);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.app-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--spacing-md) var(--spacing-lg);
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-secondary);
+}
+
+.app-header h1 {
+  margin: 0;
+  font-size: var(--font-size-xl);
+  font-weight: 600;
+}
+
+.app-main {
+  display: flex;
+  gap: var(--spacing-lg);
+  padding: var(--spacing-lg);
+  flex: 1;
+}
+
+.left-column {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-lg);
+  flex: 1;
+  min-width: 400px;
+}
+
+.right-column {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-lg);
+  flex: 2;
+  min-width: 600px;
+}
+
+/* Login Screen */
+.login-screen {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  background: var(--bg-primary);
+}
+
+.login-panel {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-secondary);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-xl);
+  width: 100%;
+  max-width: 400px;
+}
+
+.login-panel h1 {
+  text-align: center;
+  margin-bottom: var(--spacing-lg);
+  font-size: var(--font-size-xxl);
+}
+
+.form-group {
+  margin-bottom: var(--spacing-md);
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: var(--spacing-xs);
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.form-group input {
+  width: 100%;
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-secondary);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: var(--font-size-md);
+  transition: border-color var(--transition-normal);
+}
+
+.form-group input:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+}
+
+.form-group input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.error-message {
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: rgba(255, 0, 0, 0.1);
+  border: 1px solid var(--accent-error);
+  border-radius: var(--radius-sm);
+  color: var(--accent-error);
+  margin-bottom: var(--spacing-md);
+}
+
+/* Loading Screen */
+.loading-screen {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  background: var(--bg-primary);
+}
+
+.loading-spinner {
+  font-size: var(--font-size-lg);
+  color: var(--text-secondary);
+}
+
+/* Button Styles */
+.btn {
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--btn-bg);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: var(--font-size-md);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition-normal);
+}
+
+.btn:hover {
+  background: var(--btn-bg-hover);
+}
+
+.btn:active {
+  transform: scale(0.98);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background: var(--accent-primary);
+  border-color: var(--accent-primary);
+  width: 100%;
+}
+
+.btn-primary:hover {
+  background: #0098ff;
+}
+
+.btn-sm {
+  padding: 6px 12px;
+  font-size: var(--font-size-sm);
+  min-height: 32px;
+}
+
+.btn-xs {
+  padding: 2px 8px;
+  font-size: 11px;
+  min-height: 24px;
+}
+
+.btn-danger {
+  background: transparent;
+  color: var(--accent-error);
+  border-color: var(--accent-error);
+}
+
+.btn-danger:hover {
+  background: var(--accent-error);
+  color: var(--text-primary);
+}
+
+.btn-success {
+  background: transparent;
+  color: var(--accent-success);
+  border-color: var(--accent-success);
+}
+
+.btn-success:hover {
+  background: var(--accent-success);
+  color: var(--text-primary);
+}
+
+.btn-secondary {
+  background: transparent;
+  color: var(--text-secondary);
+  border-color: var(--border-secondary);
+}
+
+.btn-secondary:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.btn-icon {
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Responsive Design */
+@media (max-width: 1200px) {
+  .app-main {
+    flex-direction: column;
+  }
+
+  .left-column,
+  .right-column {
+    min-width: 0;
+  }
+}
+
+/* Settings Panel with Tabs */
+.settings-panel {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-secondary);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.settings-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--spacing-md);
+  border-bottom: 1px solid var(--border-secondary);
+}
+
+.settings-header h2 {
+  margin: 0;
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+}
+
+.tab-buttons {
+  display: flex;
+  gap: var(--spacing-xs);
+}
+
+.tab-btn {
+  position: relative;
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-secondary);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tab-btn:hover {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+.tab-btn.active {
+  background: var(--accent-primary);
+  color: white;
+  border-color: var(--accent-primary);
+}
+
+.tab-btn .badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  background: #dc2626;
+  color: white;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.tab-btn.active .badge {
+  background: #991b1b;
+}
+
+.settings-content {
+  /* Content styling handled by child components */
+  min-height: 400px; /* Prevent layout shift */
+}
+
+/* Text utilities */
+.text-muted {
+  color: var(--text-muted);
+}
+
+.text-secondary {
+  color: var(--text-secondary);
+}

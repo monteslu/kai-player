@@ -6,11 +6,12 @@
   "homepage": "./",
   "scripts": {
     "start": "electron . --no-sandbox",
-    "dev": "electron . --dev --no-sandbox",
-    "build": "electron-builder",
-    "build:linux": "electron-builder --linux",
-    "build:win": "electron-builder --win",
-    "build:mac": "electron-builder --mac",
+    "dev": "npm run build:web && electron . --dev --no-sandbox",
+    "build": "npm run build:web && electron-builder",
+    "build:web": "cd src/web && npm install && npm run build",
+    "build:linux": "npm run build:web && electron-builder --linux",
+    "build:win": "npm run build:web && electron-builder --win",
+    "build:mac": "npm run build:web && electron-builder --mac",
     "rebuild": "electron-rebuild",
     "postinstall": "electron-builder install-app-deps"
   },
@@ -54,7 +55,9 @@
     "files": [
       "src/**/*",
       "static/**/*",
-      "node_modules/**/*"
+      "node_modules/**/*",
+      "!src/web/node_modules",
+      "!src/web/src"
     ],
     "icon": "static/images/logo.png",
     "linux": {
