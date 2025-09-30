@@ -29,42 +29,6 @@
             <!-- Sidebar -->
             <div class="sidebar">
                 <div class="section">
-                    <h3>Audio Devices <button id="refreshDevicesBtn" class="refresh-btn">↻</button></h3>
-                    <div class="device-selector">
-                        <label>PA Output:</label>
-                        <select id="paDeviceSelect"></select>
-                    </div>
-                    <div class="device-selector">
-                        <label>IEM Output:</label>
-                        <select id="iemDeviceSelect"></select>
-                    </div>
-                    <div class="device-selector">
-                        <label>
-                            <input type="checkbox" id="iemMonoVocals" checked>
-                            IEM Vocals in Mono (for single earpiece)
-                        </label>
-                    </div>
-                </div>
-
-                <div class="section">
-                    <h3>Mic Options</h3>
-                    <div class="device-selector">
-                        <label>Mic Input:</label>
-                        <select id="inputDeviceSelect"></select>
-                    </div>
-                    <div class="waveform-controls">
-                        <label class="checkbox-label">
-                            <input type="checkbox" id="micToSpeakers" checked>
-                            <span>Mic to Speakers</span>
-                        </label>
-                        <label class="checkbox-label">
-                            <input type="checkbox" id="enableMic" checked>
-                            <span>Enable Mic</span>
-                        </label>
-                    </div>
-                </div>
-
-                <div class="section">
                     <h3>Waveform Options</h3>
                     <div class="waveform-controls">
                         <label class="checkbox-label">
@@ -117,10 +81,13 @@
                 <div class="tab-nav">
                     <button class="tab-btn active" data-tab="player">Player</button>
                     <button class="tab-btn" data-tab="library">Library</button>
-                    <button class="tab-btn" data-tab="mixer">Mixer</button>
+                    <button class="tab-btn" data-tab="mixer">Audio Settings</button>
                     <button class="tab-btn" data-tab="coaching">Coaching</button>
                     <button class="tab-btn" data-tab="effects">Effects</button>
-                    <button class="tab-btn" data-tab="requests">Song Requests</button>
+                    <button class="tab-btn" data-tab="requests">
+                        Song Requests
+                        <span id="requestsBadge" class="tab-badge" style="display: none;">0</span>
+                    </button>
                     <button class="tab-btn" data-tab="server">Server</button>
                     <button class="tab-btn" data-tab="editor">Lyrics Editor</button>
                 </div>
@@ -182,17 +149,47 @@
                     <!-- Mixer Tab -->
                     <div id="mixer-tab" class="tab-pane">
                         <div class="mixer-container">
-                            <div class="mixer-header">
-                                <div class="mixer-label">Stem</div>
-                                <div class="mixer-label">Gain</div>
-                                <div class="mixer-label">PA</div>
-                                <div class="mixer-label">IEM</div>
-                                <div class="mixer-label">Solo</div>
-                                <div class="mixer-label">Meter</div>
-                            </div>
                             <div id="mixerStrips" class="mixer-strips">
                                 <div class="no-song-message">
                                     Load a KAI file to see mixer controls
+                                </div>
+                            </div>
+
+                            <!-- Audio Device Settings -->
+                            <div class="audio-settings-section">
+                                <h3>Audio Devices <button id="refreshDevicesBtn" class="refresh-btn">↻</button></h3>
+                                <div class="device-selector">
+                                    <label>PA Output:</label>
+                                    <select id="paDeviceSelect"></select>
+                                </div>
+                                <div class="device-selector">
+                                    <label>IEM Output:</label>
+                                    <select id="iemDeviceSelect"></select>
+                                </div>
+                                <div class="device-selector">
+                                    <label>
+                                        <input type="checkbox" id="iemMonoVocals" checked>
+                                        IEM Vocals in Mono (for single earpiece)
+                                    </label>
+                                </div>
+                            </div>
+
+                            <!-- Mic Options -->
+                            <div class="audio-settings-section">
+                                <h3>Mic Options</h3>
+                                <div class="device-selector">
+                                    <label>Mic Input:</label>
+                                    <select id="inputDeviceSelect"></select>
+                                </div>
+                                <div class="waveform-controls">
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" id="micToSpeakers" checked>
+                                        <span>Mic to Speakers</span>
+                                    </label>
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" id="enableMic" checked>
+                                        <span>Enable Mic</span>
+                                    </label>
                                 </div>
                             </div>
                         </div>

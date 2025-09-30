@@ -57,6 +57,15 @@ class WebServer {
         // Serve Butterchurn libraries for the screenshot generator (both root and admin paths)
         this.app.use('/lib', express.static(path.join(__dirname, '../renderer/lib')));
         this.app.use('/admin/lib', express.static(path.join(__dirname, '../renderer/lib')));
+
+        // Serve Butterchurn effect screenshots
+        this.app.use('/screenshots', express.static(path.join(__dirname, '../../static/images/butterchurn-screenshots')));
+
+        // Serve React web UI build (production)
+        const webDistPath = path.join(__dirname, '../web/dist');
+        if (fs.existsSync(webDistPath)) {
+            this.app.use('/admin', express.static(webDistPath));
+        }
         
         // Rate limiting middleware
         this.app.use((req, res, next) => {
@@ -72,8 +81,8 @@ class WebServer {
             res.sendFile(path.join(__dirname, '../../static/song-request.html'));
         });
 
-        // Admin page for KJs
-        this.app.get('/admin', (req, res) => {
+        // Admin page for KJs (old static version)
+        this.app.get('/admin/legacy', (req, res) => {
             res.sendFile(path.join(__dirname, '../../static/admin.html'));
         });
 
@@ -129,6 +138,28 @@ class WebServer {
             // Clear session data (cookie-session handles the rest)
             req.session = null;
             res.json({ success: true, message: 'Logged out successfully' });
+        });
+
+        // Auth middleware - require login for protected admin endpoints
+        const requireAuth = (req, res, next) => {
+            if (req.session && req.session.isAdmin) {
+                next(); // User is authenticated
+            } else {
+                res.status(401).json({
+                    error: 'Unauthorized',
+                    message: 'Please login to access admin features'
+                });
+            }
+        };
+
+        // Apply auth middleware to all /admin/* routes except login/logout/check-auth
+        this.app.use('/admin/*', (req, res, next) => {
+            const openRoutes = ['/admin/login', '/admin/logout', '/admin/check-auth'];
+            if (openRoutes.includes(req.path)) {
+                next(); // Allow these routes without auth
+            } else {
+                requireAuth(req, res, next); // Require auth for everything else
+            }
         });
 
         // Get available letters for alphabet navigation
@@ -265,6 +296,7 @@ class WebServer {
 
                 const limitedSongs = songs.slice(0, limit).map(song => ({
                     id: song.path,
+                    path: song.path,
                     title: song.title,
                     artist: song.artist,
                     duration: song.duration
@@ -349,6 +381,11 @@ class WebServer {
                 console.log('📢 Notifying main app about new request...');
                 this.mainApp.onSongRequest?.(request);
 
+                // Broadcast to admin clients and renderer
+                this.io.to('admin-clients').emit('song-request', request);
+                this.io.to('electron-apps').emit('song-request', request);
+                console.log('📡 Broadcasted request to admin and renderer');
+
                 const responseData = {
                     success: true,
                     message: this.settings.requireKJApproval ?
@@ -370,8 +407,8 @@ class WebServer {
         // Get queue status for users
         this.app.get('/api/queue', (req, res) => {
             try {
-                const queue = this.mainApp.getQueue?.() || [];
-                const queueInfo = queue.map((item, index) => ({
+                const state = this.mainApp.appState.getSnapshot();
+                const queueInfo = state.queue.map((item, index) => ({
                     position: index + 1,
                     title: item.title,
                     artist: item.artist,
@@ -380,7 +417,8 @@ class WebServer {
 
                 res.json({
                     queue: queueInfo,
-                    currentlyPlaying: this.mainApp.getCurrentSong?.() || null
+                    currentlyPlaying: state.currentSong,
+                    playback: state.playback
                 });
             } catch (error) {
                 console.error('Error fetching queue:', error);
@@ -388,7 +426,7 @@ class WebServer {
             }
         });
 
-        // Admin endpoints (for the main Electron app)
+        // Admin endpoints (for the main Electron app) - all require auth via middleware above
         this.app.get('/admin/requests', (req, res) => {
             res.json({
                 requests: this.songRequests,
@@ -398,36 +436,25 @@ class WebServer {
 
         this.app.post('/admin/requests/:id/approve', async (req, res) => {
             const requestId = parseFloat(req.params.id);
-            const request = this.songRequests.find(r => r.id === requestId);
+            const result = await this.approveRequest(requestId);
 
-            if (!request) {
-                return res.status(404).json({ error: 'Request not found' });
-            }
-
-            if (request.status === 'pending') {
-                request.status = 'approved';
-                await this.addToQueue(request);
-                request.status = 'queued';
-
-                res.json({ success: true, request });
+            if (result.success) {
+                res.json(result);
             } else {
-                res.status(400).json({ error: 'Request is not pending' });
+                const status = result.error === 'Request not found' ? 404 : 400;
+                res.status(status).json(result);
             }
         });
 
-        this.app.post('/admin/requests/:id/reject', (req, res) => {
+        this.app.post('/admin/requests/:id/reject', async (req, res) => {
             const requestId = parseFloat(req.params.id);
-            const request = this.songRequests.find(r => r.id === requestId);
-            
-            if (!request) {
-                return res.status(404).json({ error: 'Request not found' });
-            }
+            const result = await this.rejectRequest(requestId);
 
-            if (request.status === 'pending') {
-                request.status = 'rejected';
-                res.json({ success: true, request });
+            if (result.success) {
+                res.json(result);
             } else {
-                res.status(400).json({ error: 'Request is not pending' });
+                const status = result.error === 'Request not found' ? 404 : 400;
+                res.status(status).json(result);
             }
         });
 
@@ -494,15 +521,26 @@ class WebServer {
             });
         });
 
+        // Unified state endpoint - canonical source of truth for web clients
+        this.app.get('/api/state', (req, res) => {
+            try {
+                const state = this.mainApp.appState.getSnapshot();
+                res.json(state);
+            } catch (error) {
+                console.error('Error fetching app state:', error);
+                res.status(500).json({ error: 'Failed to fetch state' });
+            }
+        });
+
 
         // Admin queue management endpoints
         this.app.get('/admin/queue', async (req, res) => {
             try {
-                const queue = await this.mainApp.getQueue?.() || [];
-                const currentSong = await this.mainApp.getCurrentSong?.() || null;
+                const state = this.mainApp.appState.getSnapshot();
                 res.json({
-                    queue,
-                    currentSong
+                    queue: state.queue,
+                    currentSong: state.currentSong,
+                    playback: state.playback
                 });
             } catch (error) {
                 console.error('Error fetching admin queue:', error);
@@ -535,6 +573,60 @@ class WebServer {
             }
         });
 
+        this.app.post('/admin/player/load', async (req, res) => {
+            try {
+                const { path } = req.body;
+
+                if (!path) {
+                    return res.status(400).json({ error: 'Song path required' });
+                }
+
+                if (this.mainApp.loadKaiFile) {
+                    await this.mainApp.loadKaiFile(path);
+                    res.json({ success: true, message: 'Song loaded' });
+                } else {
+                    res.status(500).json({ error: 'Load song not available' });
+                }
+            } catch (error) {
+                console.error('Error loading song:', error);
+                res.status(500).json({ error: 'Failed to load song' });
+            }
+        });
+
+        this.app.post('/admin/player/pause', async (req, res) => {
+            try {
+                await this.mainApp.playerPause?.();
+                res.json({ success: true, message: 'Pause command sent' });
+            } catch (error) {
+                console.error('Error sending pause command:', error);
+                res.status(500).json({ error: 'Failed to send pause command' });
+            }
+        });
+
+        this.app.post('/admin/player/restart', async (req, res) => {
+            try {
+                await this.mainApp.playerRestart?.();
+                res.json({ success: true, message: 'Restart command sent' });
+            } catch (error) {
+                console.error('Error sending restart command:', error);
+                res.status(500).json({ error: 'Failed to send restart command' });
+            }
+        });
+
+        this.app.post('/admin/player/seek', async (req, res) => {
+            try {
+                const { position } = req.body;
+                if (typeof position !== 'number') {
+                    return res.status(400).json({ error: 'Position required' });
+                }
+                await this.mainApp.playerSeek?.(position);
+                res.json({ success: true, message: 'Seek command sent' });
+            } catch (error) {
+                console.error('Error sending seek command:', error);
+                res.status(500).json({ error: 'Failed to send seek command' });
+            }
+        });
+
         this.app.post('/admin/player/next', async (req, res) => {
             try {
                 await this.mainApp.playerNext?.();
@@ -542,6 +634,35 @@ class WebServer {
             } catch (error) {
                 console.error('Error sending next command:', error);
                 res.status(500).json({ error: 'Failed to send next command' });
+            }
+        });
+
+        this.app.post('/admin/queue/add', async (req, res) => {
+            try {
+                const { song, requester } = req.body;
+
+                if (!song || !song.path) {
+                    return res.status(400).json({ error: 'Song path required' });
+                }
+
+                const queueItem = {
+                    path: song.path,
+                    title: song.title || 'Unknown',
+                    artist: song.artist || 'Unknown',
+                    duration: song.duration,
+                    requester: requester || 'Admin',
+                    addedVia: 'web-admin'
+                };
+
+                if (this.mainApp.addSongToQueue) {
+                    await this.mainApp.addSongToQueue(queueItem);
+                    res.json({ success: true, message: 'Song added to queue' });
+                } else {
+                    res.status(500).json({ error: 'Queue not available' });
+                }
+            } catch (error) {
+                console.error('Error adding to queue:', error);
+                res.status(500).json({ error: 'Failed to add to queue' });
             }
         });
 
@@ -560,8 +681,14 @@ class WebServer {
             try {
                 // Get effects list from renderer via IPC
                 const effects = await this.mainApp.getEffectsList?.() || [];
-                const currentEffect = await this.mainApp.getCurrentEffect?.() || null;
-                const disabledEffects = await this.mainApp.getDisabledEffects?.() || [];
+
+                // Get current effect from AppState
+                const state = this.mainApp.appState.getSnapshot();
+                const currentEffect = state.effects?.current || null;
+
+                // Get disabled effects from settings (waveformPreferences)
+                const waveformPrefs = this.mainApp.settings.get('waveformPreferences', {});
+                const disabledEffects = waveformPrefs.disabledEffects || [];
 
                 res.json({
                     effects,
@@ -627,6 +754,333 @@ class WebServer {
                 res.status(500).json({ error: 'Failed to refresh library cache' });
             }
         });
+
+        // ===== NEW: Master Mixer Control Endpoints =====
+        this.app.post('/admin/mixer/master-gain', async (req, res) => {
+            try {
+                const { bus, gainDb } = req.body;
+                if (!bus || typeof gainDb !== 'number') {
+                    return res.status(400).json({ error: 'bus (PA/IEM/mic) and gainDb required' });
+                }
+
+                // Update AppState immediately
+                const currentMixer = this.mainApp.appState.state.mixer;
+                if (currentMixer[bus]) {
+                    console.log(`🎚️ Setting ${bus} gain: ${currentMixer[bus].gain} → ${gainDb} dB`);
+
+                    // Create a new mixer state object with the updated bus
+                    const updatedMixer = {
+                        ...currentMixer,
+                        [bus]: {
+                            ...currentMixer[bus],
+                            gain: gainDb
+                        }
+                    };
+                    this.mainApp.appState.updateMixerState(updatedMixer);
+                }
+
+                // Call audioEngine via renderer window to apply audio changes
+                if (this.mainApp.mainWindow && !this.mainApp.mainWindow.isDestroyed()) {
+                    this.mainApp.mainWindow.webContents.send('mixer:setMasterGain', bus, gainDb);
+                    res.json({ success: true, bus, gainDb });
+                } else {
+                    res.status(500).json({ error: 'Renderer window not available' });
+                }
+            } catch (error) {
+                console.error('Error setting master gain:', error);
+                res.status(500).json({ error: 'Failed to set master gain' });
+            }
+        });
+
+        this.app.post('/admin/mixer/master-mute', async (req, res) => {
+            try {
+                const { bus } = req.body;
+                if (!bus) {
+                    return res.status(400).json({ error: 'bus (PA/IEM/mic) required' });
+                }
+
+                // Update AppState immediately (toggle mute)
+                const currentMixer = this.mainApp.appState.state.mixer;
+                let newMuted = false;
+
+                if (currentMixer[bus]) {
+                    const oldMuted = currentMixer[bus].muted;
+                    newMuted = !oldMuted;
+                    console.log(`🔇 Toggling ${bus} mute: ${oldMuted} → ${newMuted}`);
+
+                    // Create a new mixer state object with the updated bus
+                    const updatedMixer = {
+                        ...currentMixer,
+                        [bus]: {
+                            ...currentMixer[bus],
+                            muted: newMuted
+                        }
+                    };
+                    this.mainApp.appState.updateMixerState(updatedMixer);
+                }
+
+                // Call audioEngine via renderer window to apply audio changes
+                if (this.mainApp.mainWindow && !this.mainApp.mainWindow.isDestroyed()) {
+                    // Send the new muted state, not a toggle command
+                    this.mainApp.mainWindow.webContents.send('mixer:setMasterMute', bus, newMuted);
+                    res.json({ success: true, bus, muted: newMuted });
+                } else {
+                    res.status(500).json({ error: 'Renderer window not available' });
+                }
+            } catch (error) {
+                console.error('Error toggling master mute:', error);
+                res.status(500).json({ error: 'Failed to toggle master mute' });
+            }
+        });
+
+        // ===== NEW: Effects Control Endpoints =====
+        this.app.post('/admin/effects/set', async (req, res) => {
+            try {
+                const { effectName } = req.body;
+                if (!effectName) {
+                    return res.status(400).json({ error: 'effectName required' });
+                }
+
+                // Update AppState
+                this.mainApp.appState.updateEffectsState({ current: effectName });
+
+                // Send to renderer
+                await this.mainApp.sendToRendererAndWait('effects:set', { effectName }, 2000);
+
+                res.json({ success: true, effectName });
+            } catch (error) {
+                console.error('Error setting effect:', error);
+                res.status(500).json({ error: 'Failed to set effect' });
+            }
+        });
+
+        this.app.post('/admin/effects/next', async (req, res) => {
+            try {
+                this.mainApp.sendToRenderer('effects:next');
+                res.json({ success: true });
+            } catch (error) {
+                console.error('Error changing to next effect:', error);
+                res.status(500).json({ error: 'Failed to change effect' });
+            }
+        });
+
+        this.app.post('/admin/effects/previous', async (req, res) => {
+            try {
+                this.mainApp.sendToRenderer('effects:previous');
+                res.json({ success: true });
+            } catch (error) {
+                console.error('Error changing to previous effect:', error);
+                res.status(500).json({ error: 'Failed to change effect' });
+            }
+        });
+
+        this.app.post('/admin/effects/random', async (req, res) => {
+            try {
+                this.mainApp.sendToRenderer('effects:random');
+                res.json({ success: true });
+            } catch (error) {
+                console.error('Error selecting random effect:', error);
+                res.status(500).json({ error: 'Failed to select random effect' });
+            }
+        });
+
+        this.app.post('/admin/effects/disable', async (req, res) => {
+            try {
+                const { effectName } = req.body;
+                if (!effectName) {
+                    return res.status(400).json({ error: 'effectName required' });
+                }
+
+                // Get current waveformPreferences from settings
+                const waveformPrefs = this.mainApp.settings.get('waveformPreferences', {});
+                const disabled = [...(waveformPrefs.disabledEffects || [])];
+
+                if (!disabled.includes(effectName)) {
+                    disabled.push(effectName);
+                    waveformPrefs.disabledEffects = disabled;
+                    this.mainApp.settings.set('waveformPreferences', waveformPrefs);
+                    await this.mainApp.settings.save();
+
+                    // Notify renderer to update its disabled effects list
+                    this.mainApp.sendToRenderer('effects:disable', effectName);
+                }
+
+                res.json({ success: true, disabled });
+            } catch (error) {
+                console.error('Error disabling effect:', error);
+                res.status(500).json({ error: 'Failed to disable effect' });
+            }
+        });
+
+        this.app.post('/admin/effects/enable', async (req, res) => {
+            try {
+                const { effectName } = req.body;
+                if (!effectName) {
+                    return res.status(400).json({ error: 'effectName required' });
+                }
+
+                // Get current waveformPreferences from settings
+                const waveformPrefs = this.mainApp.settings.get('waveformPreferences', {});
+                const disabled = (waveformPrefs.disabledEffects || []).filter(e => e !== effectName);
+                waveformPrefs.disabledEffects = disabled;
+                this.mainApp.settings.set('waveformPreferences', waveformPrefs);
+                await this.mainApp.settings.save();
+
+                // Notify renderer to update its disabled effects list
+                this.mainApp.sendToRenderer('effects:enable', effectName);
+
+                res.json({ success: true, disabled });
+            } catch (error) {
+                console.error('Error enabling effect:', error);
+                res.status(500).json({ error: 'Failed to enable effect' });
+            }
+        });
+
+        // ===== NEW: Preferences Control Endpoints =====
+        this.app.get('/admin/preferences', (req, res) => {
+            try {
+                const state = this.mainApp.appState.getSnapshot();
+                res.json(state.preferences);
+            } catch (error) {
+                console.error('Error fetching preferences:', error);
+                res.status(500).json({ error: 'Failed to fetch preferences' });
+            }
+        });
+
+        this.app.get('/admin/settings/waveform', (req, res) => {
+            try {
+                const waveformPrefs = this.mainApp.settings.get('waveformPreferences', {});
+                res.json({ settings: waveformPrefs });
+            } catch (error) {
+                console.error('Error fetching waveform settings:', error);
+                res.status(500).json({ error: 'Failed to fetch waveform settings' });
+            }
+        });
+
+        this.app.post('/admin/settings/waveform', async (req, res) => {
+            try {
+                const waveformPrefs = this.mainApp.settings.get('waveformPreferences', {});
+                const updated = { ...waveformPrefs, ...req.body };
+                this.mainApp.settings.set('waveformPreferences', updated);
+                await this.mainApp.settings.save();
+
+                // Send to renderer for immediate effect
+                this.mainApp.sendToRenderer('waveform:settingsChanged', updated);
+
+                res.json({ success: true, settings: updated });
+            } catch (error) {
+                console.error('Error updating waveform settings:', error);
+                res.status(500).json({ error: 'Failed to update waveform settings' });
+            }
+        });
+
+        this.app.get('/admin/settings/autotune', (req, res) => {
+            try {
+                const autotunePrefs = this.mainApp.settings.get('autoTunePreferences', {});
+                res.json({ settings: autotunePrefs });
+            } catch (error) {
+                console.error('Error fetching autotune settings:', error);
+                res.status(500).json({ error: 'Failed to fetch autotune settings' });
+            }
+        });
+
+        this.app.post('/admin/settings/autotune', async (req, res) => {
+            try {
+                const autotunePrefs = this.mainApp.settings.get('autoTunePreferences', {});
+                const updated = { ...autotunePrefs, ...req.body };
+                this.mainApp.settings.set('autoTunePreferences', updated);
+                await this.mainApp.settings.save();
+
+                // Send to renderer for immediate effect
+                this.mainApp.sendToRenderer('autotune:settingsChanged', updated);
+
+                res.json({ success: true, settings: updated });
+            } catch (error) {
+                console.error('Error updating autotune settings:', error);
+                res.status(500).json({ error: 'Failed to update autotune settings' });
+            }
+        });
+
+        this.app.post('/admin/preferences/autotune', async (req, res) => {
+            try {
+                const { enabled, strength, speed } = req.body;
+                const updates = {};
+
+                if (typeof enabled === 'boolean') updates.enabled = enabled;
+                if (typeof strength === 'number') updates.strength = strength;
+                if (typeof speed === 'number') updates.speed = speed;
+
+                this.mainApp.appState.setAutoTunePreferences(updates);
+
+                // Send to renderer
+                await this.mainApp.sendToRendererAndWait('autotune:setSettings', updates, 2000);
+
+                res.json({ success: true, autoTune: this.mainApp.appState.state.preferences.autoTune });
+            } catch (error) {
+                console.error('Error updating autotune preferences:', error);
+                res.status(500).json({ error: 'Failed to update autotune preferences' });
+            }
+        });
+
+        this.app.post('/admin/preferences/microphone', async (req, res) => {
+            try {
+                const { enabled, gain, toSpeakers } = req.body;
+                const updates = {};
+
+                if (typeof enabled === 'boolean') updates.enabled = enabled;
+                if (typeof gain === 'number') updates.gain = gain;
+                if (typeof toSpeakers === 'boolean') updates.toSpeakers = toSpeakers;
+
+                this.mainApp.appState.setMicrophonePreferences(updates);
+
+                // Send to renderer
+                if (updates.enabled !== undefined) {
+                    await this.mainApp.sendToRendererAndWait('microphone:setEnabled', { enabled: updates.enabled }, 2000);
+                }
+                if (updates.gain !== undefined) {
+                    await this.mainApp.sendToRendererAndWait('microphone:setGain', { gain: updates.gain }, 2000);
+                }
+
+                res.json({ success: true, microphone: this.mainApp.appState.state.preferences.microphone });
+            } catch (error) {
+                console.error('Error updating microphone preferences:', error);
+                res.status(500).json({ error: 'Failed to update microphone preferences' });
+            }
+        });
+
+        this.app.post('/admin/preferences/effects', async (req, res) => {
+            try {
+                const updates = {};
+                const { enableWaveforms, enableEffects, randomEffectOnSong, overlayOpacity, showUpcomingLyrics } = req.body;
+
+                if (typeof enableWaveforms === 'boolean') updates.enableWaveforms = enableWaveforms;
+                if (typeof enableEffects === 'boolean') updates.enableEffects = enableEffects;
+                if (typeof randomEffectOnSong === 'boolean') updates.randomEffectOnSong = randomEffectOnSong;
+                if (typeof overlayOpacity === 'number') updates.overlayOpacity = overlayOpacity;
+                if (typeof showUpcomingLyrics === 'boolean') updates.showUpcomingLyrics = showUpcomingLyrics;
+
+                this.mainApp.appState.updateEffectsState(updates);
+
+                // Send to renderer
+                await this.mainApp.sendToRendererAndWait('effects:updateSettings', updates, 2000);
+
+                res.json({ success: true, effects: this.mainApp.appState.state.effects });
+            } catch (error) {
+                console.error('Error updating effects preferences:', error);
+                res.status(500).json({ error: 'Failed to update effects preferences' });
+            }
+        });
+
+        // SPA fallback for React Router - serve index.html for all /admin/* routes not handled above
+        this.app.get('/admin/*', (req, res) => {
+            const webDistPath = path.join(__dirname, '../web/dist');
+            const indexPath = path.join(webDistPath, 'index.html');
+            if (fs.existsSync(indexPath)) {
+                res.sendFile(indexPath);
+            } else {
+                res.status(404).send('Web UI not built. Run: cd src/web && npm run build');
+            }
+        });
     }
 
     setupSocketHandlers() {
@@ -645,6 +1099,30 @@ class WebServer {
                 } else if (data.type === 'admin') {
                     socket.join('admin-clients');
                     console.log('Admin client connected and authenticated');
+
+                    // Send current state to newly connected admin client
+                    const currentState = this.mainApp.appState.getSnapshot();
+
+                    // Get disabled effects from settings (not AppState)
+                    const waveformPrefs = this.mainApp.settings.get('waveformPreferences', {});
+                    const effectsState = {
+                        ...currentState.effects,
+                        disabled: waveformPrefs.disabledEffects || []
+                    };
+
+                    socket.emit('mixer-update', currentState.mixer);
+                    socket.emit('effects-update', effectsState);
+                    socket.emit('queue-update', {
+                        queue: currentState.queue,
+                        currentSong: currentState.currentSong
+                    });
+                    socket.emit('playback-state-update', currentState.playback);
+                    console.log('📤 Sent initial state to admin client:', {
+                        mixer: currentState.mixer,
+                        queue: currentState.queue.length,
+                        playback: currentState.playback,
+                        disabledEffects: effectsState.disabled.length
+                    });
                 }
             });
 
@@ -725,6 +1203,48 @@ class WebServer {
             console.error('❌ mainApp.addSongToQueue method not available');
             throw new Error('Queue functionality not available');
         }
+    }
+
+    async approveRequest(requestId) {
+        const request = this.songRequests.find(r => r.id === requestId);
+
+        if (!request) {
+            return { success: false, error: 'Request not found' };
+        }
+
+        if (request.status !== 'pending') {
+            return { success: false, error: 'Request is not pending' };
+        }
+
+        request.status = 'approved';
+        await this.addToQueue(request);
+        request.status = 'queued';
+
+        // Broadcast the approval
+        this.io.to('admin-clients').emit('request-approved', request);
+        this.io.to('electron-apps').emit('request-approved', request);
+
+        return { success: true, request };
+    }
+
+    async rejectRequest(requestId) {
+        const request = this.songRequests.find(r => r.id === requestId);
+
+        if (!request) {
+            return { success: false, error: 'Request not found' };
+        }
+
+        if (request.status !== 'pending') {
+            return { success: false, error: 'Request is not pending' };
+        }
+
+        request.status = 'rejected';
+
+        // Broadcast the rejection
+        this.io.to('admin-clients').emit('request-rejected', request);
+        this.io.to('electron-apps').emit('request-rejected', request);
+
+        return { success: true, request };
     }
 
     async start(port = 3069) {
@@ -899,15 +1419,25 @@ class WebServer {
         }
     }
 
+    broadcastPlaybackState(playbackState) {
+        if (this.io) {
+            this.io.emit('playback-state-update', playbackState);
+        }
+    }
+
     broadcastSongLoaded(songData) {
         if (this.io) {
-            this.io.emit('song-loaded', {
-                songId: songData.metadata.title + ' - ' + songData.metadata.artist,
-                title: songData.metadata.title,
-                artist: songData.metadata.artist,
-                duration: songData.metadata.duration
-            });
+            // Handle both AppState song format and legacy format
+            const title = songData.title || songData.metadata?.title || 'Unknown';
+            const artist = songData.artist || songData.metadata?.artist || 'Unknown';
+            const duration = songData.duration || songData.metadata?.duration || 0;
 
+            this.io.emit('song-loaded', {
+                songId: `${title} - ${artist}`,
+                title,
+                artist,
+                duration
+            });
         }
     }
 

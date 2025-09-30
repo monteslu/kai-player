@@ -1,0 +1,103 @@
+.player-controls {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-secondary);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.player-info {
+  text-align: center;
+}
+
+.song-title {
+  font-size: var(--font-size-xl);
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: var(--spacing-xs);
+}
+
+.song-artist {
+  font-size: var(--font-size-md);
+  color: var(--text-secondary);
+}
+
+.player-transport {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.btn-icon {
+  width: 48px;
+  height: 48px;
+  font-size: 20px;
+  padding: 0;
+}
+
+.btn-play {
+  width: 64px;
+  height: 64px;
+  font-size: 28px;
+  background: var(--accent-primary);
+  border-color: var(--accent-primary);
+}
+
+.btn-play:hover {
+  background: #0098ff;
+}
+
+.btn-play.playing {
+  background: var(--accent-warning);
+  border-color: var(--accent-warning);
+}
+
+.player-progress {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.time-current,
+.time-total {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  min-width: 40px;
+  font-variant-numeric: tabular-nums;
+}
+
+.progress-bar {
+  flex: 1;
+  height: 32px;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-md);
+  position: relative;
+  cursor: pointer;
+  border: 1px solid var(--border-secondary);
+}
+
+.progress-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  background: var(--accent-primary);
+  border-radius: var(--radius-md);
+  pointer-events: none;
+  transition: width 0.1s linear;
+}
+
+.progress-handle {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 16px;
+  height: 16px;
+  background: var(--text-primary);
+  border-radius: 50%;
+  pointer-events: none;
+  box-shadow: var(--shadow-md);
+}

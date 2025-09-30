@@ -698,6 +698,7 @@ body {
 }
 
 .tab-btn {
+    position: relative;
     padding: 12px 24px;
     background: none;
     border: none;
@@ -706,6 +707,9 @@ body {
     border-bottom: 2px solid transparent;
     transition: all 0.2s;
     font-size: 14px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
 }
 
 .tab-btn:hover {
@@ -717,6 +721,21 @@ body {
     color: #007acc;
     border-bottom-color: #007acc;
     background: #1a1a1a;
+}
+
+.tab-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 6px;
+    background: #dc2626;
+    color: white;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1;
 }
 
 .tab-content {
@@ -738,6 +757,77 @@ body {
 .mixer-container {
     padding: 16px;
     height: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    overflow-y: auto;
+}
+
+.audio-settings-section {
+    background: #1e1e1e;
+    border: 1px solid #3a3a3a;
+    border-radius: 8px;
+    padding: 16px;
+}
+
+.audio-settings-section h3 {
+    margin: 0 0 16px 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: #e0e0e0;
+    border-bottom: 1px solid #3a3a3a;
+    padding-bottom: 8px;
+}
+
+.audio-settings-section .device-selector {
+    margin-bottom: 12px;
+}
+
+.audio-settings-section .device-selector label {
+    display: block;
+    font-size: 13px;
+    color: #b0b0b0;
+    margin-bottom: 6px;
+}
+
+.audio-settings-section .device-selector select {
+    width: 100%;
+    padding: 8px;
+    background: #2a2a2a;
+    border: 1px solid #3a3a3a;
+    border-radius: 4px;
+    color: #e0e0e0;
+    font-size: 13px;
+}
+
+.audio-settings-section .waveform-controls,
+.audio-settings-section .autotune-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.audio-settings-section .slider-group {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.audio-settings-section .slider-group label {
+    min-width: 80px;
+    font-size: 13px;
+    color: #b0b0b0;
+}
+
+.audio-settings-section .slider-group input[type="range"] {
+    flex: 1;
+}
+
+.audio-settings-section .slider-group .slider-value {
+    min-width: 50px;
+    text-align: right;
+    font-size: 13px;
+    color: #e0e0e0;
 }
 
 .mixer-header {

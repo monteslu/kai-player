@@ -268,6 +268,13 @@ class EffectsManager {
             setTimeout(() => window.appInstance.updateEffectDisplay(), 100);
         }
 
+        // Report effect change to main process (for AppState and web admin sync)
+        if (window.kaiAPI?.renderer) {
+            window.kaiAPI.renderer.updateEffectsState({
+                current: preset.name
+            });
+        }
+
         console.log('🎨 Selected effect:', preset.displayName, 'by', preset.author, '(' + preset.name + ')');
     }
 
@@ -278,19 +285,19 @@ class EffectsManager {
         if (this.disabledEffects.has(effectName)) {
             // Enable the effect
             this.disabledEffects.delete(effectName);
-            console.log('Enabled effect:', preset.displayName);
+            console.log('🎨 Enabled effect:', preset.displayName);
         } else {
             // Disable the effect
             this.disabledEffects.add(effectName);
-            console.log('Disabled effect:', preset.displayName);
-            
+            console.log('🎨 Disabled effect:', preset.displayName);
+
             // If the currently selected effect is being disabled, don't change it
             // The user should manually select a different effect
         }
 
         // Save the updated disabled effects
         this.saveDisabledEffects();
-        
+
         // Refresh the display to update button states
         this.displayPresets();
     }
@@ -346,47 +353,40 @@ class EffectsManager {
 
     async loadDisabledEffects() {
         try {
-            // First try to get from main app preferences
-            if (window.appInstance && window.appInstance.waveformPreferences && window.appInstance.waveformPreferences.disabledEffects) {
-                const disabledArray = window.appInstance.waveformPreferences.disabledEffects;
-                this.disabledEffects = new Set(disabledArray);
-                this.loadedFromMainPrefs = true;
-                console.log('Loaded', this.disabledEffects.size, 'disabled effects from main preferences');
-                return;
-            }
-            
-            // Try to get from settings API
+            // Load from settings (waveformPreferences) - the ONLY source of truth
             if (window.settingsAPI) {
                 const waveformPrefs = await window.settingsAPI.getWaveformPreferences();
                 if (waveformPrefs && waveformPrefs.disabledEffects) {
                     const disabledArray = waveformPrefs.disabledEffects;
                     this.disabledEffects = new Set(disabledArray);
                     this.loadedFromMainPrefs = true;
-                    console.log('Loaded', this.disabledEffects.size, 'disabled effects from settings API');
+                    console.log('🎨 Loaded disabled effects from settings:', disabledArray);
                     return;
                 }
             }
-            
+
+            // Fallback to appInstance.waveformPreferences if settingsAPI not ready
+            if (window.appInstance && window.appInstance.waveformPreferences && window.appInstance.waveformPreferences.disabledEffects) {
+                const disabledArray = window.appInstance.waveformPreferences.disabledEffects;
+                this.disabledEffects = new Set(disabledArray);
+                this.loadedFromMainPrefs = true;
+                console.log('🎨 Loaded disabled effects from appInstance.waveformPreferences:', disabledArray);
+                return;
+            }
+
             // Fallback to localStorage for backwards compatibility
             const stored = localStorage.getItem('disabledEffects');
             if (stored) {
                 const disabledArray = JSON.parse(stored);
                 this.disabledEffects = new Set(disabledArray);
-                console.log('Loaded', this.disabledEffects.size, 'disabled effects from localStorage (migrating to settings)');
-                
-                // Migrate to settings API if available
-                if (window.settingsAPI) {
-                    const currentPrefs = await window.settingsAPI.getWaveformPreferences();
-                    currentPrefs.disabledEffects = disabledArray;
-                    await window.settingsAPI.setWaveformPreferences(currentPrefs);
-                    this.loadedFromMainPrefs = true;
-                    // Remove old localStorage entry
-                    localStorage.removeItem('disabledEffects');
-                    console.log('Migrated disabled effects to settings API');
-                }
+                console.log('🎨 Loaded disabled effects from localStorage (migrating)');
+                // Save to settings
+                this.saveDisabledEffects();
+                // Remove old localStorage entry
+                localStorage.removeItem('disabledEffects');
             }
         } catch (error) {
-            console.error('Failed to load disabled effects:', error);
+            console.error('🎨 Failed to load disabled effects:', error);
             this.disabledEffects = new Set();
         }
     }
@@ -394,30 +394,18 @@ class EffectsManager {
     async saveDisabledEffects() {
         try {
             const disabledArray = Array.from(this.disabledEffects);
-            
-            // Use settings API as primary method
+
+            // Save to settings (waveformPreferences)
             if (window.settingsAPI) {
-                const currentPrefs = await window.settingsAPI.getWaveformPreferences();
-                currentPrefs.disabledEffects = disabledArray;
-                const result = await window.settingsAPI.setWaveformPreferences(currentPrefs);
-                if (result && result.success !== false) {
-                    console.log('Saved', disabledArray.length, 'disabled effects to settings API');
-                    return;
-                }
-            }
-            
-            // Save to main app preferences if settings API failed
-            if (window.appInstance && window.appInstance.waveformPreferences) {
-                window.appInstance.waveformPreferences.disabledEffects = disabledArray;
-                window.appInstance.saveWaveformPreferences();
-                console.log('Saved', disabledArray.length, 'disabled effects to main preferences (fallback)');
+                const waveformPrefs = await window.settingsAPI.getWaveformPreferences();
+                waveformPrefs.disabledEffects = disabledArray;
+                await window.settingsAPI.setWaveformPreferences(waveformPrefs);
+                console.log('🎨 Saved disabled effects to settings');
             } else {
-                // Final fallback to localStorage (should be removed in future versions)
-                localStorage.setItem('disabledEffects', JSON.stringify(disabledArray));
-                console.log('Saved', disabledArray.length, 'disabled effects to localStorage (final fallback)');
+                console.warn('🎨 settingsAPI not available, cannot save disabled effects');
             }
         } catch (error) {
-            console.error('Failed to save disabled effects:', error);
+            console.error('🎨 Failed to save disabled effects:', error);
         }
     }
 
@@ -427,8 +415,8 @@ class EffectsManager {
             const disabledArray = window.appInstance.waveformPreferences.disabledEffects;
             this.disabledEffects = new Set(disabledArray);
             this.loadedFromMainPrefs = true;
-            console.log('Reloaded', this.disabledEffects.size, 'disabled effects from main preferences');
-            
+            console.log('🎨 Reloaded disabled effects from waveformPreferences:', disabledArray);
+
             // Refresh the display to show disabled state
             this.displayPresets();
         }
@@ -447,7 +435,7 @@ class EffectsManager {
     // Sync UI with current karaoke renderer state
     syncWithRenderer() {
         if (!window.appInstance || !window.appInstance.player || !window.appInstance.player.karaokeRenderer) return;
-        
+
         const renderer = window.appInstance.player.karaokeRenderer;
         const currentPresetName = renderer.currentPreset;
         if (currentPresetName && currentPresetName !== this.currentEffect?.name) {
@@ -455,6 +443,13 @@ class EffectsManager {
             if (preset) {
                 this.currentEffect = preset;
                 this.updateEffectSelectionDisplay();
+
+                // Report to AppState for web admin sync
+                if (window.kaiAPI?.renderer) {
+                    window.kaiAPI.renderer.updateEffectsState({
+                        current: currentPresetName
+                    });
+                }
             }
         }
     }
@@ -478,18 +473,21 @@ class EffectsManager {
 
     // Navigate to next effect
     nextEffect() {
-        if (!this.filteredPresets || this.filteredPresets.length === 0) {
-            console.log('No effects available');
+        // Filter out disabled effects
+        const enabledPresets = this.filteredPresets.filter(p => !this.disabledEffects.has(p.name));
+
+        if (!enabledPresets || enabledPresets.length === 0) {
+            console.log('🎨 No enabled effects available');
             return;
         }
 
         let currentIndex = -1;
         if (this.currentEffect) {
-            currentIndex = this.filteredPresets.findIndex(p => p.name === this.currentEffect.name);
+            currentIndex = enabledPresets.findIndex(p => p.name === this.currentEffect.name);
         }
 
-        const nextIndex = (currentIndex + 1) % this.filteredPresets.length;
-        const nextEffect = this.filteredPresets[nextIndex];
+        const nextIndex = (currentIndex + 1) % enabledPresets.length;
+        const nextEffect = enabledPresets[nextIndex];
 
         console.log(`🎨 Next effect: ${nextEffect.name}`);
         this.selectEffect(nextEffect.name);
@@ -497,19 +495,22 @@ class EffectsManager {
 
     // Navigate to previous effect
     previousEffect() {
-        if (!this.filteredPresets || this.filteredPresets.length === 0) {
-            console.log('No effects available');
+        // Filter out disabled effects
+        const enabledPresets = this.filteredPresets.filter(p => !this.disabledEffects.has(p.name));
+
+        if (!enabledPresets || enabledPresets.length === 0) {
+            console.log('🎨 No enabled effects available');
             return;
         }
 
         let currentIndex = 0;
         if (this.currentEffect) {
-            currentIndex = this.filteredPresets.findIndex(p => p.name === this.currentEffect.name);
+            currentIndex = enabledPresets.findIndex(p => p.name === this.currentEffect.name);
             if (currentIndex === -1) currentIndex = 0;
         }
 
-        const prevIndex = currentIndex === 0 ? this.filteredPresets.length - 1 : currentIndex - 1;
-        const prevEffect = this.filteredPresets[prevIndex];
+        const prevIndex = currentIndex === 0 ? enabledPresets.length - 1 : currentIndex - 1;
+        const prevEffect = enabledPresets[prevIndex];
 
         console.log(`🎨 Previous effect: ${prevEffect.name}`);
         this.selectEffect(prevEffect.name);
@@ -520,4 +521,12 @@ class EffectsManager {
 // Initialize when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
     window.effectsManager = new EffectsManager();
+
+    // Sync with renderer after a short delay to ensure everything is loaded
+    setTimeout(() => {
+        if (window.effectsManager) {
+            window.effectsManager.syncWithRenderer();
+            console.log('🎨 EffectsManager initialized. Disabled effects:', Array.from(window.effectsManager.disabledEffects));
+        }
+    }, 500);
 });

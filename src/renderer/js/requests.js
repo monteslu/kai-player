@@ -57,8 +57,16 @@ class RequestsManager {
 
         // Listen for new song requests from main process
         if (window.kaiAPI && window.kaiAPI.events) {
-            window.kaiAPI.events.on('songRequest:new', (request) => {
+            window.kaiAPI.events.on('songRequest:new', (event, request) => {
                 this.handleNewRequest(request);
+            });
+
+            window.kaiAPI.events.on('songRequest:approved', (event, request) => {
+                this.handleRequestStatusChange(request, 'queued');
+            });
+
+            window.kaiAPI.events.on('songRequest:rejected', (event, request) => {
+                this.handleRequestStatusChange(request, 'rejected');
             });
         }
     }
@@ -108,9 +116,12 @@ class RequestsManager {
     displayRequests() {
         const pendingList = document.getElementById('pendingRequestsList');
         const historyList = document.getElementById('requestHistoryList');
-        
+
         const pendingRequests = this.requests.filter(r => r.status === 'pending');
         const completedRequests = this.requests.filter(r => r.status !== 'pending');
+
+        // Update badge
+        this.updateBadge(pendingRequests.length);
         
         // Display pending requests
         if (pendingRequests.length === 0) {
@@ -147,12 +158,15 @@ class RequestsManager {
             <div class="request-message">"${this.escapeHtml(request.message)}"</div>
         ` : '';
 
+        const title = request.song.title;
+        const artist = request.song.artist;
+
         return `
             <div class="request-item ${statusClass}">
                 <div class="request-header">
                     <div class="request-song">
-                        <div class="request-song-title">${this.escapeHtml(request.song.title)}</div>
-                        <div class="request-song-artist">by ${this.escapeHtml(request.song.artist)}</div>
+                        <div class="request-song-title">${this.escapeHtml(title)}</div>
+                        <div class="request-song-artist">by ${this.escapeHtml(artist)}</div>
                     </div>
                     ${actionsHtml}
                 </div>
@@ -194,12 +208,29 @@ class RequestsManager {
     }
 
     handleNewRequest(request) {
-        // Add the new request to our local list and refresh display
-        this.requests.push(request);
-        this.displayRequests();
-        
-        // Show notification
-        this.showNotification(`New song request: "${request.song.title}" by ${request.requesterName}`);
+        // Check if request already exists (avoid duplicates)
+        const existingIndex = this.requests.findIndex(r => r.id === request.id);
+        if (existingIndex === -1) {
+            // Add the new request to our local list and refresh display
+            this.requests.push(request);
+            this.displayRequests();
+
+            // Show notification
+            this.showNotification(`New song request: "${request.song.title}" by ${request.requesterName}`);
+        }
+    }
+
+    handleRequestStatusChange(request, newStatus) {
+        // Update the request status in our local list
+        const index = this.requests.findIndex(r => r.id === request.id);
+        if (index !== -1) {
+            this.requests[index].status = newStatus;
+            this.displayRequests();
+        } else {
+            // Request not in our list yet, add it
+            this.requests.push(request);
+            this.displayRequests();
+        }
     }
 
     showNotification(message) {
@@ -271,6 +302,18 @@ class RequestsManager {
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
+    }
+
+    updateBadge(count) {
+        const badge = document.getElementById('requestsBadge');
+        if (badge) {
+            if (count > 0) {
+                badge.textContent = count;
+                badge.style.display = 'inline-flex';
+            } else {
+                badge.style.display = 'none';
+            }
+        }
     }
 
     // Clean up when manager is destroyed

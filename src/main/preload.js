@@ -2,7 +2,8 @@ const { ipcRenderer } = require('electron');
 
 const api = {
   app: {
-    getVersion: () => ipcRenderer.invoke('app:getVersion')
+    getVersion: () => ipcRenderer.invoke('app:getVersion'),
+    getState: () => ipcRenderer.invoke('app:getState')
   },
   
   file: {
@@ -23,14 +24,16 @@ const api = {
   },
   
   mixer: {
-    toggleMute: (stemId, bus) => ipcRenderer.invoke('mixer:toggleMute', stemId, bus),
-    toggleSolo: (stemId) => ipcRenderer.invoke('mixer:toggleSolo', stemId),
-    setGain: (stemId, gainDb) => ipcRenderer.invoke('mixer:setGain', stemId, gainDb),
-    applyPreset: (presetId) => ipcRenderer.invoke('mixer:applyPreset', presetId),
-    recallScene: (sceneId) => ipcRenderer.invoke('mixer:recallScene', sceneId),
-    
+    setMasterGain: (bus, gainDb) => ipcRenderer.invoke('mixer:setMasterGain', bus, gainDb),
+    toggleMasterMute: (bus) => ipcRenderer.invoke('mixer:toggleMasterMute', bus),
+
     onStateChange: (callback) => ipcRenderer.on('mixer:state', callback),
-    removeStateListener: (callback) => ipcRenderer.removeListener('mixer:state', callback)
+    removeStateListener: (callback) => ipcRenderer.removeListener('mixer:state', callback),
+
+    // Listen for commands from main process (for web admin)
+    onSetMasterGain: (callback) => ipcRenderer.on('mixer:setMasterGain', callback),
+    onToggleMasterMute: (callback) => ipcRenderer.on('mixer:toggleMasterMute', callback),
+    onSetMasterMute: (callback) => ipcRenderer.on('mixer:setMasterMute', callback)
   },
   
   player: {
@@ -101,6 +104,7 @@ const api = {
 
   queue: {
     addSong: (queueItem) => ipcRenderer.invoke('queue:addSong', queueItem),
+    removeSong: (itemId) => ipcRenderer.invoke('queue:removeSong', itemId),
     get: () => ipcRenderer.invoke('queue:get'),
     clear: () => ipcRenderer.invoke('queue:clear')
   },
@@ -122,7 +126,11 @@ const api = {
   },
 
   renderer: {
-    sendPlaybackState: (state) => ipcRenderer.send('renderer:playbackState', state)
+    sendPlaybackState: (state) => ipcRenderer.send('renderer:playbackState', state),
+    updatePlaybackState: (updates) => ipcRenderer.send('renderer:updatePlaybackState', updates),
+    songLoaded: (songData) => ipcRenderer.send('renderer:songLoaded', songData),
+    updateMixerState: (mixerState) => ipcRenderer.send('renderer:updateMixerState', mixerState),
+    updateEffectsState: (effectsState) => ipcRenderer.send('renderer:updateEffectsState', effectsState)
   },
 
   events: {

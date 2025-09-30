@@ -5,18 +5,18 @@ class RendererAudioEngine {
             PA: null,
             IEM: null
         };
-        
+
         // Device IDs for PA and IEM outputs
         this.outputDevices = {
             PA: 'default',
             IEM: 'default'
         };
-        
+
         this.isPlaying = false;
         this.currentPosition = 0;
         this.songData = null;
         this.audioBuffers = new Map();
-        
+
         // Separate gain nodes and sources for each output
         this.outputNodes = {
             PA: {
@@ -26,36 +26,52 @@ class RendererAudioEngine {
             },
             IEM: {
                 sourceNodes: new Map(),
-                gainNodes: new Map(), 
+                gainNodes: new Map(),
                 masterGain: null
             }
         };
-        
+
         this.startTime = 0;
         this.pauseTime = 0;
-        
+
         // Event callbacks
         this.onSongEndedCallback = null;
-        
+
         // Microphone input
         this.microphoneStream = null;
         this.microphoneSource = null;
         this.microphoneGain = null;
-        
+
         // Auto-tune
         this.autoTuneNode = null;
         this.autoTuneWorkletLoaded = false;
-        
+
         this.mixerState = {
+            // Simple 3-fader mixer
+            PA: {
+                gain: 0,        // dB
+                muted: false
+            },
+            IEM: {
+                gain: 0,        // dB
+                muted: false,
+                mono: true      // Always mono for single-ear monitoring
+            },
+            mic: {
+                gain: 0,        // dB
+                muted: false
+            },
+            // Per-song data (for internal use)
             stems: [],
-            scenes: { A: null, B: null },
             autotuneSettings: {
                 enabled: false,
                 strength: 50,
                 speed: 5
-            },
-            iemMonoVocals: true  // Default to mono for single-ear monitoring
+            }
         };
+
+        // State reporting to main process
+        this.stateReportInterval = null;
     }
 
     async initialize() {
@@ -71,7 +87,11 @@ class RendererAudioEngine {
             this.audioContexts.PA = new (window.AudioContext || window.webkitAudioContext)(paContextOptions);
             this.outputNodes.PA.masterGain = this.audioContexts.PA.createGain();
             this.outputNodes.PA.masterGain.connect(this.audioContexts.PA.destination);
-            
+            // Apply saved PA gain (considering mute state)
+            const paGain = this.mixerState.PA.muted ? 0 : this.dbToLinear(this.mixerState.PA.gain);
+            this.outputNodes.PA.masterGain.gain.value = paGain;
+            console.log(`🔊 Applied PA gain: ${this.mixerState.PA.gain} dB (linear: ${paGain}, muted: ${this.mixerState.PA.muted})`);
+
             // Initialize IEM audio context with saved device
             const iemContextOptions = {};
             if (this.outputDevices.IEM !== 'default' && 'sinkId' in AudioContext.prototype) {
@@ -80,6 +100,10 @@ class RendererAudioEngine {
             this.audioContexts.IEM = new (window.AudioContext || window.webkitAudioContext)(iemContextOptions);
             this.outputNodes.IEM.masterGain = this.audioContexts.IEM.createGain();
             this.outputNodes.IEM.masterGain.connect(this.audioContexts.IEM.destination);
+            // Apply saved IEM gain (considering mute state)
+            const iemGain = this.mixerState.IEM.muted ? 0 : this.dbToLinear(this.mixerState.IEM.gain);
+            this.outputNodes.IEM.masterGain.gain.value = iemGain;
+            console.log(`🔊 Applied IEM gain: ${this.mixerState.IEM.gain} dB (linear: ${iemGain}, muted: ${this.mixerState.IEM.muted})`);
             
             
             // Load auto-tune worklet
@@ -93,20 +117,58 @@ class RendererAudioEngine {
     
     async loadDevicePreferences() {
         try {
-            if (window.settingsAPI) {
-                const prefs = await window.settingsAPI.getDevicePreferences();
-                if (prefs) {
-                    if (prefs.PA?.id) {
-                        this.outputDevices.PA = prefs.PA.id;
+            if (window.kaiAPI?.app) {
+                // Get initial state from AppState (which loads from disk)
+                const appState = await window.kaiAPI.app.getState();
+                console.log('📂 Received AppState:', appState);
+
+                // Load device preferences
+                if (appState?.preferences?.audio?.devices) {
+                    const devices = appState.preferences.audio.devices;
+                    if (devices.PA?.id) {
+                        this.outputDevices.PA = devices.PA.id;
+                        console.log('📂 Loaded PA device:', devices.PA.id);
                     }
-                    if (prefs.IEM?.id) {
-                        this.outputDevices.IEM = prefs.IEM.id;
+                    if (devices.IEM?.id) {
+                        this.outputDevices.IEM = devices.IEM.id;
+                        console.log('📂 Loaded IEM device:', devices.IEM.id);
                     }
                 }
 
-                // Load IEM mono vocals setting
-                const iemMonoVocals = await window.settingsAPI.get('iemMonoVocals', true);
-                this.mixerState.iemMonoVocals = iemMonoVocals;
+                // Load mixer state from AppState (source of truth)
+                if (appState?.mixer) {
+                    console.log('📂 Loading mixer from AppState:', appState.mixer);
+
+                    if (typeof appState.mixer.PA?.gain === 'number') {
+                        this.mixerState.PA.gain = appState.mixer.PA.gain;
+                        console.log('📂 Set PA gain to:', appState.mixer.PA.gain);
+                    }
+                    if (typeof appState.mixer.PA?.muted === 'boolean') {
+                        this.mixerState.PA.muted = appState.mixer.PA.muted;
+                        console.log('📂 Set PA muted to:', appState.mixer.PA.muted);
+                    }
+                    if (typeof appState.mixer.IEM?.gain === 'number') {
+                        this.mixerState.IEM.gain = appState.mixer.IEM.gain;
+                        console.log('📂 Set IEM gain to:', appState.mixer.IEM.gain);
+                    }
+                    if (typeof appState.mixer.IEM?.muted === 'boolean') {
+                        this.mixerState.IEM.muted = appState.mixer.IEM.muted;
+                        console.log('📂 Set IEM muted to:', appState.mixer.IEM.muted);
+                    }
+                    if (typeof appState.mixer.mic?.gain === 'number') {
+                        this.mixerState.mic.gain = appState.mixer.mic.gain;
+                        console.log('📂 Set mic gain to:', appState.mixer.mic.gain);
+                    }
+                    if (typeof appState.mixer.mic?.muted === 'boolean') {
+                        this.mixerState.mic.muted = appState.mixer.mic.muted;
+                        console.log('📂 Set mic muted to:', appState.mixer.mic.muted);
+                    }
+                    console.log('✅ Final mixer state after loading:', JSON.stringify(this.mixerState, null, 2));
+                } else {
+                    console.warn('⚠️ No mixer state in AppState');
+                }
+            } else {
+                console.warn('⚠️ window.kaiAPI.app not available');
             }
         } catch (error) {
             console.error('Failed to load device preferences:', error);
@@ -171,30 +233,85 @@ class RendererAudioEngine {
 
     async loadSong(songData) {
         this.songData = songData;
-        
+
         // Reset all timing state for new song
         this.currentPosition = 0;
         this.startTime = 0;
         this.pauseTime = 0;
         this.monitoringStartTime = null;
-        
+
         // Stop any existing song end monitoring
         this.stopSongEndMonitoring();
-        
-        
+
+
+        // Keep stems array for tracking audio sources (for internal use only)
+        // Routing is automatic: vocals → IEM (mono), instrumental → PA, mic → PA
         this.mixerState.stems = (songData.audio?.sources || []).map((source, index) => ({
             id: source.name || source.filename,
             name: source.name || source.filename,
-            gain: source.gain || 0,
-            muted: { PA: false, IEM: false },
-            solo: false,
+            gain: source.gain || 0,  // Per-source gain (still useful for balancing)
             index
         }));
-        
-        
+
+
         await this.loadAudioBuffers(songData);
-        
+
+        // Report song loaded to main process
+        this.reportSongLoaded();
+
         return true;
+    }
+
+    /**
+     * Report state changes to main process
+     */
+    reportStateChange() {
+        if (window.kaiAPI?.renderer) {
+            window.kaiAPI.renderer.updatePlaybackState({
+                isPlaying: this.isPlaying,
+                position: this.getCurrentPosition(),
+                duration: this.getDuration()
+            });
+        }
+    }
+
+    reportSongLoaded() {
+        if (window.kaiAPI?.renderer && this.songData) {
+            const duration = this.getDuration();
+            window.kaiAPI.renderer.songLoaded({
+                path: this.songData.originalFilePath || this.songData.filePath,
+                title: this.songData.metadata?.title || 'Unknown',
+                artist: this.songData.metadata?.artist || 'Unknown',
+                duration: duration
+            });
+
+            // Report initial mixer state
+            this.reportMixerState();
+        }
+    }
+
+    reportMixerState() {
+        if (window.kaiAPI?.renderer && this.mixerState) {
+            window.kaiAPI.renderer.updateMixerState(this.mixerState);
+        }
+    }
+
+    startStateReporting() {
+        this.stopStateReporting();
+
+        // Report state every 100ms (10x/sec)
+        this.stateReportInterval = setInterval(() => {
+            if (this.isPlaying) {
+                this.reportStateChange();
+            }
+        }, 100);
+    }
+
+    stopStateReporting() {
+        if (this.stateReportInterval) {
+            clearInterval(this.stateReportInterval);
+            this.stateReportInterval = null;
+        }
     }
 
     async loadAudioBuffers(songData) {
@@ -296,42 +413,57 @@ class RendererAudioEngine {
         if (this.audioContexts.IEM.state === 'suspended') {
             await this.audioContexts.IEM.resume();
         }
-        
+
         this.isPlaying = true;
-        
+
         this.stopAllSources();
         this.createAudioGraph();
         this.startAudioSources();
-        
+
         // Start song end monitoring
         this.startSongEndMonitoring();
-        
+
+        // Start state reporting
+        this.startStateReporting();
+
+        // Report immediate state change
+        this.reportStateChange();
+
         return true;
     }
 
     async pause() {
         this.isPlaying = false;
-        
+
         if (this.audioContexts.PA) {
             this.pauseTime = this.audioContexts.PA.currentTime;
         }
-        
+
         this.stopAllSources();
-        
+
         // Stop song end monitoring
         this.stopSongEndMonitoring();
-        
+
+        // Stop state reporting
+        this.stopStateReporting();
+
+        // Report immediate state change
+        this.reportStateChange();
+
         return true;
     }
 
     async seek(positionSec) {
         this.currentPosition = positionSec;
-        
+
         if (this.isPlaying) {
             this.stopAllSources();
             this.startAudioSources();
         }
-        
+
+        // Report immediate state change
+        this.reportStateChange();
+
         return true;
     }
 
@@ -461,111 +593,83 @@ class RendererAudioEngine {
         const paGainNode = this.outputNodes.PA.gainNodes.get(stem.name);
         const iemGainNode = this.outputNodes.IEM.gainNodes.get(stem.name);
         const isVocals = this.isVocalStem(stem.name);
-        
+
         if (!this.audioContexts.PA || !this.audioContexts.IEM) return;
 
+        // Convert stem gain from dB to linear (per-stem balancing)
         const baseGain = Math.pow(10, stem.gain / 20);
-        const hasSolo = this.mixerState.stems.some(s => s.solo);
-        
-        // Apply gain based on routing - vocals only to IEM, backing tracks only to PA
+
+        // Simple routing: vocals to IEM, backing tracks to PA
+        // Master faders control overall output level
         if (isVocals && iemGainNode) {
-            // Vocals stem - only exists on IEM
-            let iemGain = baseGain;
-            if (stem.muted.IEM || (hasSolo && !stem.solo)) {
-                iemGain = 0;
-            }
-            iemGainNode.gain.setValueAtTime(iemGain, this.audioContexts.IEM.currentTime);
-            
-            if (Math.random() < 0.1) {
-            }
+            iemGainNode.gain.setValueAtTime(baseGain, this.audioContexts.IEM.currentTime);
         } else if (!isVocals && paGainNode) {
-            // Backing track stem - only exists on PA
-            let paGain = baseGain;
-            if (stem.muted.PA || (hasSolo && !stem.solo)) {
-                paGain = 0;
-            }
-            paGainNode.gain.setValueAtTime(paGain, this.audioContexts.PA.currentTime);
-            
-            if (Math.random() < 0.1) {
-            }
+            paGainNode.gain.setValueAtTime(baseGain, this.audioContexts.PA.currentTime);
         }
     }
 
-    toggleMute(stemId, bus = 'PA') {
-        const stem = this.mixerState.stems.find(s => s.name === stemId || s.id === stemId);
-        if (stem) {
-            stem.muted[bus] = !stem.muted[bus];
-            this.updateStemGain(stem);
-            return true;
+    // New simple mixer controls
+    setMasterGain(bus, gainDb) {
+        if (!['PA', 'IEM', 'mic'].includes(bus)) return false;
+
+        this.mixerState[bus].gain = gainDb;
+
+        // Apply to audio node
+        if (bus === 'PA' && this.outputNodes.PA.masterGain) {
+            const linearGain = this.dbToLinear(gainDb);
+            this.outputNodes.PA.masterGain.gain.setValueAtTime(linearGain, this.audioContexts.PA.currentTime);
+        } else if (bus === 'IEM' && this.outputNodes.IEM.masterGain) {
+            const linearGain = this.dbToLinear(gainDb);
+            this.outputNodes.IEM.masterGain.gain.setValueAtTime(linearGain, this.audioContexts.IEM.currentTime);
         }
-        return false;
+        // Mic gain would be applied to microphone input node (when implemented)
+
+        // Report to main process (which handles persistence via AppState)
+        this.reportMixerState();
+        return true;
     }
 
-    toggleSolo(stemId) {
-        const stem = this.mixerState.stems.find(s => s.name === stemId || s.id === stemId);
-        if (stem) {
-            stem.solo = !stem.solo;
-            
-            this.mixerState.stems.forEach(s => this.updateStemGain(s));
-            return true;
+    toggleMasterMute(bus) {
+        if (!['PA', 'IEM', 'mic'].includes(bus)) return false;
+
+        this.mixerState[bus].muted = !this.mixerState[bus].muted;
+        const muted = this.mixerState[bus].muted;
+
+        // Apply mute (set gain to 0 or restore)
+        if (bus === 'PA' && this.outputNodes.PA.masterGain) {
+            const gain = muted ? 0 : this.dbToLinear(this.mixerState.PA.gain);
+            this.outputNodes.PA.masterGain.gain.setValueAtTime(gain, this.audioContexts.PA.currentTime);
+        } else if (bus === 'IEM' && this.outputNodes.IEM.masterGain) {
+            const gain = muted ? 0 : this.dbToLinear(this.mixerState.IEM.gain);
+            this.outputNodes.IEM.masterGain.gain.setValueAtTime(gain, this.audioContexts.IEM.currentTime);
         }
-        return false;
+
+        // Report to main process (which handles persistence via AppState)
+        this.reportMixerState();
+        return true;
     }
 
-    setGain(stemId, gainDb) {
-        const stem = this.mixerState.stems.find(s => s.name === stemId || s.id === stemId);
-        if (stem) {
-            stem.gain = gainDb;
-            this.updateStemGain(stem);
-            return true;
+    setMasterMute(bus, muted) {
+        if (!['PA', 'IEM', 'mic'].includes(bus)) return false;
+
+        this.mixerState[bus].muted = muted;
+        console.log(`🔇 Setting ${bus} mute to: ${muted}`);
+
+        // Apply mute (set gain to 0 or restore)
+        if (bus === 'PA' && this.outputNodes.PA.masterGain) {
+            const gain = muted ? 0 : this.dbToLinear(this.mixerState.PA.gain);
+            this.outputNodes.PA.masterGain.gain.setValueAtTime(gain, this.audioContexts.PA.currentTime);
+        } else if (bus === 'IEM' && this.outputNodes.IEM.masterGain) {
+            const gain = muted ? 0 : this.dbToLinear(this.mixerState.IEM.gain);
+            this.outputNodes.IEM.masterGain.gain.setValueAtTime(gain, this.audioContexts.IEM.currentTime);
         }
-        return false;
+
+        // Don't report back to main - this was initiated by main/admin
+        return true;
     }
 
-    applyPreset(presetId) {
-        
-        const presets = {
-            original: () => {
-                this.mixerState.stems.forEach(stem => {
-                    stem.muted.PA = false;
-                    stem.muted.IEM = false;
-                    stem.solo = false;
-                    stem.gain = 0;
-                });
-            },
-            karaoke: () => {
-                this.mixerState.stems.forEach(stem => {
-                    const isVocal = stem.name.toLowerCase().includes('vocal') || 
-                                   stem.name.toLowerCase().includes('lead');
-                    stem.muted.PA = isVocal;
-                    stem.muted.IEM = false;
-                });
-            },
-            band_only: () => {
-                this.mixerState.stems.forEach(stem => {
-                    const isVocal = stem.name.toLowerCase().includes('vocal');
-                    stem.muted.PA = isVocal;
-                    stem.muted.IEM = isVocal;
-                });
-            },
-            acoustic: () => {
-                this.mixerState.stems.forEach(stem => {
-                    const isElectronic = stem.name.toLowerCase().includes('synth') ||
-                                       stem.name.toLowerCase().includes('electronic');
-                    stem.muted.PA = isElectronic;
-                    stem.muted.IEM = isElectronic;
-                });
-            }
-        };
-        
-        if (presets[presetId]) {
-            presets[presetId]();
-            this.mixerState.stems.forEach(stem => this.updateStemGain(stem));
-            return true;
-        }
-        
-        return false;
-    }
+    // Preset system removed - routing is now automatic with master faders
+    // Vocals → IEM (mono), Instrumental → PA, Mic → PA
 
     getCurrentPosition() {
         if (this.isPlaying && this.audioContexts.PA && this.startTime > 0) {
@@ -591,7 +695,10 @@ class RendererAudioEngine {
 
     getMixerState() {
         return {
-            stems: this.mixerState.stems,
+            PA: this.mixerState.PA,
+            IEM: this.mixerState.IEM,
+            mic: this.mixerState.mic,
+            stems: this.mixerState.stems,  // For reference only
             isPlaying: this.isPlaying,
             position: this.getCurrentPosition(),
             duration: this.getDuration()
@@ -874,6 +981,16 @@ class RendererAudioEngine {
             clearInterval(this.songEndMonitor);
             this.songEndMonitor = null;
         }
+    }
+
+    // Utility: Convert dB to linear gain
+    dbToLinear(db) {
+        return Math.pow(10, db / 20);
+    }
+
+    // Utility: Convert linear gain to dB
+    linearToDb(linear) {
+        return 20 * Math.log10(linear);
     }
 }
 
