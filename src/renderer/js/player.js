@@ -2,9 +2,15 @@ class PlayerController {
     constructor(audioEngine = null) {
         this.audioEngine = audioEngine;
         this.lyricsContainer = document.getElementById('lyricsContainer');
-        
-        // Initialize karaoke renderer
+
+        // Initialize karaoke renderer for KAI format
         this.karaokeRenderer = new KaraokeRenderer('karaokeCanvas');
+
+        // Initialize CDG renderer for CDG format
+        this.cdgRenderer = new CDGRenderer('karaokeCanvas');
+
+        // Track current format
+        this.currentFormat = null; // 'kai' or 'cdg'
 
         // Ensure canvas is properly sized after initialization
         setTimeout(() => {
@@ -12,22 +18,22 @@ class PlayerController {
                 this.karaokeRenderer.resizeHandler();
             }
         }, 200);
-        
+
         this.currentTime = document.getElementById('currentTime');
         this.totalTime = document.getElementById('totalTime');
-        
+
         // Progress bar elements
         this.progressFill = document.getElementById('progressFill');
         this.progressHandle = document.getElementById('progressHandle');
         this.progressBar = document.querySelector('.progress-bar');
-        
+
         this.songDuration = 0;
         this.currentPosition = 0;
         this.lyrics = null;
-        
+
         this.isPlaying = false;
         this.animationFrame = null;
-        
+
         this.init();
     }
 
@@ -178,17 +184,18 @@ class PlayerController {
     }
 
     updatePosition() {
-        // Get real position from audio engine if available
-        if (this.audioEngine && this.audioEngine.getCurrentTime) {
+        // Get real position based on current format
+        if (this.currentFormat === 'cdg' && this.cdgRenderer) {
+            // CDG format - get time from CDG renderer's audio element
+            this.currentPosition = this.cdgRenderer.getCurrentTime();
+            this.songDuration = this.cdgRenderer.getDuration() || this.songDuration;
+        } else if (this.audioEngine && this.audioEngine.getCurrentTime) {
+            // KAI format - get time from audio engine
             const engineTime = this.audioEngine.getCurrentTime();
             this.currentPosition = engineTime;
-            // if (Math.random() < 0.02) { // Debug occasionally
-            // }
         } else {
             // Fallback to increment
             this.currentPosition += 0.1;
-            if (Math.random() < 0.02) {
-            }
         }
         
         // Stop playback when we reach the end of the song
@@ -271,7 +278,11 @@ class PlayerController {
     async setPosition(positionSec) {
         this.currentPosition = Math.max(0, Math.min(this.songDuration, positionSec));
 
-        if (this.audioEngine) {
+        if (this.currentFormat === 'cdg' && this.cdgRenderer) {
+            // CDG format - seek using CDG renderer
+            this.cdgRenderer.seek(this.currentPosition);
+        } else if (this.audioEngine) {
+            // KAI format - seek using audio engine
             try {
                 await this.audioEngine.seek(this.currentPosition);
             } catch (error) {

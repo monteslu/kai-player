@@ -106,6 +106,18 @@ export function SongSearch({ onAddToQueue }) {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
+  const getFormatIcon = (format) => {
+    switch (format) {
+      case 'kai':
+        return '⚡';
+      case 'cdg-archive':
+      case 'cdg-pair':
+        return '💿';
+      default:
+        return '⚡';
+    }
+  };
+
   return (
     <div className="song-search" ref={searchRef}>
       <input
@@ -128,7 +140,9 @@ export function SongSearch({ onAddToQueue }) {
               {results.map((song, index) => (
                 <div key={index} className="search-result-item">
                   <div className="result-info">
-                    <div className="result-title">{song.title}</div>
+                    <div className="result-title">
+                      <span className="format-icon">{getFormatIcon(song.format)}</span> {song.title}
+                    </div>
                     <div className="result-meta">
                       <span className="result-artist">{song.artist}</span>
                       {song.duration && (

@@ -180,11 +180,13 @@ class KaiPlayerApp {
         });
 
         document.getElementById('playPauseBtn').addEventListener('click', (e) => {
+            console.log('💿 Play button clicked');
             this.togglePlayback();
         });
 
 
         document.getElementById('restartBtn').addEventListener('click', () => {
+            console.log('💿 Restart button clicked');
             this.restartTrack();
         });
 
@@ -473,20 +475,106 @@ class KaiPlayerApp {
         });
 
         kaiAPI.song.onData(async (event, songData) => {
+            // Check if this is the same song (avoid resetting state on duplicate events)
+            const isSameSong = this.currentSong &&
+                               this.currentSong.originalFilePath === songData.originalFilePath;
+
+            console.log('💿 song:onData - isSameSong:', isSameSong, 'current:', this.currentSong?.originalFilePath, 'new:', songData.originalFilePath);
+
             this.currentSong = songData;
-            
-            // Reset play state when loading a new song - it should be loaded but not playing
-            this.isPlaying = false;
-            this.updatePlayButton('▶');
-            
+
+            // Reset play state when loading a new song - but not if it's the same song
+            if (!isSameSong) {
+                console.log('💿 Resetting play button because song changed');
+                this.isPlaying = false;
+                this.updatePlayButton('▶');
+            }
+
             // Notify queue manager that a song started
             if (window.queueManager && songData.originalFilePath) {
                 window.queueManager.notifySongStarted(songData.originalFilePath);
             }
-            
+
             // Use pending metadata if available, otherwise use data from songData
             const metadata = this._pendingMetadata || songData.metadata || {};
-            
+
+            // Detect format: CDG or KAI
+            const isCDG = songData.format === 'cdg';
+
+            if (isCDG) {
+                // CDG format - use CDG renderer
+                console.log('💿 Loading CDG format');
+                this.player.currentFormat = 'cdg';
+
+                // Set up audio context for CDG renderer (PA output only)
+                if (!this.audioEngine) {
+                    console.error('💿 Audio engine not initialized');
+                    this.updateStatus('Error: Audio engine not ready');
+                    return;
+                }
+
+                // Get PA audio context for playback
+                const paContext = this.audioEngine.audioContexts.PA;
+                const paMasterGain = this.audioEngine.outputNodes.PA.masterGain;
+
+                // Create gain node for CDG audio in PA context
+                const cdgGainNode = paContext.createGain();
+                cdgGainNode.connect(paMasterGain);
+
+                // Create analyser in PA context
+                const analyserNode = paContext.createAnalyser();
+                analyserNode.fftSize = 2048;
+                // Analyser taps the signal but doesn't affect routing
+                cdgGainNode.connect(analyserNode);
+
+                // Set audio context in CDG renderer (PA context for playback)
+                this.player.cdgRenderer.setAudioContext(paContext, cdgGainNode, analyserNode);
+
+                // Load CDG data
+                await this.player.cdgRenderer.loadCDG(songData);
+
+                // Set overlay opacity from karaoke renderer settings
+                if (this.player.karaokeRenderer && this.player.karaokeRenderer.waveformPreferences) {
+                    this.player.cdgRenderer.setOverlayOpacity(
+                        this.player.karaokeRenderer.waveformPreferences.overlayOpacity
+                    );
+                }
+
+                // Set Butterchurn effects canvas for CDG background
+                if (this.player.karaokeRenderer.effectsCanvas && this.player.karaokeRenderer.butterchurn) {
+                    this.player.cdgRenderer.setEffectsCanvas(
+                        this.player.karaokeRenderer.effectsCanvas,
+                        this.player.karaokeRenderer.butterchurn
+                    );
+
+                    // Feed CDG MP3 audio to Butterchurn for visualization
+                    // This uses the same approach as KAI files - decode audio in Butterchurn's context
+                    // and play it silently for analysis only
+                    console.log('💿 Feeding CDG audio to Butterchurn...');
+                    await this.player.karaokeRenderer.setMusicAudio(songData.audio.mp3);
+                    console.log('💿 Butterchurn connected to CDG audio for visualization');
+                }
+
+                // CDG doesn't use audio engine or lyrics
+                this.player.onSongLoaded(metadata);
+
+                // Enable playback controls
+                console.log('💿 Enabling controls for CDG');
+                this.enableControls();
+                console.log('💿 Updating status for CDG');
+                this.updateStatus(`Loaded: ${metadata?.title || 'CDG Song'}`);
+
+                // Update UI to show controls
+                this.updateUIForSongState();
+
+                console.log('💿 CDG loading complete');
+
+                return;
+            }
+
+            // KAI format - use audio engine
+            this.player.currentFormat = 'kai';
+
             // CLEAN SLATE APPROACH: Reinitialize audio engine
             if (this.audioEngine && this.currentSong) {
                 // Create a backup copy of the song data BEFORE reinitialize
@@ -749,22 +837,35 @@ class KaiPlayerApp {
 
     async updateServerStatus() {
         try {
-            const port = await window.kaiAPI.webServer.getPort();
+            const url = await window.kaiAPI.webServer.getUrl();
             const statusIndicator = document.getElementById('statusIndicator');
             const serverStatusText = document.getElementById('serverStatusText');
             const serverUrl = document.getElementById('serverUrl');
             const openServerBtn = document.getElementById('openServerBtn');
+            const webUrlDisplay = document.getElementById('webUrlDisplay');
 
-            if (port) {
+            if (url) {
+                // Extract port from URL
+                const port = new URL(url).port;
                 statusIndicator.className = 'status-indicator online';
                 serverStatusText.textContent = `Running on port ${port}`;
-                serverUrl.textContent = `http://localhost:${port}`;
+                serverUrl.textContent = url;
                 openServerBtn.disabled = false;
+
+                // Update status bar with LAN IP
+                webUrlDisplay.textContent = `🌐 ${url}`;
+                webUrlDisplay.style.display = 'inline';
+                webUrlDisplay.onclick = () => {
+                    window.kaiAPI.shell.openExternal(url);
+                };
             } else {
                 statusIndicator.className = 'status-indicator offline';
                 serverStatusText.textContent = 'Not running';
                 serverUrl.textContent = 'Not running';
                 openServerBtn.disabled = true;
+
+                // Hide status bar URL
+                webUrlDisplay.style.display = 'none';
             }
         } catch (error) {
             console.error('Failed to get server status:', error);
@@ -798,8 +899,11 @@ class KaiPlayerApp {
 
     async saveServerSettings() {
         try {
+            const port = parseInt(document.getElementById('serverPort').value) || 3069;
+
             const settings = {
                 serverName: document.getElementById('serverName').value || 'Loukai Karaoke',
+                port: port,
                 allowSongRequests: document.getElementById('allowSongRequests').checked,
                 requireKJApproval: document.getElementById('requireKJApproval').checked,
                 streamVocalsToClients: document.getElementById('streamVocalsToClients').checked
@@ -818,6 +922,9 @@ class KaiPlayerApp {
         try {
             if (settings.serverName !== undefined) {
                 document.getElementById('serverName').value = settings.serverName;
+            }
+            if (settings.port !== undefined) {
+                document.getElementById('serverPort').value = settings.port;
             }
             if (settings.allowSongRequests !== undefined) {
                 document.getElementById('allowSongRequests').checked = settings.allowSongRequests;
@@ -1122,15 +1229,20 @@ class KaiPlayerApp {
             const opacity = parseFloat(e.target.value);
             this.waveformPreferences.overlayOpacity = opacity;
             this.saveWaveformPreferences();
-            
+
             // Update display value
             if (overlayOpacityValue) {
                 overlayOpacityValue.textContent = opacity.toFixed(2);
             }
-            
+
             // Update player if it exists - real-time update
             if (this.player && this.player.karaokeRenderer) {
                 this.player.karaokeRenderer.waveformPreferences.overlayOpacity = opacity;
+            }
+
+            // Also update CDG renderer if it exists
+            if (this.player && this.player.cdgRenderer) {
+                this.player.cdgRenderer.setOverlayOpacity(opacity);
             }
         });
     }
@@ -1160,8 +1272,12 @@ class KaiPlayerApp {
         }
         if (this.player) {
             await this.player.pause();
+            // Also stop CDG renderer if it's playing
+            if (this.player.cdgRenderer && this.player.cdgRenderer.isPlaying) {
+                this.player.cdgRenderer.pause();
+            }
         }
-        
+
         // Show loading state immediately
         this.showLoadingState();
         
@@ -1231,14 +1347,26 @@ class KaiPlayerApp {
     }
 
     async togglePlayback() {
-        if (!this.currentSong || !this.audioEngine) return;
-        
+        if (!this.currentSong) return;
+
+        // Check if this is CDG format
+        const isCDG = this.player?.currentFormat === 'cdg';
+        console.log('💿 togglePlayback called, isCDG:', isCDG, 'isPlaying:', this.isPlaying);
+
         try {
             if (this.isPlaying) {
-                await this.audioEngine.pause();
+                if (isCDG) {
+                    // CDG format - use CDG renderer
+                    this.player.cdgRenderer.pause();
+                } else {
+                    // KAI format - use audio engine
+                    if (!this.audioEngine) return;
+                    await this.audioEngine.pause();
+                }
+
                 this.isPlaying = false;
                 this.updatePlayButton('▶');
-                
+
                 // Also pause the player controller
                 if (this.player) {
                     await this.player.pause();
@@ -1247,15 +1375,26 @@ class KaiPlayerApp {
                 // Broadcast playback state to main process
                 this.broadcastPlaybackState();
             } else {
-                await this.audioEngine.play();
+                // Set playing state first
                 this.isPlaying = true;
                 this.updatePlayButton('⏸');
                 this.startPositionUpdater();
+
+                if (isCDG) {
+                    // CDG format - use CDG renderer
+                    this.player.cdgRenderer.play();
+                } else {
+                    // KAI format - use audio engine
+                    if (!this.audioEngine) return;
+                    await this.audioEngine.play();
+                }
 
                 // Also play the player controller
                 if (this.player) {
                     await this.player.play();
                 }
+
+                console.log('💿 After play, isPlaying:', this.isPlaying);
             }
 
             // Broadcast playback state to main process for position broadcasting
@@ -1318,8 +1457,14 @@ class KaiPlayerApp {
     }
 
     async restartTrack() {
-        if (!this.currentSong || !this.audioEngine) return;
-        await this.audioEngine.seek(0);
+        if (!this.currentSong) return;
+
+        const isCDG = this.player?.currentFormat === 'cdg';
+        if (isCDG) {
+            this.player.cdgRenderer.seek(0);
+        } else if (this.audioEngine) {
+            await this.audioEngine.seek(0);
+        }
     }
 
     async nextTrack() {
@@ -1336,21 +1481,35 @@ class KaiPlayerApp {
 
     startPositionUpdater() {
         if (this.positionTimer) return;
-        
+
         this.positionTimer = setInterval(() => {
-            if (this.isPlaying && this.audioEngine) {
-                this.currentPosition = this.audioEngine.getCurrentPosition();
-                
+            const isCDG = this.player?.currentFormat === 'cdg';
+
+            if (this.isPlaying) {
+                // Get position based on format
+                if (isCDG && this.player?.cdgRenderer) {
+                    this.currentPosition = this.player.cdgRenderer.getCurrentTime();
+                } else if (this.audioEngine) {
+                    this.currentPosition = this.audioEngine.getCurrentPosition();
+                }
+
                 if (this.player) {
                     this.player.currentPosition = this.currentPosition;
                 }
-                
+
                 if (this.coaching) {
                     this.coaching.setPosition(this.currentPosition);
                 }
-                
-                const duration = this.audioEngine.getDuration();
-                if (this.currentPosition >= duration) {
+
+                // Check if song ended based on format
+                let duration = 0;
+                if (isCDG && this.player?.cdgRenderer) {
+                    duration = this.player.cdgRenderer.getDuration();
+                } else if (this.audioEngine) {
+                    duration = this.audioEngine.getDuration();
+                }
+
+                if (duration > 0 && this.currentPosition >= duration) {
                     this.isPlaying = false;
                     this.updatePlayButton('▶');
                     if (this.positionTimer) {
@@ -1479,6 +1638,14 @@ class KaiPlayerApp {
                     overlayOpacity.value = this.waveformPreferences.overlayOpacity;
                     if (overlayOpacityValue) {
                         overlayOpacityValue.textContent = this.waveformPreferences.overlayOpacity.toFixed(2);
+                    }
+
+                    // Apply opacity to renderers
+                    if (this.player && this.player.karaokeRenderer) {
+                        this.player.karaokeRenderer.waveformPreferences.overlayOpacity = this.waveformPreferences.overlayOpacity;
+                    }
+                    if (this.player && this.player.cdgRenderer) {
+                        this.player.cdgRenderer.setOverlayOpacity(this.waveformPreferences.overlayOpacity);
                     }
                 }
             }

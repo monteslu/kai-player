@@ -77,14 +77,16 @@ const api = {
     getSongsFolder: () => ipcRenderer.invoke('library:getSongsFolder'),
     setSongsFolder: () => ipcRenderer.invoke('library:setSongsFolder'),
     scanFolder: () => ipcRenderer.invoke('library:scanFolder'),
+    getCachedSongs: () => ipcRenderer.invoke('library:getCachedSongs'),
     getSongInfo: (filePath) => ipcRenderer.invoke('library:getSongInfo', filePath),
-    
+
     onFolderSet: (callback) => ipcRenderer.on('library:folderSet', callback),
     removeFolderSetListener: (callback) => ipcRenderer.removeListener('library:folderSet', callback)
   },
 
   webServer: {
     getPort: () => ipcRenderer.invoke('webServer:getPort'),
+    getUrl: () => ipcRenderer.invoke('webServer:getUrl'),
     getSettings: () => ipcRenderer.invoke('webServer:getSettings'),
     updateSettings: (settings) => ipcRenderer.invoke('webServer:updateSettings', settings),
     getSongRequests: () => ipcRenderer.invoke('webServer:getSongRequests'),
