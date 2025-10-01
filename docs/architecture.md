@@ -627,21 +627,142 @@ Artist - Song Title.zip
 - EventEmitter-based state container
 - Works in browser AND Node.js
 
-### 📋 Phase 3-9: React Migration (FUTURE)
+### 📋 Phase 3-9: React Migration & Unified Business Logic (FUTURE)
 - Migrate Electron renderer to React
 - Share components between Electron and web UI
 - Remove global `window.*` pollution
+- **Unified business logic layer** - IPC and REST both call same shared functions
 - Consolidate IPC layer
 - Break circular dependencies
-- TypeScript migration (optional)
+
+## Unified Business Logic Architecture
+
+A critical goal is eliminating code duplication between IPC handlers and REST endpoints. Both should call the same underlying business logic.
+
+### Current Problem
+
+```javascript
+// IPC Handler (main.js)
+ipcMain.handle('queue:addSong', (event, queueItem) => {
+  this.songQueue.push(queueItem);
+  this.appState.updateQueue(this.songQueue);
+  this.webServer.broadcastQueueUpdate(this.songQueue);
+  return { success: true };
+});
+
+// REST Endpoint (webServer.js) - DUPLICATES THE LOGIC!
+app.post('/queue/add', (req, res) => {
+  const queueItem = req.body;
+  this.songQueue.push(queueItem);
+  this.appState.updateQueue(this.songQueue);
+  this.io.emit('queue-update', this.songQueue);
+  res.json({ success: true });
+});
+```
+
+### Target Architecture
+
+```javascript
+// Shared business logic (src/shared/services/queueService.js)
+export class QueueService {
+  constructor(appState) {
+    this.appState = appState;
+  }
+
+  addSong(queueItem) {
+    const queue = this.appState.state.queue;
+    queue.push(queueItem);
+    this.appState.updateQueue(queue);
+    return { success: true, queue };
+  }
+
+  removeSong(itemId) {
+    const queue = this.appState.state.queue;
+    const index = queue.findIndex(item => item.id === itemId);
+    if (index !== -1) {
+      queue.splice(index, 1);
+      this.appState.updateQueue(queue);
+      return { success: true, queue };
+    }
+    return { success: false, error: 'Song not found' };
+  }
+}
+
+// IPC Handler (main.js) - THIN WRAPPER
+const queueService = new QueueService(this.appState);
+
+ipcMain.handle('queue:addSong', (event, queueItem) => {
+  return queueService.addSong(queueItem);
+});
+
+// REST Endpoint (webServer.js) - THIN WRAPPER
+app.post('/queue/add', (req, res) => {
+  const result = queueService.addSong(req.body);
+  res.json(result);
+});
+```
+
+### Benefits
+
+1. **Business logic in one place** - No duplication between IPC and REST
+2. **Easy to test** - Test QueueService once, both interfaces work
+3. **Consistent behavior** - IPC and REST guaranteed to behave identically
+4. **Maintainable** - Change logic once, both interfaces update
+5. **Clear separation** - Transport layer (IPC/REST) vs business logic
+
+### Service Layer Organization
+
+```
+src/shared/services/
+├── queueService.js       # Queue management (add, remove, reorder)
+├── libraryService.js     # Song catalog, search, scanning
+├── mixerService.js       # Mixer state management
+├── playerService.js      # Playback control
+├── requestService.js     # Song request approval/rejection
+└── settingsService.js    # Settings CRUD
+```
+
+Each service:
+- Takes dependencies via constructor (AppState, SettingsManager, etc.)
+- Exposes pure business logic methods
+- Returns results (no side effects like broadcasting)
+- Used by both IPC handlers AND REST endpoints
+
+### Broadcasting Strategy
+
+Services don't broadcast - the caller does:
+
+```javascript
+// IPC Handler
+ipcMain.handle('queue:addSong', (event, queueItem) => {
+  const result = queueService.addSong(queueItem);
+  // IPC handler broadcasts to web clients
+  if (result.success && this.webServer) {
+    this.webServer.io.emit('queue-update', result.queue);
+  }
+  return result;
+});
+
+// REST Endpoint
+app.post('/queue/add', (req, res) => {
+  const result = queueService.addSong(req.body);
+  // REST endpoint broadcasts to all web clients
+  if (result.success) {
+    this.io.emit('queue-update', result.queue);
+  }
+  res.json(result);
+});
+```
+
+This keeps services pure while allowing transport-specific behavior (like broadcasting).
 
 ## Architecture Principles
 
 ### Current Problems
 1. **"Vibe-coded"** - Inconsistent patterns, global state
-2. **Code duplication** - Web UI reimplements everything
+2. **Code duplication** - IPC and REST duplicate business logic
 3. **No shared modules** - Can't share code between renderer/web/main
-4. **IPC spaghetti** - 100+ handlers in one file
+4. **IPC spaghetti** - 100+ handlers in one file with embedded logic
 5. **Multiple state sources** - No single source of truth
 
 ### Target Principles
@@ -649,7 +770,7 @@ Artist - Song Title.zip
 2. **React everywhere** - Shared components between UIs
 3. **Single source of truth** - AppState for all state
 4. **Dependency injection** - No global `window.*` objects
-5. **Type safety** - TypeScript for critical paths
+5. **Unified business logic** - IPC and REST endpoints call same shared functions (no duplication)
 6. **Test continuously** - Never break working features
 
 ## Performance Considerations
@@ -698,11 +819,11 @@ Artist - Song Title.zip
 - Voice effects (reverb, delay, EQ)
 
 ### Long-term (Architecture)
-- TypeScript migration
 - Automated testing suite
 - Plugin architecture for effects
 - Cloud sync for libraries
 - Mobile app (React Native)
+- Advanced audio processing (reverb, delay, compression)
 
 ## Innovation Highlights
 
