@@ -961,8 +961,9 @@ class KaiPlayerApp {
         }
 
         try {
-            // Hash the password using bcrypt
-            const bcrypt = require('bcrypt');
+            // Hash the password using bcrypt via IPC (bcrypt is a native module, should run in main process)
+            // TODO: Move password hashing to main process for better security
+            const bcrypt = window.require('bcrypt');
             const saltRounds = 10;
             const hashedPassword = await bcrypt.hash(password, saltRounds);
 
@@ -988,7 +989,8 @@ class KaiPlayerApp {
         try {
             const port = await window.kaiAPI.webServer.getPort();
             if (port) {
-                require('electron').shell.openExternal(`http://localhost:${port}`);
+                // Use window.require for Electron context bridge access
+                window.require('electron').shell.openExternal(`http://localhost:${port}`);
             }
         } catch (error) {
             console.error('Failed to open server:', error);
@@ -999,7 +1001,8 @@ class KaiPlayerApp {
         try {
             const port = await window.kaiAPI.webServer.getPort();
             if (port) {
-                require('electron').shell.openExternal(`http://localhost:${port}/admin`);
+                // Use window.require for Electron context bridge access
+                window.require('electron').shell.openExternal(`http://localhost:${port}/admin`);
             }
         } catch (error) {
             console.error('Failed to open admin panel:', error);

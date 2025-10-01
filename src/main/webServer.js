@@ -1,12 +1,20 @@
-const express = require('express');
-const cors = require('cors');
-const path = require('path');
-const fs = require('fs');
-const os = require('os');
-const cookieSession = require('cookie-session');
-const { Server } = require('socket.io');
-const http = require('http');
-const Fuse = require('fuse.js');
+import express from 'express';
+import cors from 'cors';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+import fs from 'fs';
+import os from 'os';
+import crypto from 'crypto';
+import bcrypt from 'bcrypt';
+import cookieSession from 'cookie-session';
+import { Server } from 'socket.io';
+import http from 'http';
+import Fuse from 'fuse.js';
+
+// ESM equivalent of __dirname
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 class WebServer {
     constructor(mainApp) {
@@ -117,7 +125,6 @@ class WebServer {
                     return res.status(403).json({ error: 'No admin password set' });
                 }
 
-                const bcrypt = require('bcrypt');
                 const isValid = await bcrypt.compare(password, passwordHash);
 
                 if (isValid) {
@@ -478,7 +485,6 @@ class WebServer {
 
         // Butterchurn screenshot API - case insensitive filename matching
         this.app.get('/api/butterchurn-screenshot/:presetName', (req, res) => {
-            const fs = require('fs');
             const presetName = decodeURIComponent(req.params.presetName);
 
             console.log(`Screenshot API request for: "${presetName}"`);
@@ -1517,7 +1523,6 @@ class WebServer {
 
         if (!secretKey) {
             // Generate a new 32-byte random key
-            const crypto = require('crypto');
             secretKey = crypto.randomBytes(32).toString('base64');
 
             // Save it persistently
@@ -1532,4 +1537,4 @@ class WebServer {
 
 }
 
-module.exports = WebServer;
+export default WebServer;

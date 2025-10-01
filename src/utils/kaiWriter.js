@@ -1,7 +1,7 @@
-const yazl = require('yazl');
-const yauzl = require('yauzl');
-const fs = require('fs');
-const path = require('path');
+import yazl from 'yazl';
+import yauzl from 'yauzl';
+import fs from 'fs';
+import path from 'path';
 
 class KaiWriter {
   static saveLocks = new Map(); // Track ongoing save operations
@@ -167,4 +167,4 @@ class KaiWriter {
   }
 }
 
-module.exports = KaiWriter;
+export default KaiWriter;

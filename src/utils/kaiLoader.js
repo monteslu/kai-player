@@ -1,6 +1,6 @@
-const yauzl = require('yauzl');
-const fs = require('fs');
-const path = require('path');
+import yauzl from 'yauzl';
+import fs from 'fs';
+import path from 'path';
 
 class KaiLoader {
   static async load(kaiFilePath) {
@@ -272,4 +272,4 @@ class KaiLoader {
   }
 }
 
-module.exports = KaiLoader;
+export default KaiLoader;

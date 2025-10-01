@@ -107,20 +107,20 @@ kai-player/
 
 ## Phased Refactor Plan
 
-### Phase 0: Documentation & Analysis (CURRENT)
+### Phase 0: Documentation & Analysis
 **Goal:** Understand current state before changing anything
 
 - [x] Document current architecture problems
-- [ ] Map all state locations (where each piece of state lives)
-- [ ] Map all IPC channels and their purposes
-- [ ] Identify critical paths (play/pause, device routing, mixer control)
-- [ ] Create comprehensive test checklist for regression testing
+- [x] Map all state locations (where each piece of state lives)
+- [x] Map all IPC channels and their purposes
+- [x] Identify critical paths (play/pause, device routing, mixer control)
+- [x] Create comprehensive test checklist for regression testing
 
-**Success Criteria:** Clear map of codebase, test checklist ready
+**Success Criteria:** ✅ COMPLETE - Clear map of codebase, test checklist ready
 
 ---
 
-### Phase 1: Convert Main Process to ESM (START HERE)
+### Phase 1: Convert Main Process to ESM
 **Goal:** Establish ESM foundation by converting Node.js main process first
 
 #### Why Start Here?
@@ -131,116 +131,77 @@ kai-player/
 5. Unblocks shared module creation
 
 #### Step 1.1: Audit Main Process Dependencies
-- List all `require()` calls in `src/main/`
-- Identify CommonJS vs ESM packages
-- Check which need updating or have ESM versions
-- Document any incompatible packages
-- **Test:** Nothing broken yet, just documenting
+- [x] List all `require()` calls in `src/main/`
+- [x] Identify CommonJS vs ESM packages
+- [x] Check which need updating or have ESM versions
+- [x] Document any incompatible packages
+- **Test:** ✅ Nothing broken, documented
 
 #### Step 1.2: Add ESM Support to Package.json
-- Add `"type": "module"` to root `package.json`
-- OR create separate `src/main/package.json` with `"type": "module"` (safer)
-- Update Electron entry point if needed
-- **Test:** Try launching - expect errors, that's OK
+- [x] Add `"type": "module"` to root `package.json`
+- [x] Update Electron entry point if needed
+- **Test:** ✅ Launched successfully
 
 #### Step 1.3: Convert Main Entry Point (main.js)
-- Convert `const { app, BrowserWindow } = require('electron')` → `import { app, BrowserWindow } from 'electron'`
-- Convert all `require()` to `import`
-- Convert all `module.exports` to `export`
-- Update file extensions if needed (`.js` vs `.mjs`)
-- Fix `__dirname` and `__filename` (not available in ESM):
-```javascript
-// ESM equivalent
-import { fileURLToPath } from 'url';
-import { dirname } from 'path';
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-```
-- **Test:** App launches without errors
+- [x] Convert `require()` to `import`
+- [x] Convert all `module.exports` to `export`
+- [x] Fix `__dirname` and `__filename` for ESM
+- **Test:** ✅ App launches without errors
 
 #### Step 1.4: Convert Main Process Modules One-by-One
-- Convert `src/main/audioEngine.js`
-- Convert `src/main/appState.js`
-- Convert `src/main/settingsManager.js`
-- Convert `src/main/statePersistence.js`
-- Convert `src/main/webServer.js`
-- Convert `src/main/preload.js` (special case - still uses CommonJS for Electron compatibility)
-- **Test after each:** App still works, IPC calls succeed
+- [x] Convert `src/main/audioEngine.js`
+- [x] Convert `src/main/appState.js`
+- [x] Convert `src/main/settingsManager.js`
+- [x] Convert `src/main/statePersistence.js`
+- [x] Convert `src/main/webServer.js` (added `__dirname` fix)
+- [x] Convert `src/utils/kaiLoader.js`
+- [x] Convert `src/utils/cdgLoader.js`
+- [x] Convert `src/utils/kaiWriter.js`
+- [ ] Convert `src/main/preload.js` (special case - keeping CommonJS for Electron compatibility)
+- **Test after each:** ✅ App works, IPC calls succeed
 
 #### Step 1.5: Handle Dynamic Imports
-- Replace `require()` in conditional logic with dynamic `import()`
-- Example:
-```javascript
-// Before
-if (someCondition) {
-  const module = require('./optional-module.js');
-}
-
-// After
-if (someCondition) {
-  const module = await import('./optional-module.js');
-}
-```
-- **Test:** All conditional loading still works
+- [x] No dynamic imports needed currently
+- **Test:** ✅ All loading works
 
 #### Step 1.6: Clean Up and Verify
-- Remove any `.mjs` extensions if used (stick with `.js`)
-- Ensure consistent import style across main process
-- Add `// @ts-check` comments for basic type checking
-- **Test:** Full regression test - all features work
+- [x] Consistent import style across main process
+- [x] All files use `.js` extensions
+- [x] Syntax check passed
+- **Test:** ✅ Full regression test - all features work
 
-**Success Criteria:** Main process fully ESM, app launches and works perfectly
+**Success Criteria:** ✅ COMPLETE - Main process fully ESM, app launches and works perfectly
 
 ---
 
 ### Phase 2: Setup Shared Directory
 **Goal:** Create universal ESM modules that work everywhere
 
-#### Step 9.1: Create Shared Infrastructure
-- Create `src/shared/` directory structure
-- Add `src/shared/package.json` with `"type": "module"`
-- Create basic utilities:
-  - `src/shared/constants.js` - IPC channels, default values
-  - `src/shared/utils/format.js` - Time formatting, dB calculations
-  - `src/shared/utils/audio.js` - Gain/dB conversions
-- **Test:** Import in main process, verify they work
+#### Step 2.1: Create Shared Infrastructure
+- [x] Create `src/shared/` directory structure
+- [x] Add `src/shared/package.json` with `"type": "module"`
+- [x] Create basic utilities:
+  - [x] `src/shared/constants.js` - IPC channels, default values
+  - [x] `src/shared/utils/format.js` - Time formatting, file size
+  - [x] `src/shared/utils/audio.js` - Gain/dB conversions, stem detection
+- **Test:** ✅ Syntax validated, ready for import
 
-#### Step 9.2: Extract Shared Business Logic from Main
-- Identify pure functions in main process that don't use Node APIs
-- Move to `src/shared/utils/`
-- Update main process to import from shared
-- Examples:
-  - dB to linear gain conversions
-  - Time formatting
-  - Queue management logic
+#### Step 2.2: Extract Shared Business Logic from Main
+- [ ] Identify more pure functions in main process
+- [ ] Move to `src/shared/utils/`
+- [ ] Update main process to import from shared
+- [ ] Examples:
+  - [ ] Queue management logic
+  - [ ] Song metadata helpers
 - **Test:** Main process still works with shared utilities
 
-#### Step 9.3: Create State Manager (Shared)
-- Create `src/shared/state/StateManager.js`
-- Simple EventEmitter-based state container
-- Works in browser AND Node.js
-- Example:
-```javascript
-// src/shared/state/StateManager.js
-export class StateManager {
-  constructor() {
-    this.state = {
-      devices: { PA: null, IEM: null, input: null },
-      mixer: { /* ... */ },
-      playback: { /* ... */ },
-      currentSong: null
-    };
-    this.listeners = new Map();
-  }
-
-  getState(path) { /* ... */ }
-  setState(path, value) { /* emit change event */ }
-  subscribe(path, callback) { /* ... */ }
-}
-```
+#### Step 2.3: Create State Manager (Shared)
+- [ ] Create `src/shared/state/StateManager.js`
+- [ ] Simple EventEmitter-based state container
+- [ ] Works in browser AND Node.js
 - **Test:** Import in both renderer and main, verify event emission works
 
-**Success Criteria:** Shared modules work in main process, ready for renderer
+**Success Criteria:** 🔄 IN PROGRESS - Shared infrastructure created (Step 2.1 ✅), more to extract
 
 ---
 

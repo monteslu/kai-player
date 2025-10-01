@@ -139,6 +139,10 @@ const api = {
   events: {
     on: (channel, callback) => ipcRenderer.on(channel, callback),
     removeListener: (channel, callback) => ipcRenderer.removeListener(channel, callback)
+  },
+
+  shell: {
+    openExternal: (url) => ipcRenderer.invoke('shell:openExternal', url)
   }
 };
 

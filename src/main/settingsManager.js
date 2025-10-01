@@ -1,6 +1,6 @@
-const { app } = require('electron');
-const path = require('path');
-const fs = require('fs').promises;
+import { app } from 'electron';
+import path from 'path';
+import fs from 'fs/promises';
 
 class SettingsManager {
   constructor() {
@@ -91,4 +91,4 @@ class SettingsManager {
   }
 }
 
-module.exports = SettingsManager;
+export default SettingsManager;

@@ -1,6 +1,6 @@
-const fs = require('fs').promises;
-const path = require('path');
-const { app } = require('electron');
+import fs from 'fs/promises';
+import path from 'path';
+import { app } from 'electron';
 
 /**
  * StatePersistence - Saves and loads AppState to/from disk
@@ -178,4 +178,4 @@ class StatePersistence {
   }
 }
 
-module.exports = StatePersistence;
+export default StatePersistence;

@@ -1,15 +1,24 @@
-const { app, BrowserWindow, ipcMain, dialog, Menu } = require('electron');
-const path = require('path');
-const fs = require('fs');
-const { io } = require('socket.io-client');
-const AudioEngine = require('./audioEngine');
-const KaiLoader = require('../utils/kaiLoader');
-const CDGLoader = require('../utils/cdgLoader');
-const KaiWriter = require('../utils/kaiWriter');
-const SettingsManager = require('./settingsManager');
-const WebServer = require('./webServer');
-const AppState = require('./appState');
-const StatePersistence = require('./statePersistence');
+import { app, BrowserWindow, ipcMain, dialog, Menu } from 'electron';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+import fs from 'fs';
+import fsPromises from 'fs/promises';
+import os from 'os';
+import yauzl from 'yauzl';
+import { io } from 'socket.io-client';
+import AudioEngine from './audioEngine.js';
+import KaiLoader from '../utils/kaiLoader.js';
+import CDGLoader from '../utils/cdgLoader.js';
+import KaiWriter from '../utils/kaiWriter.js';
+import SettingsManager from './settingsManager.js';
+import WebServer from './webServer.js';
+import AppState from './appState.js';
+import StatePersistence from './statePersistence.js';
+
+// ESM equivalent of __dirname
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 class KaiPlayerApp {
   constructor() {
@@ -1457,7 +1466,7 @@ class KaiPlayerApp {
         // Save to disk cache
         const cacheFile = path.join(app.getPath('userData'), 'library-cache.json');
         try {
-          await fs.promises.writeFile(cacheFile, JSON.stringify({
+          await fsPromises.writeFile(cacheFile, JSON.stringify({
             songsFolder,
             files,
             cachedAt: new Date().toISOString()
@@ -1485,7 +1494,7 @@ class KaiPlayerApp {
         const cacheFile = path.join(app.getPath('userData'), 'library-cache.json');
         let cachedData = { files: [] };
         try {
-          const cacheContent = await fs.promises.readFile(cacheFile, 'utf8');
+          const cacheContent = await fsPromises.readFile(cacheFile, 'utf8');
           cachedData = JSON.parse(cacheContent);
         } catch (err) {
           console.log('No cache found, will perform full scan');
@@ -1549,7 +1558,7 @@ class KaiPlayerApp {
         }
 
         // Save to disk cache
-        await fs.promises.writeFile(cacheFile, JSON.stringify({
+        await fsPromises.writeFile(cacheFile, JSON.stringify({
           songsFolder,
           files: updatedFiles,
           cachedAt: new Date().toISOString()
@@ -1566,7 +1575,7 @@ class KaiPlayerApp {
     ipcMain.handle('library:getSongInfo', async (event, filePath) => {
       try {
         console.log('📖 Reading song info from:', filePath);
-        const fs = require('fs').promises;
+        // fs already imported at top
         const lowerPath = filePath.toLowerCase();
 
         let songInfo = null;
@@ -1634,6 +1643,12 @@ class KaiPlayerApp {
         console.error('❌ Failed to get song info:', error);
         return { error: error.message };
       }
+    });
+
+    // Shell operations
+    ipcMain.handle('shell:openExternal', async (event, url) => {
+      const { shell } = await import('electron');
+      await shell.openExternal(url);
     });
 
     // Web Server Management
@@ -1846,7 +1861,7 @@ class KaiPlayerApp {
   }
 
   async scanForKaiFiles(folderPath) {
-    const fs = require('fs').promises;
+    // fs already imported
     const files = [];
     const cdgMap = new Map(); // Track CDG files found
     const mp3Map = new Map(); // Track MP3 files found
@@ -1931,7 +1946,7 @@ class KaiPlayerApp {
   }
 
   async extractKaiMetadata(kaiFilePath) {
-    const yauzl = require('yauzl');
+    // yauzl already imported
 
     return new Promise((resolve) => {
       const metadata = {
@@ -2009,7 +2024,7 @@ class KaiPlayerApp {
   }
 
   async extractCDGArchiveMetadata(archivePath) {
-    const yauzl = require('yauzl');
+    // yauzl already imported
 
     return new Promise((resolve) => {
       let hasCDG = false;
@@ -2048,11 +2063,11 @@ class KaiPlayerApp {
   }
 
   async extractMp3MetadataFromArchive(archivePath, mp3FileName) {
-    const yauzl = require('yauzl');
+    // yauzl already imported
     const mm = await import('music-metadata');
-    const fs = require('fs');
-    const os = require('os');
-    const path = require('path');
+    // fs already imported
+    // os already imported
+    // path already imported
 
     return new Promise((resolve) => {
       const metadata = {
@@ -2145,7 +2160,7 @@ class KaiPlayerApp {
 
   async extractCDGPairMetadata(mp3Path, cdgPath) {
     const mm = await import('music-metadata');
-    const path = require('path');
+    // path already imported
 
     const metadata = {
       title: null,
@@ -2205,7 +2220,7 @@ class KaiPlayerApp {
   }
 
   async readKaiSongJson(kaiFilePath) {
-    const yauzl = require('yauzl');
+    // yauzl already imported
     
     return new Promise((resolve) => {
       yauzl.open(kaiFilePath, { lazyEntries: true }, (err, zipfile) => {
@@ -2402,7 +2417,7 @@ class KaiPlayerApp {
       let useCache = false;
 
       try {
-        const cacheData = JSON.parse(await fs.promises.readFile(cacheFile, 'utf8'));
+        const cacheData = JSON.parse(await fsPromises.readFile(cacheFile, 'utf8'));
         // Check if cache is for the same folder
         if (cacheData.songsFolder === songsFolder) {
           console.log(`📂 Found library cache with ${cacheData.files.length} songs`);
@@ -2457,7 +2472,7 @@ class KaiPlayerApp {
 
       // Save to disk cache
       try {
-        await fs.promises.writeFile(cacheFile, JSON.stringify({
+        await fsPromises.writeFile(cacheFile, JSON.stringify({
           songsFolder,
           files,
           cachedAt: new Date().toISOString()
@@ -2480,7 +2495,7 @@ class KaiPlayerApp {
     const processedPairs = new Set();
 
     async function scan(dir) {
-      const entries = await fs.promises.readdir(dir, { withFileTypes: true });
+      const entries = await fsPromises.readdir(dir, { withFileTypes: true });
 
       for (const entry of entries) {
         if (entry.name.startsWith('._') || entry.name === '.DS_Store') {
@@ -2508,7 +2523,7 @@ class KaiPlayerApp {
             const mp3Path = baseName + '.mp3';
 
             try {
-              await fs.promises.access(mp3Path);
+              await fsPromises.access(mp3Path);
               // Only add if we haven't seen this pair
               if (!processedPairs.has(fullPath)) {
                 // Use MP3 path as primary key to match scanForKaiFilesWithProgress
@@ -2610,7 +2625,7 @@ class KaiPlayerApp {
     const processedPairs = new Set();
 
     async function scan(dir) {
-      const entries = await fs.promises.readdir(dir, { withFileTypes: true });
+      const entries = await fsPromises.readdir(dir, { withFileTypes: true });
 
       for (const entry of entries) {
         // Skip macOS resource fork files and .DS_Store
@@ -2641,7 +2656,7 @@ class KaiPlayerApp {
 
             // Check if paired MP3 exists
             try {
-              await fs.promises.access(mp3Path);
+              await fsPromises.access(mp3Path);
               // Only add if we haven't seen this pair
               if (!processedPairs.has(fullPath)) {
                 allFiles.push(mp3Path); // Return MP3 path to match cache format
@@ -2711,7 +2726,7 @@ class KaiPlayerApp {
 
           // Verify MP3 file exists
           try {
-            await fs.promises.access(mp3Path);
+            await fsPromises.access(mp3Path);
             const metadata = await this.extractCDGPairMetadata(mp3Path, fullPath);
             if (metadata) {
               files.push({
@@ -2768,7 +2783,7 @@ class KaiPlayerApp {
     };
 
     async function scanDir(dir, self) {
-      const entries = await fs.promises.readdir(dir, { withFileTypes: true });
+      const entries = await fsPromises.readdir(dir, { withFileTypes: true });
 
       for (const entry of entries) {
         const fullPath = path.join(dir, entry.name);
@@ -2822,7 +2837,7 @@ class KaiPlayerApp {
             const baseName = fullPath.slice(0, -4);
             const mp3Path = baseName + '.mp3';
 
-            if (await fs.promises.access(mp3Path).then(() => true).catch(() => false)) {
+            if (await fsPromises.access(mp3Path).then(() => true).catch(() => false)) {
               processedPaths.add(fullPath);
               processedPaths.add(mp3Path);
 
