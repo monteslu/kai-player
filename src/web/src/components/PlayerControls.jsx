@@ -1,14 +1,8 @@
 import './PlayerControls.css';
+import { formatDuration } from '../../../shared/formatUtils.js';
 
 export function PlayerControls({ playback, currentSong, onPlay, onPause, onRestart, onNext, onSeek }) {
   const { isPlaying, position = 0, duration = 0 } = playback || {};
-
-  const formatTime = (seconds) => {
-    if (!seconds || isNaN(seconds)) return '0:00';
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
 
   const handleProgressClick = (e) => {
     if (!duration || !onSeek) return;
@@ -55,7 +49,7 @@ export function PlayerControls({ playback, currentSong, onPlay, onPause, onResta
       </div>
 
       <div className="player-progress">
-        <span className="time-current">{formatTime(position)}</span>
+        <span className="time-current">{formatDuration(position)}</span>
         <div
           className="progress-bar"
           onClick={handleProgressClick}
@@ -69,7 +63,7 @@ export function PlayerControls({ playback, currentSong, onPlay, onPause, onResta
             style={{ left: `${progress}%` }}
           />
         </div>
-        <span className="time-total">{formatTime(duration)}</span>
+        <span className="time-total">{formatDuration(duration)}</span>
       </div>
     </div>
   );

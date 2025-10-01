@@ -1,4 +1,6 @@
-class LyricsEditorController {
+import { LyricsEditor } from './lyricsEditor.js';
+
+export class LyricsEditorController {
     constructor() {
         this.currentPosition = 0;
         this.songDuration = 0;

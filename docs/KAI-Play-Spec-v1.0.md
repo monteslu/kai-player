@@ -29,6 +29,51 @@
 - **State Management:** Dual persistence (app-state.json for runtime, settings.json for preferences)
 - **IPC:** Electron IPC for renderer ↔ main communication
 
+### 2.1 Code Sharing Between Environments
+The application runs in multiple JavaScript environments:
+- **Main Process** (Node.js) - `src/main/`
+- **Renderer Process** (Electron/Browser) - `src/renderer/`
+- **Web UI** (React/Vite) - `src/web/`
+
+**Shared Code Location:** `src/shared/`
+- Contains pure ES modules (`.js` files with `export` statements)
+- Used for utility functions that need to work across all environments
+- Examples: format helpers, constants, validation functions
+
+**How to Share Code:**
+1. Create a pure ES module in `src/shared/` with named exports
+   ```javascript
+   export function utilityFunction() { /* ... */ }
+   ```
+
+2. Import from renderer process (ES modules):
+   ```javascript
+   import { utilityFunction } from '../../shared/utils.js';
+   ```
+   - Script tag must use `type="module"` in `index.html`
+   - Path is relative from `src/renderer/js/` → `src/shared/`
+
+3. Import from web UI (React/Vite):
+   ```javascript
+   import { utilityFunction } from '../../../shared/utils.js';
+   ```
+   - Path is relative from `src/web/src/components/` → `src/shared/`
+   - Vite bundler handles the import automatically
+
+4. Import from main process (Node.js):
+   ```javascript
+   import { utilityFunction } from '../shared/utils.js';
+   ```
+   - Node.js 14+ supports ES modules natively
+   - Or use CommonJS `require()` if needed
+
+**DO NOT:**
+- Use global variables or window namespace pollution
+- Duplicate utility functions across environments
+- Mix CommonJS and ES modules within the same file
+
+**Example:** `src/shared/formatUtils.js` is used by both renderer (`library.js`, `queue.js`) and web UI (`SongSearch.jsx`) to provide consistent file format icons.
+
 ## 3. Audio System
 ### 3.1 Audio Engine (RendererAudioEngine)
 - Web Audio API with AudioContext

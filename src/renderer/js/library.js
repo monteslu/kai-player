@@ -1,3 +1,5 @@
+import { getFormatIcon, formatDuration, formatFileSize } from '../../shared/formatUtils.js';
+
 class LibraryManager {
     constructor() {
         this.songs = [];
@@ -90,18 +92,40 @@ class LibraryManager {
             return;
         }
 
-        // Disable refresh button during scan
+        // Disable controls during scan
         const refreshBtn = document.getElementById('refreshLibraryBtn');
+        const searchInput = document.getElementById('librarySearch');
+        const alphabetNav = document.getElementById('alphabetNav');
+        const paginationControls = document.getElementById('paginationControls');
+
         if (refreshBtn) {
             refreshBtn.disabled = true;
+        }
+        if (searchInput) {
+            searchInput.disabled = true;
+        }
+        if (alphabetNav) {
+            alphabetNav.style.display = 'none';
+        }
+        if (paginationControls) {
+            paginationControls.style.display = 'none';
         }
 
         this.showLoading();
         await this.scanLibrary();
 
-        // Re-enable refresh button after scan
+        // Re-enable controls after scan
         if (refreshBtn) {
             refreshBtn.disabled = false;
+        }
+        if (searchInput) {
+            searchInput.disabled = false;
+        }
+        if (alphabetNav) {
+            alphabetNav.style.display = 'block';
+        }
+        if (paginationControls) {
+            paginationControls.style.display = 'flex';
         }
     }
 
@@ -458,11 +482,13 @@ class LibraryManager {
     createSongRowHTML(song) {
         const title = song.title || song.name.replace('.kai', '');
         const artist = song.artist || '-';
+        const album = song.album || '-';
         const genre = song.genre || '-';
         const key = song.key || '-';
-        const duration = this.formatDuration(song.duration);
+        const duration = formatDuration(song.duration);
+        const year = song.year || '-';
         const stems = this.formatStems(song.stems, song.stemCount);
-        const formatIcon = this.getFormatIcon(song.format);
+        const formatIcon = getFormatIcon(song.format);
 
         return `
             <tr class="song-row" data-path="${song.path}">
@@ -470,9 +496,11 @@ class LibraryManager {
                     <span class="format-icon">${formatIcon}</span> ${title}
                 </td>
                 <td class="col-artist" title="${artist}">${artist}</td>
+                <td class="col-album" title="${album}">${album}</td>
                 <td class="col-genre" title="${genre}">${genre}</td>
                 <td class="col-key" title="${key}">${key}</td>
                 <td class="col-duration song-duration">${duration}</td>
+                <td class="col-year song-year">${year}</td>
                 <td class="col-stems song-stems">${stems}</td>
                 <td class="col-actions">
                     <div class="song-actions">
@@ -486,18 +514,6 @@ class LibraryManager {
                 </td>
             </tr>
         `;
-    }
-
-    getFormatIcon(format) {
-        switch (format) {
-            case 'kai':
-                return '⚡';
-            case 'cdg-archive':
-            case 'cdg-pair':
-                return '💿';
-            default:
-                return '⚡'; // Default to KAI icon
-        }
     }
 
     attachSongClickHandlers() {
@@ -624,15 +640,6 @@ class LibraryManager {
         `;
     }
 
-    formatDuration(seconds) {
-        if (!seconds || seconds <= 0) return '-';
-        
-        const minutes = Math.floor(seconds / 60);
-        const remainingSeconds = Math.floor(seconds % 60);
-        
-        return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
-    }
-
     formatStems(stemArray, stemCount) {
         if (!stemArray || stemArray.length === 0) {
             return stemCount ? `${stemCount} stems` : '-';
@@ -641,17 +648,6 @@ class LibraryManager {
         // Show all stem names
         return stemArray.join(', ') || '-';
     }
-
-    formatFileSize(bytes) {
-        if (bytes === 0) return '0 B';
-        
-        const k = 1024;
-        const sizes = ['B', 'KB', 'MB', 'GB'];
-        const i = Math.floor(Math.log(bytes) / Math.log(k));
-        
-        return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
-    }
-
 
     async queueSong(songPath) {
         try {
@@ -749,7 +745,7 @@ class LibraryManager {
                     <div class="info-label">Album:</div>
                     <div class="info-value">${song.album || 'Unknown'}</div>
                     <div class="info-label">Duration:</div>
-                    <div class="info-value">${this.formatDuration(song.duration_sec)}</div>
+                    <div class="info-value">${formatDuration(song.duration_sec)}</div>
                     <div class="info-label">Year:</div>
                     <div class="info-value">${song.year || 'Unknown'}</div>
                     <div class="info-label">Genre:</div>
@@ -783,7 +779,7 @@ class LibraryManager {
                     <div class="info-label">Source File:</div>
                     <div class="info-value">${song.source_filename || 'Unknown'}</div>
                     <div class="info-label">File Size:</div>
-                    <div class="info-value">${this.formatFileSize(songInfo.fileSize)}</div>
+                    <div class="info-value">${formatFileSize(songInfo.fileSize)}</div>
                 </div>
             </div>
         `;

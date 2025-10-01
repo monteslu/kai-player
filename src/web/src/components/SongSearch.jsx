@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import './SongSearch.css';
+import { getFormatIcon, formatDuration } from '../../../shared/formatUtils.js';
 
 export function SongSearch({ onAddToQueue }) {
   const [searchTerm, setSearchTerm] = useState('');
@@ -96,25 +97,6 @@ export function SongSearch({ onAddToQueue }) {
       }
     } catch (error) {
       console.error('Add to queue failed:', error);
-    }
-  };
-
-  const formatDuration = (seconds) => {
-    if (!seconds) return '--:--';
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
-
-  const getFormatIcon = (format) => {
-    switch (format) {
-      case 'kai':
-        return '⚡';
-      case 'cdg-archive':
-      case 'cdg-pair':
-        return '💿';
-      default:
-        return '⚡';
     }
   };
 

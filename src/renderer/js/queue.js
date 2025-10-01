@@ -1,3 +1,5 @@
+import { getFormatIcon, formatDuration } from '../../shared/formatUtils.js';
+
 class QueueManager {
     constructor() {
         this.queue = []; // Display cache only - main process is source of truth
@@ -425,16 +427,6 @@ class QueueManager {
         }
     }
 
-    // Format duration helper
-    formatDuration(seconds) {
-        if (!seconds || seconds <= 0) return '-';
-        
-        const minutes = Math.floor(seconds / 60);
-        const remainingSeconds = Math.floor(seconds % 60);
-        
-        return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
-    }
-
     // Update player sidebar queue display
     updatePlayerQueueDisplay() {
         const playerQueueList = document.getElementById('playerQueueList');
@@ -532,10 +524,12 @@ class QueueManager {
             return;
         }
 
-        const resultsHTML = matches.map(song => `
+        const resultsHTML = matches.map(song => {
+            const formatIcon = getFormatIcon(song.format);
+            return `
             <div class="quick-search-item" data-song-path="${song.path}">
                 <div class="quick-search-info">
-                    <div class="quick-search-title">${song.title}</div>
+                    <div class="quick-search-title"><span class="format-icon">${formatIcon}</span> ${song.title}</div>
                     <div class="quick-search-artist">${song.artist}</div>
                 </div>
                 <div class="quick-search-buttons">
@@ -543,7 +537,7 @@ class QueueManager {
                     <button class="quick-search-load" data-song-path="${song.path}">Load</button>
                 </div>
             </div>
-        `).join('');
+        `;}).join('');
 
         resultsContainer.innerHTML = resultsHTML;
         this.showSearchDropdown();

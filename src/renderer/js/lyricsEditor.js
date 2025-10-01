@@ -1,4 +1,6 @@
-class LyricsEditor {
+import { formatTime } from '../../shared/formatUtils.js';
+
+export class LyricsEditor {
     constructor() {
         this.lyricsData = [];
         this.originalLyrics = null;
@@ -307,8 +309,8 @@ class LyricsEditor {
         container.dataset.suggestionIndex = suggestionIndex;
 
         // Format timing display
-        const startTime = this.formatTime(suggestion.start_time);
-        const endTime = this.formatTime(suggestion.end_time);
+        const startTime = formatTime(suggestion.start_time);
+        const endTime = formatTime(suggestion.end_time);
 
         container.innerHTML = `
             <div class="suggestion-header">
@@ -583,15 +585,6 @@ class LyricsEditor {
         if (this.editedCallback) {
             this.editedCallback(this.getEditedLyrics(), this.rejections, this.suggestions);
         }
-    }
-    
-    formatTime(seconds) {
-        if (!seconds || isNaN(seconds)) return '0:00.0';
-        
-        const mins = Math.floor(seconds / 60);
-        const secs = Math.floor(seconds % 60);
-        const tenths = Math.floor((seconds % 1) * 10);
-        return `${mins}:${secs.toString().padStart(2, '0')}.${tenths}`;
     }
     
     parseTime(timeStr) {

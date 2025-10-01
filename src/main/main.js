@@ -1848,8 +1848,10 @@ class KaiPlayerApp {
       const metadata = {
         title: null,
         artist: null,
+        album: null,
         genre: null,
         key: null,
+        year: null,
         duration: null,
         stems: [],
         stemCount: 0
@@ -1884,8 +1886,10 @@ class KaiPlayerApp {
                   if (songData.song) {
                     metadata.title = songData.song.title || null;
                     metadata.artist = songData.song.artist || null;
+                    metadata.album = songData.song.album || null;
                     metadata.genre = songData.song.genre || null;
                     metadata.key = songData.song.key || null;
+                    metadata.year = songData.song.year || null;
                     metadata.duration = songData.song.duration_sec || null;
                   }
 
@@ -1956,7 +1960,7 @@ class KaiPlayerApp {
 
   async extractMp3MetadataFromArchive(archivePath, mp3FileName) {
     const yauzl = require('yauzl');
-    const NodeID3 = require('node-id3');
+    const mm = await import('music-metadata');
     const fs = require('fs');
     const os = require('os');
     const path = require('path');
@@ -1965,7 +1969,9 @@ class KaiPlayerApp {
       const metadata = {
         title: null,
         artist: null,
+        album: null,
         genre: null,
+        year: null,
         duration: null
       };
 
@@ -1990,14 +1996,19 @@ class KaiPlayerApp {
 
               readStream.pipe(writeStream);
 
-              writeStream.on('finish', () => {
+              writeStream.on('finish', async () => {
                 try {
-                  const tags = NodeID3.read(tempPath);
-                  if (tags) {
-                    metadata.title = tags.title || null;
-                    metadata.artist = tags.artist || null;
-                    metadata.genre = tags.genre || null;
-                    // node-id3 doesn't provide duration, skip it
+                  const mmData = await mm.parseFile(tempPath);
+                  if (mmData.common) {
+                    metadata.title = mmData.common.title || null;
+                    metadata.artist = mmData.common.artist || null;
+                    metadata.album = mmData.common.album || null;
+                    metadata.genre = mmData.common.genre ? mmData.common.genre[0] : null;
+                    // Prefer full date (TDRC), fallback to year (TYER)
+                    metadata.year = mmData.common.date || (mmData.common.year ? String(mmData.common.year) : null);
+                  }
+                  if (mmData.format && mmData.format.duration) {
+                    metadata.duration = mmData.format.duration;
                   }
 
                   // Fallback to filename parsing if no tags
@@ -2044,23 +2055,30 @@ class KaiPlayerApp {
   }
 
   async extractCDGPairMetadata(mp3Path, cdgPath) {
-    const NodeID3 = require('node-id3');
+    const mm = await import('music-metadata');
     const path = require('path');
 
     const metadata = {
       title: null,
       artist: null,
+      album: null,
       genre: null,
+      year: null,
       duration: null
     };
 
     try {
-      const tags = NodeID3.read(mp3Path);
-      if (tags) {
-        metadata.title = tags.title || null;
-        metadata.artist = tags.artist || null;
-        metadata.genre = tags.genre || null;
-        // node-id3 doesn't provide duration
+      const mmData = await mm.parseFile(mp3Path);
+      if (mmData.common) {
+        metadata.title = mmData.common.title || null;
+        metadata.artist = mmData.common.artist || null;
+        metadata.album = mmData.common.album || null;
+        metadata.genre = mmData.common.genre ? mmData.common.genre[0] : null;
+        // Prefer full date (TDRC), fallback to year (TYER)
+        metadata.year = mmData.common.date || (mmData.common.year ? String(mmData.common.year) : null);
+      }
+      if (mmData.format && mmData.format.duration) {
+        metadata.duration = mmData.format.duration;
       }
 
       // Fallback to filename parsing if no tags
@@ -2456,11 +2474,15 @@ class KaiPlayerApp {
             processedPaths.add(fullPath);
             const metadata = await self.readKaiSongJson(fullPath);
             if (metadata) {
+              const songData = {
+                ...metadata.song,
+                duration: metadata.song.duration_sec
+              };
               files.push({
                 name: fullPath,
                 path: fullPath,
                 format: 'kai',
-                ...metadata.song
+                ...songData
               });
             }
             processedCount++;
@@ -2477,6 +2499,9 @@ class KaiPlayerApp {
                 format: 'cdg-archive',
                 title: metadata.title,
                 artist: metadata.artist,
+                album: metadata.album,
+                genre: metadata.genre,
+                year: metadata.year,
                 duration: metadata.duration
               });
             }
@@ -2499,6 +2524,9 @@ class KaiPlayerApp {
                 format: 'cdg-pair',
                 title: metadata.title,
                 artist: metadata.artist,
+                album: metadata.album,
+                genre: metadata.genre,
+                year: metadata.year,
                 duration: metadata.duration,
                 cdgPath: fullPath
               });

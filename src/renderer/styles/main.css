@@ -2084,12 +2084,14 @@ body {
 }
 
 /* Column widths */
-.col-title { width: 25%; }
-.col-artist { width: 18%; }
-.col-genre { width: 12%; }
-.col-key { width: 8%; }
-.col-duration { width: 8%; }
-.col-stems { width: 22%; }
+.col-title { width: 20%; }
+.col-artist { width: 15%; }
+.col-album { width: 15%; }
+.col-genre { width: 10%; }
+.col-key { width: 6%; }
+.col-duration { width: 7%; }
+.col-year { width: 6%; }
+.col-stems { width: 14%; }
 .col-actions { width: 7%; }
 
 .library-empty {

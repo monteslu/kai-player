@@ -1,13 +1,7 @@
 import './QueueList.css';
+import { formatDuration } from '../../../shared/formatUtils.js';
 
 export function QueueList({ queue = [], onRemove, onClear }) {
-  const formatDuration = (seconds) => {
-    if (!seconds) return '--:--';
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
-
   return (
     <div className="queue-list">
       <div className="queue-header">

@@ -1,5 +1,7 @@
 console.log('🎮 main.js loaded and executing');
 
+import { LyricsEditorController } from './editor.js';
+
 class KaiPlayerApp {
     constructor() {
         console.log('🎮 KaiPlayerApp constructor called');
