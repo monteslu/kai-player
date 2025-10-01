@@ -1,12 +1,21 @@
-const express = require('express');
-const cors = require('cors');
-const path = require('path');
-const fs = require('fs');
-const os = require('os');
-const cookieSession = require('cookie-session');
-const { Server } = require('socket.io');
-const http = require('http');
-const Fuse = require('fuse.js');
+import express from 'express';
+import cors from 'cors';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+import fs from 'fs';
+import os from 'os';
+import crypto from 'crypto';
+import bcrypt from 'bcrypt';
+import cookieSession from 'cookie-session';
+import { Server } from 'socket.io';
+import http from 'http';
+import Fuse from 'fuse.js';
+import * as queueService from '../shared/services/queueService.js';
+
+// ESM equivalent of __dirname
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 class WebServer {
     constructor(mainApp) {
@@ -117,7 +126,6 @@ class WebServer {
                     return res.status(403).json({ error: 'No admin password set' });
                 }
 
-                const bcrypt = require('bcrypt');
                 const isValid = await bcrypt.compare(password, passwordHash);
 
                 if (isValid) {
@@ -408,21 +416,17 @@ class WebServer {
             }
         });
 
-        // Get queue status for users
+        // Get queue status for users - using shared queueService
         this.app.get('/api/queue', (req, res) => {
             try {
+                const result = queueService.getQueueInfo(this.mainApp.appState);
                 const state = this.mainApp.appState.getSnapshot();
-                const queueInfo = state.queue.map((item, index) => ({
-                    position: index + 1,
-                    title: item.title,
-                    artist: item.artist,
-                    requester: item.requester || 'KJ'
-                }));
 
                 res.json({
-                    queue: queueInfo,
-                    currentlyPlaying: state.currentSong,
-                    playback: state.playback
+                    queue: result.queue,
+                    currentlyPlaying: result.currentSong,
+                    playback: state.playback,
+                    total: result.total
                 });
             } catch (error) {
                 console.error('Error fetching queue:', error);
@@ -478,7 +482,6 @@ class WebServer {
 
         // Butterchurn screenshot API - case insensitive filename matching
         this.app.get('/api/butterchurn-screenshot/:presetName', (req, res) => {
-            const fs = require('fs');
             const presetName = decodeURIComponent(req.params.presetName);
 
             console.log(`Screenshot API request for: "${presetName}"`);
@@ -537,12 +540,14 @@ class WebServer {
         });
 
 
-        // Admin queue management endpoints
+        // Admin queue management endpoints - using shared queueService
         this.app.get('/admin/queue', async (req, res) => {
             try {
+                const result = queueService.getQueue(this.mainApp.appState);
                 const state = this.mainApp.appState.getSnapshot();
                 res.json({
-                    queue: state.queue,
+                    success: result.success,
+                    queue: result.queue,
                     currentSong: state.currentSong,
                     playback: state.playback
                 });
@@ -658,9 +663,11 @@ class WebServer {
                     addedVia: 'web-admin'
                 };
 
+                // Use shared queueService via mainApp method
+                // (mainApp.addSongToQueue already uses queueService internally)
                 if (this.mainApp.addSongToQueue) {
-                    await this.mainApp.addSongToQueue(queueItem);
-                    res.json({ success: true, message: 'Song added to queue' });
+                    const result = await this.mainApp.addSongToQueue(queueItem);
+                    res.json({ success: result.success, message: 'Song added to queue', queueItem: result.queueItem });
                 } else {
                     res.status(500).json({ error: 'Queue not available' });
                 }
@@ -672,8 +679,9 @@ class WebServer {
 
         this.app.post('/admin/queue/reset', async (req, res) => {
             try {
-                await this.mainApp.clearQueue?.();
-                res.json({ success: true, message: 'Queue reset' });
+                // Use shared queueService via mainApp method
+                const result = await this.mainApp.clearQueue?.();
+                res.json(result || { success: true, message: 'Queue reset' });
             } catch (error) {
                 console.error('Error resetting queue:', error);
                 res.status(500).json({ error: 'Failed to reset queue' });
@@ -1517,7 +1525,6 @@ class WebServer {
 
         if (!secretKey) {
             // Generate a new 32-byte random key
-            const crypto = require('crypto');
             secretKey = crypto.randomBytes(32).toString('base64');
 
             // Save it persistently
@@ -1532,4 +1539,4 @@ class WebServer {
 
 }
 
-module.exports = WebServer;
+export default WebServer;

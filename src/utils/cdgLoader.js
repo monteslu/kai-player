@@ -1,6 +1,6 @@
-const yauzl = require('yauzl');
-const fs = require('fs');
-const path = require('path');
+import yauzl from 'yauzl';
+import fs from 'fs';
+import path from 'path';
 
 class CDGLoader {
   /**
@@ -177,4 +177,4 @@ class CDGLoader {
   }
 }
 
-module.exports = CDGLoader;
+export default CDGLoader;

@@ -119,8 +119,9 @@ class QueueManager {
     async refreshQueueFromMain() {
         if (window.kaiAPI && window.kaiAPI.queue) {
             try {
-                const mainQueue = await window.kaiAPI.queue.get();
-                this.queue = mainQueue || [];
+                const result = await window.kaiAPI.queue.get();
+                // Handle new service response format {success, queue}
+                this.queue = result.queue || result || [];
                 this.updateQueueDisplay();
             } catch (error) {
                 console.error('Failed to refresh queue from main:', error);
