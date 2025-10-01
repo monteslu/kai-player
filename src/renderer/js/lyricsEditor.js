@@ -35,10 +35,18 @@ export class LyricsEditor {
     renderEditor() {
         if (!this.lyricsData || this.lyricsData.length === 0) {
             this.lyricsLinesContainer.innerHTML = '<div class="no-lyrics-message">Load a KAI file to edit lyrics</div>';
+            // Enable add button when no lyrics
+            if (this.addNewLineBtn) {
+                this.addNewLineBtn.disabled = false;
+                this.addNewLineBtn.title = 'Add new line at top';
+            }
             return;
         }
-        
+
         this.lyricsLinesContainer.innerHTML = '';
+
+        // Update "Add New Line" button state based on available space at the top
+        this.updateAddNewLineButtonState();
         
         // Create a combined list of lyrics and rejections, sorted by line number
         const items = [];
@@ -105,20 +113,27 @@ export class LyricsEditor {
                 this.lyricsLinesContainer.appendChild(suggestionElement);
             }
         });
+
+        // Trigger waveform redraw after DOM is fully updated
+        console.log('renderEditor complete, scheduling waveform redraw');
+        requestAnimationFrame(() => {
+            console.log('Executing waveform redraw from renderEditor');
+            this.triggerWaveformRedraw();
+        });
     }
     
     createLineEditor(line, index) {
         const container = document.createElement('div');
         container.dataset.index = index;
-        
+
         // Parse timing - handle both formats
         let startTime = 0;
         let endTime = 0;
         let text = '';
         let disabled = false;
         let backup = false;
-        
-        
+
+
         if (typeof line === 'object' && line !== null) {
             // Handle different timing field names - prioritize KAI format (start/end)
             startTime = line.start || line.time || line.start_time || 0;
@@ -131,10 +146,30 @@ export class LyricsEditor {
             startTime = index * 3;
             endTime = startTime + 3;
         }
-        
+
+        // Check if there's enough space to add a line after this one
+        const nextLine = this.lyricsData[index + 1];
+        let canAddAfter = true;
+        let addAfterTitle = "Add line after";
+
+        if (nextLine) {
+            const nextStartTime = typeof nextLine === 'object' ?
+                (nextLine.start || nextLine.time || nextLine.start_time || 0) :
+                (index + 1) * 3;
+            const gap = nextStartTime - endTime;
+
+            if (gap < 0.6) {
+                canAddAfter = false;
+                addAfterTitle = "Not enough space (need 0.6s gap)";
+            }
+        }
+
         // Update container class now that disabled and backup are set
         container.className = `lyric-line-editor ${disabled ? 'disabled' : ''} ${backup ? 'backup' : ''}`;
-        
+        container.dataset.lineIndex = index;
+        container.dataset.startTime = startTime;
+        container.dataset.endTime = endTime;
+
         container.innerHTML = `
             <span class="line-number">${index + 1}</span>
             <div class="time-inputs">
@@ -151,17 +186,17 @@ export class LyricsEditor {
                 </label>
             </div>
             <div class="line-actions">
-                <button class="btn-icon toggle-btn ${!disabled ? 'toggle-enabled' : 'toggle-disabled'}" 
+                <button class="btn-icon toggle-btn ${!disabled ? 'toggle-enabled' : 'toggle-disabled'}"
                         title="${!disabled ? 'Disable line' : 'Enable line'}">
                     ${!disabled ? '👁' : '🚫'}
                 </button>
                 <button class="btn-icon delete-btn" title="Delete line">🗑</button>
-                <button class="btn-icon add-after-btn" title="Add line after">➕</button>
+                <button class="btn-icon add-after-btn" title="${addAfterTitle}" ${!canAddAfter ? 'disabled' : ''}>➕</button>
             </div>
         `;
-        
+
         this.setupLineEventListeners(container, index);
-        
+
         return container;
     }
     
@@ -175,27 +210,37 @@ export class LyricsEditor {
         const deleteBtn = container.querySelector('.delete-btn');
         const addAfterBtn = container.querySelector('.add-after-btn');
         
-        // Line number click - jump to time in audio player
+        // Line number click - play just this line's section
         lineNumber.addEventListener('click', () => {
-            const audioElement = document.getElementById('editorAudio');
-            if (audioElement && audioElement.src) {
+            if (window.appInstance && window.appInstance.editor) {
                 const startTime = parseFloat(startTimeInput.value) || 0;
-                audioElement.currentTime = startTime;
-                if (audioElement.paused) {
-                    audioElement.play();
-                }
+                const endTime = parseFloat(endTimeInput.value) || 0;
+                window.appInstance.editor.playLineSection(startTime, endTime);
             }
         });
         
         // Time inputs
         startTimeInput.addEventListener('change', (e) => {
             const value = parseFloat(e.target.value) || 0;
+            container.dataset.startTime = value;
             this.updateLineData(index, 'start', value);
+            // Update button states for this line and previous line
+            this.updateAddAfterButtonState(index);
+            if (index > 0) {
+                this.updateAddAfterButtonState(index - 1);
+            }
+            // If this is the first line, update the "Add New Line" button state
+            if (index === 0) {
+                this.updateAddNewLineButtonState();
+            }
         });
-        
+
         endTimeInput.addEventListener('change', (e) => {
             const value = parseFloat(e.target.value) || 0;
+            container.dataset.endTime = value;
             this.updateLineData(index, 'end', value);
+            // Update button state for this line
+            this.updateAddAfterButtonState(index);
         });
         
         // Text input
@@ -207,34 +252,47 @@ export class LyricsEditor {
         backupCheckbox.addEventListener('change', (e) => {
             const isBackup = e.target.checked;
             this.updateLineData(index, 'backup', isBackup);
-            
-            container.classList.toggle('backup', isBackup);
+
+            // Preserve current selection state before re-render
+            const wasSelected = container.classList.contains('selected');
+
+            // Re-render to update waveform colors
+            this.renderEditor();
+
+            // Restore selection if this line was selected
+            if (wasSelected) {
+                const updatedContainer = this.lyricsLinesContainer.querySelector(`[data-index="${index}"]`);
+                if (updatedContainer) {
+                    updatedContainer.classList.add('selected');
+                }
+            }
         });
-        
+
         // Toggle enable/disable
         toggleBtn.addEventListener('click', () => {
             const currentDisabled = this.lyricsData[index].disabled === true;
             const newDisabled = !currentDisabled;
-            
+
             this.updateLineData(index, 'disabled', newDisabled);
-            
-            container.classList.toggle('disabled', newDisabled);
-            toggleBtn.classList.toggle('toggle-enabled', !newDisabled);
-            toggleBtn.classList.toggle('toggle-disabled', newDisabled);
-            toggleBtn.textContent = !newDisabled ? '👁' : '🚫';
-            toggleBtn.title = !newDisabled ? 'Disable line' : 'Enable line';
+
+            // Don't preserve selection when disabling - clear all selections
+            // Re-render to show/hide from waveform
+            this.renderEditor();
         });
-        
+
         // Delete line
         deleteBtn.addEventListener('click', () => {
             if (confirm('Delete this lyric line?')) {
+                // Don't preserve selection when deleting - clear all selections
                 this.deleteLine(index);
+                // Waveform redraw will happen automatically via renderEditor()
             }
         });
-        
+
         // Add line after
         addAfterBtn.addEventListener('click', () => {
             this.addLineAfter(index);
+            // Waveform redraw will happen automatically via renderEditor()
         });
     }
     
@@ -488,6 +546,45 @@ export class LyricsEditor {
             this.notifyChange();
         }
     }
+
+    updateAddAfterButtonState(index) {
+        // Find the container for this line
+        const container = this.lyricsLinesContainer.querySelector(`[data-index="${index}"]`);
+        if (!container) return;
+
+        const addAfterBtn = container.querySelector('.add-after-btn');
+        if (!addAfterBtn) return;
+
+        // Get current line timing
+        const currentLine = this.lyricsData[index];
+        if (!currentLine) return;
+
+        const endTime = typeof currentLine === 'object' ?
+            (currentLine.end || currentLine.end_time || 0) : (index + 1) * 3;
+
+        // Check next line timing
+        const nextLine = this.lyricsData[index + 1];
+        if (!nextLine) {
+            // No next line, always enabled
+            addAfterBtn.disabled = false;
+            addAfterBtn.title = "Add line after";
+            return;
+        }
+
+        const nextStartTime = typeof nextLine === 'object' ?
+            (nextLine.start || nextLine.time || nextLine.start_time || 0) :
+            (index + 1) * 3;
+
+        const gap = nextStartTime - endTime;
+
+        if (gap < 0.6) {
+            addAfterBtn.disabled = true;
+            addAfterBtn.title = "Not enough space (need 0.6s gap)";
+        } else {
+            addAfterBtn.disabled = false;
+            addAfterBtn.title = "Add line after";
+        }
+    }
     
     deleteLine(index) {
         this.lyricsData.splice(index, 1);
@@ -498,55 +595,111 @@ export class LyricsEditor {
     addLineAfter(index) {
         const currentLine = this.lyricsData[index];
         const nextLine = this.lyricsData[index + 1];
-        
+
         let startTime = 0;
         let endTime = 3;
-        
+
         if (typeof currentLine === 'object' && currentLine !== null) {
             const currentEndTime = currentLine.end || currentLine.end_time || (currentLine.start || currentLine.time || 0) + 3;
             const nextStartTime = nextLine ? (nextLine.start || nextLine.time || nextLine.start_time || currentEndTime + 3) : currentEndTime + 3;
-            
-            startTime = currentEndTime;
-            endTime = nextStartTime;
+
+            // Calculate the gap between lines
+            const gap = nextStartTime - currentEndTime;
+
+            // Use 80% of the gap, centered
+            const usableGap = gap * 0.8;
+            const margin = gap * 0.1;
+
+            startTime = currentEndTime + margin;
+            endTime = startTime + usableGap;
         }
-        
+
         const newLine = {
             start: startTime,
             end: endTime,
             text: ''
             // No disabled or backup properties - defaults to enabled lead singer
         };
-        
+
         this.lyricsData.splice(index + 1, 0, newLine);
         this.renderEditor();
         this.notifyChange();
     }
     
     addNewLine() {
-        const lastLine = this.lyricsData[this.lyricsData.length - 1];
-        let startTime = this.lyricsData.length * 3;
-        
-        if (typeof lastLine === 'object' && lastLine !== null) {
-            startTime = (lastLine.end || lastLine.end_time || (lastLine.start || lastLine.time || 0) + 3) || startTime;
+        // Add line at the TOP (before first line)
+        if (this.lyricsData.length === 0) {
+            // No lyrics yet, add a default line
+            const newLine = {
+                start: 0,
+                end: 3,
+                text: ''
+            };
+            this.lyricsData.push(newLine);
+            this.renderEditor();
+            this.notifyChange();
+
+            // Focus on the new line's text input
+            setTimeout(() => {
+                const newLineElement = this.lyricsLinesContainer.firstElementChild;
+                const textInput = newLineElement?.querySelector('.text-input');
+                if (textInput) textInput.focus();
+            }, 100);
+            return;
         }
-        
+
+        const firstLine = this.lyricsData[0];
+        const firstStartTime = typeof firstLine === 'object' ?
+            (firstLine.start || firstLine.time || firstLine.start_time || 0) : 0;
+
+        // Calculate available space at the top
+        const gap = firstStartTime;
+
+        // Use 80% of the gap, centered
+        const usableGap = gap * 0.8;
+        const margin = gap * 0.1;
+
         const newLine = {
-            start: startTime,
-            end: startTime + 3,
+            start: margin,
+            end: margin + usableGap,
             text: ''
             // No disabled or backup properties - defaults to enabled lead singer
         };
-        
-        this.lyricsData.push(newLine);
+
+        // Insert at the beginning
+        this.lyricsData.unshift(newLine);
         this.renderEditor();
         this.notifyChange();
-        
+
         // Focus on the new line's text input
         setTimeout(() => {
-            const newLineElement = this.lyricsLinesContainer.lastElementChild;
-            const textInput = newLineElement.querySelector('.text-input');
+            const newLineElement = this.lyricsLinesContainer.firstElementChild;
+            const textInput = newLineElement?.querySelector('.text-input');
             if (textInput) textInput.focus();
         }, 100);
+    }
+
+    updateAddNewLineButtonState() {
+        if (!this.addNewLineBtn) return;
+
+        if (this.lyricsData.length === 0) {
+            // No lyrics, always enabled
+            this.addNewLineBtn.disabled = false;
+            this.addNewLineBtn.title = 'Add new line at top';
+            return;
+        }
+
+        const firstLine = this.lyricsData[0];
+        const firstStartTime = typeof firstLine === 'object' ?
+            (firstLine.start || firstLine.time || firstLine.start_time || 0) : 0;
+
+        if (firstStartTime < 0.8) {
+            this.addNewLineBtn.disabled = true;
+            this.addNewLineBtn.title = 'Not enough space at beginning (need 0.8s)';
+        } else {
+            this.addNewLineBtn.disabled = false;
+            this.addNewLineBtn.title = 'Add new line at top';
+        }
     }
     
     resetToOriginal() {
@@ -590,12 +743,26 @@ export class LyricsEditor {
     parseTime(timeStr) {
         const parts = timeStr.split(':');
         if (parts.length !== 2) return 0;
-        
+
         const minutes = parseInt(parts[0]) || 0;
         const secondsParts = parts[1].split('.');
         const seconds = parseInt(secondsParts[0]) || 0;
         const tenths = parseInt(secondsParts[1]) || 0;
-        
+
         return minutes * 60 + seconds + tenths / 10;
+    }
+
+    triggerWaveformRedraw() {
+        // Access the editor controller through the window global
+        console.log('triggerWaveformRedraw called, checking for editor:', !!window.appInstance?.editor);
+        if (window.appInstance && window.appInstance.editor) {
+            console.log('Calling drawWaveform on editor');
+            window.appInstance.editor.drawWaveform();
+        } else {
+            console.warn('Cannot trigger waveform redraw - editor not found', {
+                hasAppInstance: !!window.appInstance,
+                hasEditor: !!window.appInstance?.editor
+            });
+        }
     }
 }

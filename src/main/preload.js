@@ -77,6 +77,7 @@ const api = {
     getSongsFolder: () => ipcRenderer.invoke('library:getSongsFolder'),
     setSongsFolder: () => ipcRenderer.invoke('library:setSongsFolder'),
     scanFolder: () => ipcRenderer.invoke('library:scanFolder'),
+    syncLibrary: () => ipcRenderer.invoke('library:syncLibrary'),
     getCachedSongs: () => ipcRenderer.invoke('library:getCachedSongs'),
     getSongInfo: (filePath) => ipcRenderer.invoke('library:getSongInfo', filePath),
 

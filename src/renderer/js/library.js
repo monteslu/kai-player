@@ -21,6 +21,10 @@ class LibraryManager {
             await this.setSongsFolder();
         });
 
+        document.getElementById('syncLibraryBtn').addEventListener('click', async () => {
+            await this.syncLibrary();
+        });
+
         document.getElementById('refreshLibraryBtn').addEventListener('click', async () => {
             await this.refreshLibrary();
         });
@@ -84,6 +88,64 @@ class LibraryManager {
         } catch (error) {
             console.error('❌ Failed to set songs folder:', error);
         }
+    }
+
+    async syncLibrary() {
+        if (!this.songsFolder) {
+            this.showEmptyState('No songs library set');
+            return;
+        }
+
+        // Disable controls during sync
+        const syncBtn = document.getElementById('syncLibraryBtn');
+        const refreshBtn = document.getElementById('refreshLibraryBtn');
+        const searchInput = document.getElementById('librarySearch');
+        const alphabetNav = document.getElementById('alphabetNav');
+        const paginationControls = document.getElementById('paginationControls');
+
+        if (syncBtn) syncBtn.disabled = true;
+        if (refreshBtn) refreshBtn.disabled = true;
+        if (searchInput) searchInput.disabled = true;
+        if (alphabetNav) alphabetNav.style.display = 'none';
+        if (paginationControls) paginationControls.style.display = 'none';
+
+        this.showLoading();
+
+        try {
+            const result = await window.kaiAPI.library.syncLibrary();
+            if (result.success) {
+                this.songs = result.songs || [];
+
+                // Calculate available letters
+                this.calculateAvailableLetters();
+
+                // Create alphabet navigation
+                this.createAlphabetNavigation();
+
+                // Load first available letter
+                const firstLetter = this.availableLetters.includes('A') ? 'A' : this.availableLetters[0];
+                if (firstLetter) {
+                    this.loadLetterPage(firstLetter, 1);
+                } else {
+                    this.showEmptyState('No songs found in library');
+                }
+
+                // Refresh web server cache
+                this.refreshWebServerCache();
+            } else {
+                this.showEmptyState(result.error || 'Failed to sync library');
+            }
+        } catch (error) {
+            console.error('Sync error:', error);
+            this.showEmptyState('❌ Failed to sync library: ' + error.message);
+        }
+
+        // Re-enable controls after sync
+        if (syncBtn) syncBtn.disabled = false;
+        if (refreshBtn) refreshBtn.disabled = false;
+        if (searchInput) searchInput.disabled = false;
+        if (alphabetNav) alphabetNav.style.display = 'block';
+        if (paginationControls) paginationControls.style.display = 'flex';
     }
 
     async refreshLibrary() {

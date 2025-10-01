@@ -100,10 +100,16 @@
                             <div class="library-header">
                                 <div class="library-controls">
                                     <button id="setSongsFolderBtn" class="library-btn">
-                                        📁 Set Songs Folder
+                                        <span class="material-icons">folder_open</span>
+                                        Set Songs Folder
+                                    </button>
+                                    <button id="syncLibraryBtn" class="library-btn">
+                                        <span class="material-icons">sync</span>
+                                        Sync
                                     </button>
                                     <button id="refreshLibraryBtn" class="library-btn">
-                                        ↻ Refresh
+                                        <span class="material-icons">refresh</span>
+                                        Full Refresh
                                     </button>
                                     <div class="library-search">
                                         <input type="text" id="librarySearch" placeholder="Search songs..." />
@@ -542,10 +548,12 @@
                                     <button id="resetLyrics" class="editor-btn" disabled>
                                         ↶ Reset
                                     </button>
+                                    <label class="editor-checkbox">
+                                        <input type="checkbox" id="analyzeVocals">
+                                        Analyze vocals
+                                    </label>
                                 </div>
-                                <div class="editor-position">
-                                    <span id="editorTime">0:00</span>
-                                </div>
+                                <canvas id="vocalsWaveform" width="1800" height="80"></canvas>
                             </div>
 
                             <div class="editor-content">

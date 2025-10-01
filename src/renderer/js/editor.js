@@ -8,15 +8,19 @@ export class LyricsEditorController {
         this.hasChanges = false;
         this.currentSong = null;
         this.callbackSetup = false;
-        
-        
-        this.timeDisplay = document.getElementById('editorTime');
-        
+        this.vocalsWaveform = null;
+        this.audioElement = null;
+        this.playbackAnimationFrame = null;
+        this.playingLineEndTime = null;
+
+        this.waveformCanvas = document.getElementById('vocalsWaveform');
+        this.analyzeVocalsCheckbox = document.getElementById('analyzeVocals');
+
         // Initialize the new line-by-line lyrics editor
         this.lyricsEditor = new LyricsEditor();
-        
+
         this.updateTimer = null;
-        
+
         this.init();
     }
 
@@ -38,7 +42,33 @@ export class LyricsEditorController {
         document.getElementById('resetLyrics').addEventListener('click', () => {
             this.resetToOriginal();
         });
-        
+
+        // Analyze vocals checkbox
+        this.analyzeVocalsCheckbox.addEventListener('change', () => {
+            this.saveAnalyzeVocalsSetting();
+
+            if (this.analyzeVocalsCheckbox.checked) {
+                // If checking and a song is loaded, analyze it now
+                if (this.currentSong) {
+                    this.triggerVocalsAnalysis();
+                }
+            } else {
+                // If unchecking, hide the waveform
+                this.waveformCanvas.style.display = 'none';
+            }
+        });
+
+        // Load saved setting
+        this.loadAnalyzeVocalsSetting();
+
+        // Make lyric lines selectable for waveform highlighting
+        this.setupLyricLineSelection();
+
+        // Canvas click handler for rectangle selection
+        this.waveformCanvas.addEventListener('click', (e) => {
+            this.handleCanvasClick(e);
+        });
+
         // Listen for IEM device changes
         document.getElementById('iemDeviceSelect').addEventListener('change', () => {
             this.applyAudioDeviceSelection();
@@ -63,19 +93,27 @@ export class LyricsEditorController {
         this.enableControls();
         
         // Load vocals.mp3 into the audio element
-        const audioElement = document.getElementById('editorAudio');
-        if (audioElement && songData?.audio?.sources) {
+        this.audioElement = document.getElementById('editorAudio');
+        if (this.audioElement && songData?.audio?.sources) {
             // Find the vocals source
-            const vocalsSource = songData.audio.sources.find(source => 
-                source.name === 'vocals' || 
+            const vocalsSource = songData.audio.sources.find(source =>
+                source.name === 'vocals' ||
                 source.filename?.includes('vocals')
             );
-            
+
             if (vocalsSource && vocalsSource.audioData) {
                 const vocalsBlob = new Blob([vocalsSource.audioData], { type: 'audio/mp3' });
                 const vocalsUrl = URL.createObjectURL(vocalsBlob);
-                audioElement.src = vocalsUrl;
-                
+                this.audioElement.src = vocalsUrl;
+
+                // Set up audio playback monitoring for waveform playhead
+                this.setupAudioPlaybackMonitoring();
+
+                // Analyze vocals if checkbox is checked
+                if (this.analyzeVocalsCheckbox.checked) {
+                    this.analyzeVocalsWaveform(vocalsBlob);
+                }
+
                 // Apply IEM device selection if available
                 this.applyAudioDeviceSelection();
             } else {
@@ -337,9 +375,337 @@ export class LyricsEditorController {
         }
     }
 
+    async analyzeVocalsWaveform(vocalsBlob) {
+        try {
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const arrayBuffer = await vocalsBlob.arrayBuffer();
+            const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+
+            // Get channel data (use first channel for mono or averaging stereo)
+            const channelData = audioBuffer.getChannelData(0);
+            const sampleRate = audioBuffer.sampleRate;
+            const duration = audioBuffer.duration;
+
+            // Calculate downsampling factor to get ~1800 samples (canvas width)
+            const targetSamples = 1800;
+            const downsampleFactor = Math.floor(channelData.length / targetSamples);
+
+            // Create Int8Array for efficient storage
+            this.vocalsWaveform = new Int8Array(targetSamples);
+
+            // Downsample by taking peak values in each window
+            for (let i = 0; i < targetSamples; i++) {
+                const start = i * downsampleFactor;
+                const end = Math.min(start + downsampleFactor, channelData.length);
+
+                let max = 0;
+                for (let j = start; j < end; j++) {
+                    max = Math.max(max, Math.abs(channelData[j]));
+                }
+
+                // Convert to Int8 (-128 to 127)
+                this.vocalsWaveform[i] = Math.floor(max * 127);
+            }
+
+            // Draw waveform on canvas
+            this.drawWaveform();
+
+            // Show canvas
+            this.waveformCanvas.style.display = 'block';
+
+            audioContext.close();
+        } catch (error) {
+            console.error('Error analyzing vocals waveform:', error);
+        }
+    }
+
+    drawWaveform() {
+        if (!this.vocalsWaveform || !this.waveformCanvas) return;
+
+        const ctx = this.waveformCanvas.getContext('2d');
+        const width = this.waveformCanvas.width;
+        const height = this.waveformCanvas.height;
+
+        // Clear canvas completely
+        ctx.clearRect(0, 0, width, height);
+
+        // Draw background
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+        ctx.fillRect(0, 0, width, height);
+
+        // Draw waveform first
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+
+        const centerY = height / 2;
+        const scale = height / 256; // Scale from Int8 range to canvas height
+
+        for (let i = 0; i < this.vocalsWaveform.length; i++) {
+            const x = i;
+            const value = this.vocalsWaveform[i];
+            const y = centerY - (value * scale);
+
+            if (i === 0) {
+                ctx.moveTo(x, y);
+            } else {
+                ctx.lineTo(x, y);
+            }
+        }
+
+        ctx.stroke();
+
+        // Mirror for bottom half
+        ctx.beginPath();
+        for (let i = 0; i < this.vocalsWaveform.length; i++) {
+            const x = i;
+            const value = this.vocalsWaveform[i];
+            const y = centerY + (value * scale);
+
+            if (i === 0) {
+                ctx.moveTo(x, y);
+            } else {
+                ctx.lineTo(x, y);
+            }
+        }
+
+        ctx.stroke();
+
+        // Draw center line
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(0, centerY);
+        ctx.lineTo(width, centerY);
+        ctx.stroke();
+
+        // Draw lyric duration rectangles AFTER waveform
+        const songDuration = this.songDuration || this.currentSong?.metadata?.duration || 0;
+
+        if (songDuration > 0 && this.lyricsEditor && this.lyricsEditor.lyricsData) {
+            // Clear rectangle bounds for click detection
+            this.lyricRectangles = [];
+
+            const lyricsData = this.lyricsEditor.lyricsData;
+
+            // Separate backup and regular lines for rendering order
+            const backupLines = [];
+            const regularLines = [];
+
+            lyricsData.forEach((line, index) => {
+                // Skip disabled lines
+                if (line.disabled === true) {
+                    return;
+                }
+
+                const isBackup = line.backup === true;
+                if (isBackup) {
+                    backupLines.push({ line, index });
+                } else {
+                    regularLines.push({ line, index });
+                }
+            });
+
+            // Draw backup lines first (yellow, behind regular)
+            backupLines.forEach(({ line, index }) => {
+                this.drawLyricRectangle(line, index, ctx, songDuration, width, 'rgba(255, 200, 0, 0.35)', 'rgba(255, 200, 0, 0.7)');
+            });
+
+            // Draw regular lines second (blue, in front)
+            regularLines.forEach(({ line, index }) => {
+                this.drawLyricRectangle(line, index, ctx, songDuration, width, 'rgba(0, 100, 255, 0.35)', 'rgba(0, 100, 255, 0.7)');
+            });
+        }
+
+        // Draw playhead if audio is playing or paused with position
+        if (this.audioElement && this.currentPosition > 0 && songDuration > 0) {
+            const playheadX = (this.currentPosition / songDuration) * width;
+
+            // Draw white vertical line for playhead
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(playheadX, 0);
+            ctx.lineTo(playheadX, height);
+            ctx.stroke();
+
+            // Draw tic marks at top and bottom
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+            // Top tic
+            ctx.fillRect(playheadX - 5, 0, 10, 8);
+            // Bottom tic
+            ctx.fillRect(playheadX - 5, height - 8, 10, 8);
+        }
+    }
+
+    drawLyricRectangle(lineData, lineIndex, ctx, songDuration, width, fillColor, outlineColor) {
+        // Read timing from data
+        const startTime = lineData.start || lineData.time || lineData.start_time || 0;
+        const endTime = lineData.end || lineData.end_time || (startTime + 3);
+        const duration = endTime - startTime;
+
+        if (duration > 0) {
+            // Calculate position and width based on song duration
+            const startX = (startTime / songDuration) * width;
+            const rectWidth = (duration / songDuration) * width;
+
+            // Find corresponding DOM element for click detection and selection state
+            const lineElement = document.querySelector(`.lyric-line-editor[data-index="${lineIndex}"]`);
+
+            // Store rectangle bounds for click detection
+            if (!this.lyricRectangles) {
+                this.lyricRectangles = [];
+            }
+
+            this.lyricRectangles.push({
+                x: startX,
+                y: 5,
+                width: rectWidth,
+                height: 70,
+                lineElement: lineElement,
+                lineIndex: lineIndex
+            });
+
+            // Draw rectangle
+            ctx.fillStyle = fillColor;
+            ctx.fillRect(startX, 5, rectWidth, 70);
+
+            // Draw outline if line is selected (check DOM for selection state)
+            if (lineElement && lineElement.classList.contains('selected')) {
+                ctx.strokeStyle = outlineColor;
+                ctx.lineWidth = 2;
+                ctx.strokeRect(startX, 5, rectWidth, 70);
+            }
+        }
+    }
+
+    async saveAnalyzeVocalsSetting() {
+        try {
+            await window.settingsAPI.set('editor.analyzeVocals', this.analyzeVocalsCheckbox.checked);
+        } catch (error) {
+            console.error('Failed to save analyze vocals setting:', error);
+        }
+    }
+
+    async loadAnalyzeVocalsSetting() {
+        try {
+            const saved = await window.settingsAPI.get('editor.analyzeVocals');
+            if (saved !== null && saved !== undefined) {
+                this.analyzeVocalsCheckbox.checked = saved;
+            }
+        } catch (error) {
+            console.error('Failed to load analyze vocals setting:', error);
+        }
+    }
+
+    triggerVocalsAnalysis() {
+        if (!this.currentSong?.audio?.sources) return;
+
+        const vocalsSource = this.currentSong.audio.sources.find(source =>
+            source.name === 'vocals' || source.filename?.includes('vocals')
+        );
+
+        if (vocalsSource && vocalsSource.audioData) {
+            const vocalsBlob = new Blob([vocalsSource.audioData], { type: 'audio/mp3' });
+            this.analyzeVocalsWaveform(vocalsBlob);
+        }
+    }
+
+    setupLyricLineSelection() {
+        // Delegate click handling to parent container
+        document.addEventListener('click', (e) => {
+            const lyricLine = e.target.closest('.lyric-line-editor');
+            if (lyricLine && !lyricLine.classList.contains('disabled')) {
+                // Remove previous selection
+                document.querySelectorAll('.lyric-line-editor.selected').forEach(el => {
+                    el.classList.remove('selected');
+                });
+
+                // Add selection to clicked line
+                lyricLine.classList.add('selected');
+
+                // Redraw waveform with selection
+                this.drawWaveform();
+            }
+        });
+    }
+
+    handleCanvasClick(e) {
+        if (!this.lyricRectangles || this.lyricRectangles.length === 0) return;
+
+        // Get canvas-relative coordinates
+        const rect = this.waveformCanvas.getBoundingClientRect();
+        const scaleX = this.waveformCanvas.width / rect.width;
+        const scaleY = this.waveformCanvas.height / rect.height;
+
+        const x = (e.clientX - rect.left) * scaleX;
+        const y = (e.clientY - rect.top) * scaleY;
+
+        // Check if click is inside any rectangle (reverse order to match render order)
+        for (let i = this.lyricRectangles.length - 1; i >= 0; i--) {
+            const r = this.lyricRectangles[i];
+            if (x >= r.x && x <= r.x + r.width && y >= r.y && y <= r.y + r.height) {
+                // Clear previous selection
+                document.querySelectorAll('.lyric-line-editor.selected').forEach(el => {
+                    el.classList.remove('selected');
+                });
+
+                // Select this line
+                r.lineElement.classList.add('selected');
+
+                // Scroll to line
+                r.lineElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+                // Redraw waveform
+                this.drawWaveform();
+                break;
+            }
+        }
+    }
+
+    setupAudioPlaybackMonitoring() {
+        if (!this.audioElement) return;
+
+        // Update waveform playhead during playback
+        this.audioElement.addEventListener('timeupdate', () => {
+            this.currentPosition = this.audioElement.currentTime;
+
+            // Check if we need to stop at line end time
+            if (this.playingLineEndTime !== null && this.currentPosition >= this.playingLineEndTime) {
+                this.audioElement.pause();
+                this.playingLineEndTime = null;
+            }
+
+            // Redraw waveform to update playhead position
+            if (!this.audioElement.paused) {
+                this.drawWaveform();
+            }
+        });
+
+        this.audioElement.addEventListener('pause', () => {
+            this.playingLineEndTime = null;
+            this.drawWaveform();
+        });
+
+        this.audioElement.addEventListener('play', () => {
+            this.drawWaveform();
+        });
+    }
+
+    playLineSection(startTime, endTime) {
+        if (!this.audioElement) return;
+
+        this.audioElement.currentTime = startTime;
+        this.playingLineEndTime = endTime;
+        this.audioElement.play();
+    }
+
     destroy() {
         if (this.updateTimer) {
             clearInterval(this.updateTimer);
+        }
+        if (this.playbackAnimationFrame) {
+            cancelAnimationFrame(this.playbackAnimationFrame);
         }
     }
 }

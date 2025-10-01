@@ -1429,8 +1429,7 @@ body {
 
 .editor-header {
     display: flex;
-    justify-content: space-between;
-    align-items: center;
+    flex-direction: column;
     padding: 12px 16px;
     background: #2a2a2a;
     border-radius: 6px;
@@ -1438,9 +1437,40 @@ body {
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
+.editor-header > div:first-child {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
 .editor-controls {
     display: flex;
     gap: 8px;
+    align-items: center;
+}
+
+.editor-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: 12px;
+    font-size: 14px;
+    color: #fff;
+    cursor: pointer;
+}
+
+.editor-checkbox input[type="checkbox"] {
+    cursor: pointer;
+}
+
+#vocalsWaveform {
+    width: 100%;
+    height: 80px;
+    background: rgba(0, 0, 0, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    display: none;
 }
 
 .editor-btn {
@@ -1577,11 +1607,18 @@ body {
 
 .lyric-line-editor:hover {
     border-color: #4a4a4a;
+    cursor: pointer;
+}
+
+.lyric-line-editor.selected {
+    border-color: #0064ff;
+    background: #1a2a3a;
 }
 
 .lyric-line-editor.disabled {
     opacity: 0.5;
     background: #1a1a1a;
+    cursor: not-allowed;
 }
 
 .lyric-line-editor.backup {
@@ -1972,6 +2009,13 @@ body {
     font-size: 13px;
     font-weight: 500;
     transition: background-color 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.library-btn .material-icons {
+    font-size: 18px;
 }
 
 .library-btn:hover {
@@ -2071,7 +2115,7 @@ body {
 }
 
 .library-table td {
-    padding: 10px 8px;
+    padding: 4px 4px;
     border-right: 1px solid #333;
     color: white;
     overflow: hidden;
