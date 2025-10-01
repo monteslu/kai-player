@@ -4,7 +4,11 @@ class LibraryManager {
         this.filteredSongs = [];
         this.selectedSong = null;
         this.songsFolder = null;
-        
+        this.currentLetter = null;
+        this.currentPage = 1;
+        this.pageSize = 100;
+        this.availableLetters = [];
+
         this.setupEventListeners();
         this.loadLibrary();
     }
@@ -32,22 +36,38 @@ class LibraryManager {
                 this.refreshLibrary();
             });
         }
+
+        // Listen for background scan progress
+        if (window.kaiAPI && window.kaiAPI.events) {
+            window.kaiAPI.events.on('library:scanProgress', (event, data) => {
+                this.updateScanProgress(data.current, data.total);
+            });
+
+            window.kaiAPI.events.on('library:scanComplete', (event, data) => {
+                console.log(`📚 Background scan complete: ${data.count} songs`);
+                if (this.songsFolder && this.songs.length === 0) {
+                    // Get cached results from background scan instead of re-scanning
+                    this.loadCachedLibrary();
+                }
+            });
+        }
     }
 
     async loadLibrary() {
         try {
             // Get current songs folder
             this.songsFolder = await window.kaiAPI.library.getSongsFolder();
-            
+
             if (this.songsFolder) {
                 document.getElementById('libraryPath').textContent = this.songsFolder;
-                await this.scanLibrary();
+                // Try to load cached library immediately
+                await this.loadCachedLibrary();
             } else {
-                this.showEmptyState('No songs library set');
+                this.showEmptyState('No songs library set', 'Click "Set Songs Folder" to choose your music library');
             }
         } catch (error) {
             console.error('❌ Failed to load library:', error);
-            this.showEmptyState('Error loading library');
+            this.showEmptyState('Error loading library', 'Try refreshing or setting a different folder');
         }
     }
 
@@ -70,30 +90,76 @@ class LibraryManager {
             return;
         }
 
+        // Disable refresh button during scan
+        const refreshBtn = document.getElementById('refreshLibraryBtn');
+        if (refreshBtn) {
+            refreshBtn.disabled = true;
+        }
+
         this.showLoading();
         await this.scanLibrary();
+
+        // Re-enable refresh button after scan
+        if (refreshBtn) {
+            refreshBtn.disabled = false;
+        }
+    }
+
+    async loadCachedLibrary() {
+        try {
+            const result = await window.kaiAPI.library.getCachedSongs();
+
+            if (result.error) {
+                console.warn('No cached songs, scanning...');
+                await this.scanLibrary();
+                return;
+            }
+
+            this.songs = result.files || [];
+
+            // Calculate available letters
+            this.calculateAvailableLetters();
+
+            // Create alphabet navigation
+            this.createAlphabetNavigation();
+
+            // Load first available letter
+            const firstLetter = this.availableLetters.includes('A') ? 'A' : this.availableLetters[0];
+            if (firstLetter) {
+                this.loadLetterPage(firstLetter, 1);
+            } else {
+                this.showEmptyState('No songs found in library');
+            }
+        } catch (error) {
+            console.error('❌ Failed to load cached library:', error);
+            this.showEmptyState('Error loading library');
+        }
     }
 
     async scanLibrary() {
         try {
             const result = await window.kaiAPI.library.scanFolder();
-            
+
             if (result.error) {
                 this.showEmptyState(`Error: ${result.error}`);
                 return;
             }
 
             this.songs = result.files || [];
-            this.filteredSongs = [...this.songs];
-            
-            // Sort by title (or name if no title)
-            this.filteredSongs.sort((a, b) => {
-                const titleA = a.title || a.name;
-                const titleB = b.title || b.name;
-                return titleA.localeCompare(titleB);
-            });
-            
-            this.updateLibraryDisplay();
+
+            // Calculate available letters
+            this.calculateAvailableLetters();
+
+            // Create alphabet navigation
+            this.createAlphabetNavigation();
+
+            // Load first available letter
+            const firstLetter = this.availableLetters.includes('A') ? 'A' : this.availableLetters[0];
+            if (firstLetter) {
+                this.loadLetterPage(firstLetter, 1);
+            } else {
+                this.showEmptyState('No songs found in library');
+            }
 
             // Also refresh the web server cache so web UI stays in sync
             this.refreshWebServerCache();
@@ -104,42 +170,189 @@ class LibraryManager {
         }
     }
 
-    filterSongs(searchTerm) {
-        if (!searchTerm.trim()) {
-            this.filteredSongs = [...this.songs];
-        } else {
-            const term = searchTerm.toLowerCase();
-            this.filteredSongs = this.songs.filter(song => {
-                // Search in filename, title, artist, genre, key, and stems
-                return song.name.toLowerCase().includes(term) ||
-                       (song.title && song.title.toLowerCase().includes(term)) ||
-                       (song.artist && song.artist.toLowerCase().includes(term)) ||
-                       (song.genre && song.genre.toLowerCase().includes(term)) ||
-                       (song.key && song.key.toLowerCase().includes(term)) ||
-                       (song.stems && song.stems.some(stem => stem.toLowerCase().includes(term)));
-            });
+    calculateAvailableLetters() {
+        const letterSet = new Set();
+
+        this.songs.forEach(song => {
+            const artist = song.artist || song.title || song.name;
+            if (artist) {
+                const firstChar = artist.trim()[0].toUpperCase();
+                if (/[A-Z]/.test(firstChar)) {
+                    letterSet.add(firstChar);
+                } else {
+                    letterSet.add('#');
+                }
+            }
+        });
+
+        this.availableLetters = Array.from(letterSet).sort();
+        // Put '#' at the end if it exists
+        if (this.availableLetters.includes('#')) {
+            this.availableLetters = this.availableLetters.filter(l => l !== '#');
+            this.availableLetters.push('#');
+        }
+    }
+
+    createAlphabetNavigation() {
+        let alphabetNav = document.getElementById('alphabetNav');
+
+        if (!alphabetNav) {
+            // Create alphabet navigation element
+            const libraryHeader = document.querySelector('.library-header');
+            alphabetNav = document.createElement('div');
+            alphabetNav.id = 'alphabetNav';
+            alphabetNav.className = 'alphabet-nav';
+            libraryHeader.parentNode.insertBefore(alphabetNav, libraryHeader.nextSibling);
         }
 
-        // Sort filtered results by title (or name if no title)
+        const allLetters = [...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split(''), '#'];
+
+        alphabetNav.innerHTML = `
+            <div class="alphabet-title">Browse by Artist:</div>
+            <div class="alphabet-buttons">
+                ${allLetters.map(letter => {
+                    const hasContent = this.availableLetters.includes(letter);
+                    const classes = hasContent ? 'alphabet-btn' : 'alphabet-btn disabled';
+                    const isActive = this.currentLetter === letter ? ' active' : '';
+                    return `<button class="${classes}${isActive}" data-letter="${letter}" ${!hasContent ? 'disabled' : ''}>${letter}</button>`;
+                }).join('')}
+            </div>
+        `;
+
+        // Attach event listeners
+        alphabetNav.querySelectorAll('.alphabet-btn:not(.disabled)').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const letter = btn.dataset.letter;
+                this.loadLetterPage(letter, 1);
+            });
+        });
+    }
+
+    loadLetterPage(letter, page = 1) {
+        this.currentLetter = letter;
+        this.currentPage = page;
+
+        // Filter songs by letter
+        this.filteredSongs = this.songs.filter(song => {
+            const artist = song.artist || song.title || song.name;
+            if (!artist) return false;
+
+            const firstChar = artist.trim()[0].toUpperCase();
+
+            if (letter === '#') {
+                return !/[A-Z]/.test(firstChar);
+            } else {
+                return firstChar === letter;
+            }
+        });
+
+        // Sort by artist, then title
         this.filteredSongs.sort((a, b) => {
-            const titleA = a.title || a.name;
-            const titleB = b.title || b.name;
+            const artistA = (a.artist || a.title || a.name).toLowerCase();
+            const artistB = (b.artist || b.title || b.name).toLowerCase();
+            if (artistA !== artistB) {
+                return artistA.localeCompare(artistB);
+            }
+            const titleA = (a.title || a.name).toLowerCase();
+            const titleB = (b.title || b.name).toLowerCase();
             return titleA.localeCompare(titleB);
+        });
+
+        // Update active button
+        document.querySelectorAll('.alphabet-btn').forEach(btn => {
+            btn.classList.remove('active');
+        });
+        document.querySelector(`.alphabet-btn[data-letter="${letter}"]`)?.classList.add('active');
+
+        // Update display
+        this.updateLibraryDisplay();
+    }
+
+    filterSongs(searchTerm) {
+        if (!searchTerm.trim()) {
+            // If no search term, reload current letter
+            if (this.currentLetter) {
+                this.loadLetterPage(this.currentLetter, 1);
+            }
+            return;
+        }
+
+        const term = searchTerm.toLowerCase();
+        this.filteredSongs = this.songs.filter(song => {
+            // Search in filename, title, artist, genre, key, and stems
+            return song.name.toLowerCase().includes(term) ||
+                   (song.title && song.title.toLowerCase().includes(term)) ||
+                   (song.artist && song.artist.toLowerCase().includes(term)) ||
+                   (song.genre && song.genre.toLowerCase().includes(term)) ||
+                   (song.key && song.key.toLowerCase().includes(term)) ||
+                   (song.stems && song.stems.some(stem => stem.toLowerCase().includes(term)));
+        });
+
+        // Sort filtered results by artist, then title
+        this.filteredSongs.sort((a, b) => {
+            const artistA = (a.artist || a.title || a.name).toLowerCase();
+            const artistB = (b.artist || b.title || b.name).toLowerCase();
+            if (artistA !== artistB) {
+                return artistA.localeCompare(artistB);
+            }
+            const titleA = (a.title || a.name).toLowerCase();
+            const titleB = (b.title || b.name).toLowerCase();
+            return titleA.localeCompare(titleB);
+        });
+
+        // Reset to page 1 and clear letter selection for search
+        this.currentLetter = null;
+        this.currentPage = 1;
+
+        // Update active buttons
+        document.querySelectorAll('.alphabet-btn').forEach(btn => {
+            btn.classList.remove('active');
         });
 
         this.updateLibraryDisplay();
     }
 
+    getPaginatedSongs() {
+        const startIdx = (this.currentPage - 1) * this.pageSize;
+        const endIdx = startIdx + this.pageSize;
+        return this.filteredSongs.slice(startIdx, endIdx);
+    }
+
+    getTotalPages() {
+        return Math.ceil(this.filteredSongs.length / this.pageSize);
+    }
+
+    goToPage(page) {
+        const totalPages = this.getTotalPages();
+        if (page < 1 || page > totalPages) return;
+        this.currentPage = page;
+        this.updateLibraryDisplay();
+    }
+
+    nextPage() {
+        this.goToPage(this.currentPage + 1);
+    }
+
+    prevPage() {
+        this.goToPage(this.currentPage - 1);
+    }
+
     updateLibraryDisplay() {
         const tableBody = document.getElementById('libraryTableBody');
         const countElement = document.getElementById('librarySongsCount');
-        
+
         // Update count
         const count = this.filteredSongs.length;
         const total = this.songs.length;
-        countElement.textContent = count === total ? 
-            `${total} songs` : 
-            `${count} of ${total} songs`;
+        const totalPages = this.getTotalPages();
+
+        if (this.currentLetter) {
+            countElement.textContent = `${count} songs by artists starting with "${this.currentLetter}"`;
+        } else if (count === total) {
+            countElement.textContent = `${total} songs`;
+        } else {
+            countElement.textContent = `${count} of ${total} songs`;
+        }
 
         if (this.filteredSongs.length === 0) {
             if (this.songs.length === 0) {
@@ -147,15 +360,99 @@ class LibraryManager {
             } else {
                 this.showEmptyState('No songs match search');
             }
+            this.updatePaginationControls();
             return;
         }
 
-        // Build table rows HTML
-        const rowsHTML = this.filteredSongs.map(song => this.createSongRowHTML(song)).join('');
+        // Get paginated songs
+        const paginatedSongs = this.getPaginatedSongs();
+
+        // Build table rows HTML for current page only
+        const rowsHTML = paginatedSongs.map(song => this.createSongRowHTML(song)).join('');
         tableBody.innerHTML = rowsHTML;
 
         // Add click handlers
         this.attachSongClickHandlers();
+
+        // Update pagination controls
+        this.updatePaginationControls();
+    }
+
+    updatePaginationControls() {
+        const totalPages = this.getTotalPages();
+        let paginationControls = document.getElementById('paginationControls');
+
+        // Create pagination controls if they don't exist
+        if (!paginationControls) {
+            const libraryContent = document.querySelector('.library-content');
+            paginationControls = document.createElement('div');
+            paginationControls.id = 'paginationControls';
+            paginationControls.className = 'pagination-controls';
+            // Append to library-content (after the table)
+            libraryContent.appendChild(paginationControls);
+        }
+
+        if (totalPages <= 1) {
+            paginationControls.style.display = 'none';
+            return;
+        }
+
+        paginationControls.style.display = 'flex';
+
+        // Build pagination HTML with page numbers
+        const startSong = (this.currentPage - 1) * this.pageSize + 1;
+        const endSong = Math.min(this.currentPage * this.pageSize, this.filteredSongs.length);
+
+        let buttonsHTML = '';
+
+        // Previous button
+        if (this.currentPage > 1) {
+            buttonsHTML += `<button class="pagination-btn" data-action="prev">‹ Prev</button>`;
+        }
+
+        // Page number buttons (show up to 5 around current page)
+        const maxButtons = 5;
+        let startPage = Math.max(1, this.currentPage - Math.floor(maxButtons / 2));
+        let endPage = Math.min(totalPages, startPage + maxButtons - 1);
+
+        // Adjust start if we're near the end
+        if (endPage - startPage < maxButtons - 1) {
+            startPage = Math.max(1, endPage - maxButtons + 1);
+        }
+
+        for (let i = startPage; i <= endPage; i++) {
+            const isActive = i === this.currentPage ? ' active' : '';
+            buttonsHTML += `<button class="pagination-btn page-number${isActive}" data-page="${i}">${i}</button>`;
+        }
+
+        // Next button
+        if (this.currentPage < totalPages) {
+            buttonsHTML += `<button class="pagination-btn" data-action="next">Next ›</button>`;
+        }
+
+        const letterText = this.currentLetter ? ` by artists starting with "${this.currentLetter}"` : '';
+        paginationControls.innerHTML = `
+            <div class="pagination-info">
+                Showing ${startSong}-${endSong} of ${this.filteredSongs.length} songs${letterText}
+            </div>
+            <div class="pagination-buttons">
+                ${buttonsHTML}
+            </div>
+        `;
+
+        // Attach event listeners
+        paginationControls.querySelectorAll('[data-action="prev"]').forEach(btn => {
+            btn.addEventListener('click', () => this.prevPage());
+        });
+        paginationControls.querySelectorAll('[data-action="next"]').forEach(btn => {
+            btn.addEventListener('click', () => this.nextPage());
+        });
+        paginationControls.querySelectorAll('[data-page]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const page = parseInt(btn.dataset.page);
+                this.goToPage(page);
+            });
+        });
     }
 
     createSongRowHTML(song) {
@@ -165,10 +462,13 @@ class LibraryManager {
         const key = song.key || '-';
         const duration = this.formatDuration(song.duration);
         const stems = this.formatStems(song.stems, song.stemCount);
+        const formatIcon = this.getFormatIcon(song.format);
 
         return `
             <tr class="song-row" data-path="${song.path}">
-                <td class="col-title" title="${title}">${title}</td>
+                <td class="col-title" title="${title}">
+                    <span class="format-icon">${formatIcon}</span> ${title}
+                </td>
                 <td class="col-artist" title="${artist}">${artist}</td>
                 <td class="col-genre" title="${genre}">${genre}</td>
                 <td class="col-key" title="${key}">${key}</td>
@@ -186,6 +486,18 @@ class LibraryManager {
                 </td>
             </tr>
         `;
+    }
+
+    getFormatIcon(format) {
+        switch (format) {
+            case 'kai':
+                return '⚡';
+            case 'cdg-archive':
+            case 'cdg-pair':
+                return '💿';
+            default:
+                return '⚡'; // Default to KAI icon
+        }
     }
 
     attachSongClickHandlers() {
@@ -274,10 +586,27 @@ class LibraryManager {
                     <div class="library-empty">
                         <div class="empty-message">Scanning library...</div>
                         <div class="empty-detail">Please wait while we extract song metadata</div>
+                        <div class="progress-container">
+                            <div class="progress-bar-bg">
+                                <div class="progress-bar-fill" id="scanProgressBar"></div>
+                            </div>
+                            <div class="progress-text" id="scanProgressText">0%</div>
+                        </div>
                     </div>
                 </td>
             </tr>
         `;
+    }
+
+    updateScanProgress(current, total) {
+        const progressBar = document.getElementById('scanProgressBar');
+        const progressText = document.getElementById('scanProgressText');
+
+        if (progressBar && progressText) {
+            const percentage = total > 0 ? Math.round((current / total) * 100) : 0;
+            progressBar.style.width = `${percentage}%`;
+            progressText.textContent = `${current} / ${total} files (${percentage}%)`;
+        }
     }
 
     showEmptyState(message, detail = 'Click "Set Songs Folder" to choose your music library') {

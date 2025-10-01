@@ -520,8 +520,8 @@ class QueueManager {
         const searchLower = searchTerm.toLowerCase();
         const matches = window.libraryManager.songs
             .filter(song =>
-                song.title.toLowerCase().includes(searchLower) ||
-                song.artist.toLowerCase().includes(searchLower)
+                song.title?.toLowerCase().includes(searchLower) ||
+                song.artist?.toLowerCase().includes(searchLower)
             )
             .sort((a, b) => a.title.localeCompare(b.title))
             .slice(0, 8); // Limit to first 8 results for dropdown

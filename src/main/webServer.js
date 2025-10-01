@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 const cookieSession = require('cookie-session');
 const { Server } = require('socket.io');
 const http = require('http');
@@ -19,6 +20,7 @@ class WebServer {
             requireKJApproval: true,
             allowSongRequests: true,
             serverName: 'Loukai Karaoke',
+            port: 3069,
             maxRequestsPerIP: 10
         };
 
@@ -240,7 +242,8 @@ class WebServer {
                         id: song.path,
                         title: song.title,
                         artist: song.artist,
-                        duration: song.duration
+                        duration: song.duration,
+                        format: song.format || 'kai'
                     })),
                     pagination: {
                         currentPage: page,
@@ -299,7 +302,8 @@ class WebServer {
                     path: song.path,
                     title: song.title,
                     artist: song.artist,
-                    duration: song.duration
+                    duration: song.duration,
+                    format: song.format || 'kai'
                 }));
 
                 res.json({
@@ -1247,7 +1251,15 @@ class WebServer {
         return { success: true, request };
     }
 
-    async start(port = 3069) {
+    async start(port) {
+        // Load settings first to get the saved port
+        this.settings = this.loadSettings();
+
+        // Use port from settings if not explicitly provided
+        if (!port) {
+            port = this.settings.port || 3069;
+        }
+
         this.port = port;
 
         return new Promise((resolve, reject) => {
@@ -1340,6 +1352,29 @@ class WebServer {
 
     getPort() {
         return this.port;
+    }
+
+    getLanIp() {
+        try {
+            const interfaces = os.networkInterfaces();
+            for (const name of Object.keys(interfaces)) {
+                for (const iface of interfaces[name]) {
+                    // Skip internal (loopback) and non-IPv4 addresses
+                    if (iface.family === 'IPv4' && !iface.internal) {
+                        return iface.address;
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('Failed to get LAN IP:', error);
+        }
+        return 'localhost';
+    }
+
+    getServerUrl() {
+        if (!this.port) return null;
+        const ip = this.getLanIp();
+        return `http://${ip}:${this.port}`;
     }
 
     getSettings() {

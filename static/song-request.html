@@ -999,7 +999,7 @@
             container.innerHTML = filteredSongs.map(song => `
                 <div class="song-item" onclick="requestSong('${song.id.replace(/'/g, "\\'")}')">
                     <div class="song-info">
-                        <div class="song-title">${escapeHtml(song.title)}</div>
+                        <div class="song-title">${getFormatIcon(song.format)} ${escapeHtml(song.title)}</div>
                         <div class="song-artist">${escapeHtml(song.artist)}</div>
                     </div>
                     <div style="display: flex; align-items: center;">
@@ -1283,6 +1283,18 @@
             return `${mins}:${secs.toString().padStart(2, '0')}`;
         }
 
+        function getFormatIcon(format) {
+            switch (format) {
+                case 'kai':
+                    return '⚡';
+                case 'cdg-archive':
+                case 'cdg-pair':
+                    return '💿';
+                default:
+                    return '⚡';
+            }
+        }
+
         // Quick Search Functions
         async function handleQuickSearch(e) {
             const searchTerm = e.target.value.trim();
@@ -1399,8 +1411,8 @@
                     </div>
                 `;
 
-                // Fetch songs for this letter and page
-                const response = await fetch(`/api/songs/letter/${letter}?page=${page}&limit=100`);
+                // Fetch songs for this letter and page (encode # as %23)
+                const response = await fetch(`/api/songs/letter/${encodeURIComponent(letter)}?page=${page}&limit=100`);
                 const data = await response.json();
 
                 // Update display

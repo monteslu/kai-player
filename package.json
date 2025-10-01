@@ -35,11 +35,14 @@
     "bcrypt": "^6.0.0",
     "butterchurn": "^2.6.7",
     "butterchurn-presets": "^2.4.7",
+    "cdgplayer": "^0.1.17",
+    "cdgraphics": "^7.0.0",
     "cookie-session": "^2.1.1",
     "cors": "^2.8.5",
     "express": "^4.18.2",
     "express-session": "^1.18.2",
     "fuse.js": "^7.1.0",
+    "node-id3": "^0.2.9",
     "socket.io": "^4.8.1",
     "socket.io-client": "^4.8.1",
     "ws": "^8.13.0",
@@ -61,8 +64,18 @@
     ],
     "icon": "static/images/logo.png",
     "linux": {
-      "target": "AppImage",
-      "icon": "static/images/logo.png"
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": ["x64", "arm64"]
+        },
+        {
+          "target": "flatpak",
+          "arch": ["x64", "arm64"]
+        }
+      ],
+      "icon": "static/images/logo.png",
+      "category": "AudioVideo"
     },
     "win": {
       "target": "nsis",

@@ -994,8 +994,8 @@ body {
 
 #karaokeCanvas {
     background: #1a1a1a;
-    border: 2px solid #007acc;
-    border-radius: 8px;
+    border: none;
+    border-radius: 0;
     display: block;
     margin: 0 auto;
 }
@@ -1271,9 +1271,27 @@ body {
     color: #888;
 }
 
+.status-left {
+    flex: 1;
+}
+
+.status-center {
+    flex: 1;
+    text-align: center;
+    color: #66aaff;
+    cursor: pointer;
+}
+
+.status-center:hover {
+    text-decoration: underline;
+    color: #88ccff;
+}
+
 .status-right {
+    flex: 1;
     display: flex;
     gap: 16px;
+    justify-content: flex-end;
 }
 
 /* Scrollbars */
@@ -1991,10 +2009,12 @@ body {
 .library-content {
     flex: 1;
     overflow: hidden;
+    display: flex;
+    flex-direction: column;
 }
 
 .library-table {
-    height: 100%;
+    flex: 1;
     overflow-y: auto;
 }
 
@@ -2102,6 +2122,34 @@ body {
     opacity: 0.8;
 }
 
+.progress-container {
+    margin-top: 20px;
+    width: 400px;
+    max-width: 80%;
+}
+
+.progress-bar-bg {
+    width: 100%;
+    height: 24px;
+    background: #1a1a1a;
+    border: 1px solid #444;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.progress-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #007bff, #0056b3);
+    transition: width 0.3s ease;
+    width: 0%;
+}
+
+.progress-text {
+    margin-top: 8px;
+    font-size: 13px;
+    color: #aaa;
+}
+
 .song-stems {
     font-size: 11px;
     color: #aaa;
@@ -2115,6 +2163,104 @@ body {
 .song-folder-path {
     font-style: italic;
     color: #888;
+}
+
+/* Alphabet Navigation */
+.alphabet-nav {
+    margin: 0;
+    padding: 15px;
+    background: #2a2a2a;
+    border-bottom: 1px solid #444;
+}
+
+.alphabet-title {
+    color: #ccc;
+    font-size: 0.9rem;
+    margin-bottom: 10px;
+}
+
+.alphabet-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.alphabet-btn {
+    background: #4a4a4a;
+    color: #fff;
+    border: none;
+    padding: 8px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: bold;
+    transition: all 0.2s;
+    min-width: 36px;
+    text-align: center;
+}
+
+.alphabet-btn:hover:not(:disabled) {
+    background: #007bff;
+}
+
+.alphabet-btn.active {
+    background: #007bff;
+    box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.3);
+}
+
+.alphabet-btn.disabled {
+    background: #2a2a2a;
+    color: #666;
+    cursor: not-allowed;
+}
+
+/* Pagination Controls */
+.pagination-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 16px;
+    background: #2a2a2a;
+    border-top: 1px solid #444;
+}
+
+.pagination-info {
+    color: #ccc;
+    font-size: 14px;
+    text-align: center;
+}
+
+.pagination-buttons {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.pagination-btn {
+    background: #4a4a4a;
+    border: 1px solid #666;
+    border-radius: 4px;
+    color: #ffffff;
+    padding: 6px 12px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    font-size: 14px;
+    min-width: 40px;
+}
+
+.pagination-btn:hover {
+    background: #5a5a5a;
+}
+
+.pagination-btn:active {
+    background: #3a3a3a;
+}
+
+.pagination-btn.page-number.active {
+    background: #007bff;
+    border-color: #007bff;
 }
 
 /* New Player Layout Styles */
@@ -2416,8 +2562,8 @@ body {
     width: auto;
     height: auto;
     object-fit: contain;
-    border: 2px solid #007acc;
-    border-radius: 4px;
+    border: none;
+    border-radius: 0;
 }
 
 /* Effects Tab Styles */
