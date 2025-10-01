@@ -15,6 +15,7 @@ import SettingsManager from './settingsManager.js';
 import WebServer from './webServer.js';
 import AppState from './appState.js';
 import StatePersistence from './statePersistence.js';
+import * as queueService from '../shared/services/queueService.js';
 
 // ESM equivalent of __dirname
 const __filename = fileURLToPath(import.meta.url);
@@ -1628,7 +1629,7 @@ class KaiPlayerApp {
 
           // Get file size
           try {
-            const stats = await fs.stat(filePath);
+            const stats = await fsPromises.stat(filePath);
             songInfo.fileSize = stats.size;
           } catch (statError) {
             console.warn('Could not get file size:', statError.message);
@@ -1708,25 +1709,49 @@ class KaiPlayerApp {
       }
     });
 
-    // Queue Management
+    // Queue Management - using shared queueService
     ipcMain.handle('queue:addSong', async (event, queueItem) => {
-      await this.addSongToQueue(queueItem);
-      return { success: true };
+      const result = queueService.addSongToQueue(this.appState, queueItem);
+
+      // Update legacy songQueue for compatibility
+      this.songQueue = result.queue;
+
+      // If queue was empty, automatically load and start playing the first song
+      if (result.success && result.wasEmpty) {
+        console.log(`🎵 Queue was empty, auto-loading "${queueItem.title}"`);
+        try {
+          await this.loadKaiFile(queueItem.path);
+          console.log('✅ Successfully auto-loaded song from queue');
+        } catch (error) {
+          console.error('❌ Failed to auto-load song from queue:', error);
+        }
+      }
+
+      return result;
     });
 
     ipcMain.handle('queue:removeSong', async (event, itemId) => {
-      const removed = this.appState.removeFromQueue(itemId);
-      this.songQueue = this.appState.getQueue();
-      return { success: !!removed, removed };
+      const result = queueService.removeSongFromQueue(this.appState, itemId);
+
+      // Update legacy songQueue for compatibility
+      if (result.success) {
+        this.songQueue = result.queue;
+      }
+
+      return result;
     });
 
     ipcMain.handle('queue:get', () => {
-      return this.getQueue();
+      return queueService.getQueue(this.appState);
     });
 
     ipcMain.handle('queue:clear', async () => {
-      await this.clearQueue();
-      return { success: true };
+      const result = queueService.clearQueue(this.appState);
+
+      // Update legacy songQueue for compatibility
+      this.songQueue = [];
+
+      return result;
     });
 
     // Song management IPC handlers
@@ -1867,7 +1892,7 @@ class KaiPlayerApp {
     const mp3Map = new Map(); // Track MP3 files found
 
     try {
-      const entries = await fs.readdir(folderPath, { withFileTypes: true });
+      const entries = await fsPromises.readdir(folderPath, { withFileTypes: true });
 
       // First pass: collect files and identify types
       for (const entry of entries) {
@@ -1881,7 +1906,7 @@ class KaiPlayerApp {
           files.push(...subFiles);
         } else if (lowerName.endsWith('.kai')) {
           // KAI format
-          const stats = await fs.stat(fullPath);
+          const stats = await fsPromises.stat(fullPath);
           const metadata = await this.extractKaiMetadata(fullPath);
 
           files.push({
@@ -1897,7 +1922,7 @@ class KaiPlayerApp {
           // CDG archive format (.kar or .zip)
           const metadata = await this.extractCDGArchiveMetadata(fullPath);
           if (metadata) {
-            const stats = await fs.stat(fullPath);
+            const stats = await fsPromises.stat(fullPath);
             files.push({
               name: fullPath,
               path: fullPath,
@@ -1923,7 +1948,7 @@ class KaiPlayerApp {
         if (cdgPath) {
           // Found matching pair - add as CDG song keyed by MP3 path
           const metadata = await this.extractCDGPairMetadata(mp3Path, cdgPath);
-          const stats = await fs.stat(mp3Path);
+          const stats = await fsPromises.stat(mp3Path);
           files.push({
             name: mp3Path,
             path: mp3Path,
@@ -3108,19 +3133,21 @@ class KaiPlayerApp {
   async addSongToQueue(queueItem) {
     console.log('🎵 MAIN addSongToQueue called with:', queueItem);
 
-    // Check if queue was empty before adding
-    const wasEmpty = this.appState.state.queue.length === 0;
-    console.log('🎵 Queue was empty:', wasEmpty, 'current length:', this.appState.state.queue.length);
+    // Use shared queueService
+    const result = queueService.addSongToQueue(this.appState, queueItem);
 
-    // Add to AppState (canonical source of truth)
-    const newQueueItem = this.appState.addToQueue(queueItem);
-    console.log('🎵 Created new queue item:', newQueueItem);
+    if (!result.success) {
+      console.error('❌ Failed to add song to queue:', result.error);
+      throw new Error(result.error);
+    }
 
-    // Also update legacy songQueue for compatibility
-    this.songQueue = this.appState.getQueue();
+    console.log('🎵 Created new queue item:', result.queueItem);
+
+    // Update legacy songQueue for compatibility
+    this.songQueue = result.queue;
 
     // If queue was empty, automatically load and start playing the first song
-    if (wasEmpty) {
+    if (result.wasEmpty) {
       console.log(`🎵 Queue was empty, auto-loading "${queueItem.title}"`);
       try {
         await this.loadKaiFile(queueItem.path);
@@ -3131,6 +3158,7 @@ class KaiPlayerApp {
     }
 
     console.log(`➕ Added "${queueItem.title}" to queue (requested by ${queueItem.requester})`);
+    return result;
   }
 
   onSongRequest(request) {
@@ -3293,9 +3321,11 @@ class KaiPlayerApp {
   }
 
   async clearQueue() {
-    this.appState.clearQueue();
+    // Use shared queueService
+    const result = queueService.clearQueue(this.appState);
     // Update legacy queue for compatibility
     this.songQueue = [];
+    return result;
   }
 
   getCurrentSong() {

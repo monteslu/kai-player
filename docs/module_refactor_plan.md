@@ -187,13 +187,13 @@ kai-player/
 - **Test:** ✅ Syntax validated, ready for import
 
 #### Step 2.2: Extract Shared Business Logic from Main
-- [ ] Identify more pure functions in main process
-- [ ] Move to `src/shared/utils/`
-- [ ] Update main process to import from shared
-- [ ] Examples:
-  - [ ] Queue management logic
-  - [ ] Song metadata helpers
-- **Test:** Main process still works with shared utilities
+- [x] Created `src/shared/services/queueService.js` with pure functions
+- [x] Functions: addSongToQueue, removeSongFromQueue, clearQueue, getQueue, getQueueInfo, reorderQueue
+- [x] Updated main.js IPC handlers to use queueService
+- [x] Updated webServer.js REST endpoints to use queueService
+- [x] Updated renderer queue.js to handle new response format
+- [x] Tested - both IPC and REST use same business logic (no duplication)
+- **Test:** ✅ Queue operations work identically via IPC and REST
 
 #### Step 2.3: Create State Manager (Shared)
 - [ ] Create `src/shared/state/StateManager.js`
@@ -201,7 +201,7 @@ kai-player/
 - [ ] Works in browser AND Node.js
 - **Test:** Import in both renderer and main, verify event emission works
 
-**Success Criteria:** 🔄 IN PROGRESS - Shared infrastructure created (Step 2.1 ✅), more to extract
+**Success Criteria:** 🔄 IN PROGRESS - Shared infrastructure created (Step 2.1 ✅), Queue service extracted (Step 2.2 ✅)
 
 ---
 
