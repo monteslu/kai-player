@@ -664,40 +664,49 @@ app.post('/queue/add', (req, res) => {
 
 ```javascript
 // Shared business logic (src/shared/services/queueService.js)
-export class QueueService {
-  constructor(appState) {
-    this.appState = appState;
-  }
+export function addSong(appState, queueItem) {
+  const queue = appState.state.queue;
+  queue.push(queueItem);
+  appState.updateQueue(queue);
+  return { success: true, queue };
+}
 
-  addSong(queueItem) {
-    const queue = this.appState.state.queue;
-    queue.push(queueItem);
-    this.appState.updateQueue(queue);
+export function removeSong(appState, itemId) {
+  const queue = appState.state.queue;
+  const index = queue.findIndex(item => item.id === itemId);
+  if (index !== -1) {
+    queue.splice(index, 1);
+    appState.updateQueue(queue);
     return { success: true, queue };
   }
+  return { success: false, error: 'Song not found' };
+}
 
-  removeSong(itemId) {
-    const queue = this.appState.state.queue;
-    const index = queue.findIndex(item => item.id === itemId);
-    if (index !== -1) {
-      queue.splice(index, 1);
-      this.appState.updateQueue(queue);
-      return { success: true, queue };
-    }
-    return { success: false, error: 'Song not found' };
-  }
+export function reorderQueue(appState, fromIndex, toIndex) {
+  const queue = appState.state.queue;
+  const [item] = queue.splice(fromIndex, 1);
+  queue.splice(toIndex, 0, item);
+  appState.updateQueue(queue);
+  return { success: true, queue };
 }
 
 // IPC Handler (main.js) - THIN WRAPPER
-const queueService = new QueueService(this.appState);
-
 ipcMain.handle('queue:addSong', (event, queueItem) => {
-  return queueService.addSong(queueItem);
+  return addSong(this.appState, queueItem);
+});
+
+ipcMain.handle('queue:removeSong', (event, itemId) => {
+  return removeSong(this.appState, itemId);
 });
 
 // REST Endpoint (webServer.js) - THIN WRAPPER
 app.post('/queue/add', (req, res) => {
-  const result = queueService.addSong(req.body);
+  const result = addSong(this.appState, req.body);
+  res.json(result);
+});
+
+app.delete('/queue/:itemId', (req, res) => {
+  const result = removeSong(this.appState, req.params.itemId);
   res.json(result);
 });
 ```
@@ -722,20 +731,21 @@ src/shared/services/
 └── settingsService.js    # Settings CRUD
 ```
 
-Each service:
-- Takes dependencies via constructor (AppState, SettingsManager, etc.)
-- Exposes pure business logic methods
+Each service module:
+- Exports pure functions (no classes needed)
+- Takes dependencies as function parameters (AppState, etc.)
 - Returns results (no side effects like broadcasting)
 - Used by both IPC handlers AND REST endpoints
+- Simple, testable, functional approach
 
 ### Broadcasting Strategy
 
-Services don't broadcast - the caller does:
+Service functions don't broadcast - the caller does:
 
 ```javascript
 // IPC Handler
 ipcMain.handle('queue:addSong', (event, queueItem) => {
-  const result = queueService.addSong(queueItem);
+  const result = addSong(this.appState, queueItem);
   // IPC handler broadcasts to web clients
   if (result.success && this.webServer) {
     this.webServer.io.emit('queue-update', result.queue);
@@ -745,7 +755,7 @@ ipcMain.handle('queue:addSong', (event, queueItem) => {
 
 // REST Endpoint
 app.post('/queue/add', (req, res) => {
-  const result = queueService.addSong(req.body);
+  const result = addSong(this.appState, req.body);
   // REST endpoint broadcasts to all web clients
   if (result.success) {
     this.io.emit('queue-update', result.queue);
@@ -754,7 +764,7 @@ app.post('/queue/add', (req, res) => {
 });
 ```
 
-This keeps services pure while allowing transport-specific behavior (like broadcasting).
+This keeps service functions pure while allowing transport-specific behavior (like broadcasting).
 
 ## Architecture Principles
 
