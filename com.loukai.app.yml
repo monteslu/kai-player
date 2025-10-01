@@ -1,0 +1,84 @@
+app-id: com.loukai.app
+runtime: org.freedesktop.Platform
+runtime-version: '23.08'
+sdk: org.freedesktop.Sdk
+base: org.electronjs.Electron2.BaseApp
+base-version: '23.08'
+command: loukai
+separate-locales: false
+
+finish-args:
+  # X11 and Wayland display access
+  - --share=ipc
+  - --socket=x11
+  - --socket=wayland
+
+  # Audio access (required for karaoke)
+  - --socket=pulseaudio
+
+  # GPU access for visualizations
+  - --device=dri
+
+  # Network access for web server
+  - --share=network
+
+  # File system access for song libraries
+  - --filesystem=home
+
+  # USB/MIDI device access (optional for future features)
+  - --device=all
+
+modules:
+  - name: loukai
+    buildsystem: simple
+    build-options:
+      append-path: /usr/lib/sdk/node18/bin
+      env:
+        NPM_CONFIG_LOGLEVEL: info
+        ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+    build-commands:
+      # Install dependencies
+      - npm install --offline
+
+      # Build web UI
+      - cd src/web && npm install --offline && npm run build
+
+      # Install to flatpak location
+      - |
+        . /usr/lib/sdk/node18/enable.sh
+        npm run build:linux -- --linux --dir
+        cp -r dist/linux-unpacked /app/loukai
+
+      # Create wrapper script
+      - |
+        cat > /app/bin/loukai <<EOF
+        #!/bin/sh
+        export TMPDIR="\$XDG_RUNTIME_DIR/app/\$FLATPAK_ID"
+        exec zypak-wrapper /app/loukai/loukai "\$@"
+        EOF
+        chmod +x /app/bin/loukai
+
+      # Install desktop file and icon
+      - install -Dm644 com.loukai.app.desktop /app/share/applications/com.loukai.app.desktop
+      - install -Dm644 static/images/logo.png /app/share/icons/hicolor/512x512/apps/com.loukai.app.png
+      - install -Dm644 com.loukai.app.metainfo.xml /app/share/metainfo/com.loukai.app.metainfo.xml
+
+    sources:
+      - type: git
+        url: https://github.com/monteslu/kai-player.git
+        tag: v1.0.0
+        commit: COMMIT_HASH_HERE
+
+      # Generated sources for npm dependencies (will be created by flatpak-node-generator)
+      - generated-sources.json
+      - type: file
+        path: com.loukai.app.desktop
+      - type: file
+        path: com.loukai.app.metainfo.xml
+
+  # Electron base app provides Electron runtime
+  - name: zypak
+    sources:
+      - type: git
+        url: https://github.com/refi64/zypak
+        tag: v2024.01.17

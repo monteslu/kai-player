@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=Loukai
+Comment=Real-time karaoke player with stem control and coaching
+Exec=loukai
+Icon=com.loukai.app
+Type=Application
+Categories=AudioVideo;Audio;Player;
+Keywords=karaoke;music;audio;singing;stems;
+StartupNotify=true
+Terminal=false

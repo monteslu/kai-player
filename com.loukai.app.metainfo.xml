@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>com.loukai.app</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>AGPL-3.0</project_license>
+  <name>Loukai</name>
+  <summary>Real-time karaoke player with stem control and coaching</summary>
+
+  <description>
+    <p>
+      Loukai is a professional karaoke player that supports multiple formats including
+      KAI (stem-separated audio), CDG, and standard audio files. It features real-time
+      audio mixing, vocal effects, pitch coaching, and a web interface for song requests.
+    </p>
+    <p>Features:</p>
+    <ul>
+      <li>Play KAI files with separated stems (vocals, drums, bass, other)</li>
+      <li>CDG+MP3 support with synchronized graphics</li>
+      <li>Real-time vocal effects (autotune, reverb, echo)</li>
+      <li>Independent PA and IEM outputs for performers</li>
+      <li>Pitch coaching and vocal analysis</li>
+      <li>Web-based song request system</li>
+      <li>Butterchurn visualizations and effects</li>
+      <li>Queue management and playlist support</li>
+    </ul>
+  </description>
+
+  <launchable type="desktop-id">com.loukai.app.desktop</launchable>
+
+  <screenshots>
+    <screenshot type="default">
+      <caption>Main player interface with karaoke display</caption>
+      <image>https://raw.githubusercontent.com/monteslu/kai-player/main/screenshots/player.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>Audio mixer with stem controls</caption>
+      <image>https://raw.githubusercontent.com/monteslu/kai-player/main/screenshots/mixer.png</image>
+    </screenshot>
+  </screenshots>
+
+  <url type="homepage">https://github.com/monteslu/kai-player</url>
+  <url type="bugtracker">https://github.com/monteslu/kai-player/issues</url>
+
+  <developer_name>Loukai Team</developer_name>
+
+  <content_rating type="oars-1.1" />
+
+  <releases>
+    <release version="1.0.0" date="2025-09-30">
+      <description>
+        <p>Initial release of Loukai karaoke player</p>
+      </description>
+    </release>
+  </releases>
+
+  <categories>
+    <category>AudioVideo</category>
+    <category>Audio</category>
+  </categories>
+
+  <keywords>
+    <keyword>karaoke</keyword>
+    <keyword>music</keyword>
+    <keyword>audio</keyword>
+    <keyword>singing</keyword>
+    <keyword>stems</keyword>
+  </keywords>
+</component>

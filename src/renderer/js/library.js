@@ -792,8 +792,9 @@ class LibraryManager {
         const song = songInfo.song || {};
         const audio = songInfo.audio || {};
         const meta = songInfo.meta || {};
-        
-        // Extract filename from path
+
+        // Get full path and filename
+        const fullPath = songInfo.filePath || 'Unknown';
         const fileName = songInfo.filePath ? songInfo.filePath.split('/').pop().split('\\').pop() : 'Unknown';
 
         let html = `
@@ -836,6 +837,8 @@ class LibraryManager {
                 <div class="info-grid">
                     <div class="info-label">Filename:</div>
                     <div class="info-value">${fileName}</div>
+                    <div class="info-label">Full Path:</div>
+                    <div class="info-value" style="word-break: break-all;">${fullPath}</div>
                     <div class="info-label">KAI Version:</div>
                     <div class="info-value">${songInfo.kai_version || 'Unknown'}</div>
                     <div class="info-label">Source File:</div>
@@ -845,7 +848,7 @@ class LibraryManager {
                 </div>
             </div>
         `;
-        
+
         content.innerHTML = html;
     }
 
