@@ -1,4 +1,4 @@
-const EventEmitter = require('events');
+import { EventEmitter } from 'events';
 
 class AudioEngine extends EventEmitter {
   constructor() {
@@ -465,4 +465,4 @@ class AudioEngine extends EventEmitter {
   }
 }
 
-module.exports = AudioEngine;
+export default AudioEngine;

@@ -1,4 +1,4 @@
-const EventEmitter = require('events');
+import { EventEmitter } from 'events';
 
 /**
  * AppState - Canonical application state model
@@ -253,4 +253,4 @@ class AppState extends EventEmitter {
   }
 }
 
-module.exports = AppState;
+export default AppState;
