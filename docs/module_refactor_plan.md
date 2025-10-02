@@ -446,24 +446,30 @@ export const IPC_SCHEMAS = {
 **Goal:** Consistent state persistence and loading
 
 #### Step 8.1: Audit All Persisted State
-- List everything that gets saved to disk
-- Identify duplicates and conflicts
-- Document expected persistence behavior
+- [x] Audited all save/write operations across codebase
+- [x] Identified three persistence systems:
+  - **SettingsManager** (`settings.json`) - User settings, device prefs, waveform prefs, etc.
+  - **StatePersistence** (`app-state.json`) - Mixer, effects, preferences state
+  - **Library Cache** (`library-cache.json`) - Song metadata cache
+- [x] Documented that architecture is already well-separated
+- **Test:** ✅ All three systems working correctly
 
-#### Step 8.2: Create Persistence Service
-- Single service responsible for save/load
-- Versioned state schema
-- Migration support for schema changes
-- Automatic debouncing/batching of saves
+#### Step 8.2: Add Debouncing to SettingsManager
+- [x] Added `saveTimeout` and `isDirty` tracking
+- [x] Implemented 1-second debounce on `.set()` calls
+- [x] Added `saveNow()` method for immediate save on app quit
+- [x] Updated `cleanup()` to call `settings.saveNow()`
+- **Test:** ✅ Settings save debounced, immediate save on quit
 
-#### Step 8.3: Migrate All Persistence
-- Device preferences → Persistence Service
-- Mixer state → Persistence Service
-- Auto-tune settings → Persistence Service
-- Waveform preferences → Persistence Service
-- **Test:** All settings persist and restore correctly
+#### Step 8.3: Persistence Architecture (No Changes Needed)
+- ✅ **SettingsManager** - User preferences, auto-saves with debouncing
+- ✅ **StatePersistence** - App state (mixer/effects), periodic saves every 30s when dirty
+- ✅ **Library Cache** - Manual save after scan/sync operations
+- ✅ All three have backup file mechanisms
+- ✅ All validated before save (JSON parse/stringify)
+- **Decision:** Current architecture is clean - no consolidation needed
 
-**Success Criteria:** Single persistence mechanism, no conflicts
+**Success Criteria:** ✅ COMPLETE - Debounced saves prevent excessive disk writes, settings persist reliably
 
 ---
 

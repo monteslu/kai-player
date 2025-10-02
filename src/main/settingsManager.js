@@ -6,6 +6,8 @@ class SettingsManager {
   constructor() {
     this.settingsPath = path.join(app.getPath('userData'), 'settings.json');
     this.settings = null;
+    this.saveTimeout = null;
+    this.isDirty = false;
   }
 
   async load() {
@@ -38,6 +40,10 @@ class SettingsManager {
   }
 
   async save() {
+    if (!this.isDirty) {
+      return; // No changes since last save
+    }
+
     try {
       // Validate that settings can be serialized to JSON
       const jsonString = JSON.stringify(this.settings, null, 2);
@@ -59,6 +65,7 @@ class SettingsManager {
       // Write directly
       await fs.writeFile(this.settingsPath, jsonString, 'utf8');
 
+      this.isDirty = false;
       console.log('💾 Settings saved');
     } catch (error) {
       console.error('❌ Failed to save settings:', error);
@@ -78,8 +85,28 @@ class SettingsManager {
       throw new Error('Settings not loaded. Call load() first.');
     }
     this.settings[key] = value;
-    // Auto-save on changes
-    this.save();
+    this.isDirty = true;
+
+    // Debounce saves - wait 1 second after last change before saving
+    if (this.saveTimeout) {
+      clearTimeout(this.saveTimeout);
+    }
+    this.saveTimeout = setTimeout(() => {
+      this.save();
+    }, 1000);
+  }
+
+  /**
+   * Force immediate save (used on app quit)
+   */
+  async saveNow() {
+    if (this.saveTimeout) {
+      clearTimeout(this.saveTimeout);
+      this.saveTimeout = null;
+    }
+    if (this.isDirty) {
+      await this.save();
+    }
   }
 
   getSongsFolder() {

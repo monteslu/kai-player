@@ -3032,6 +3032,11 @@ class KaiPlayerApp {
       this.webServer.stop();
     }
 
+    // Save settings immediately before exiting
+    if (this.settings) {
+      await this.settings.saveNow();
+    }
+
     // Save state before exiting
     if (this.statePersistence) {
       await this.statePersistence.cleanup();
