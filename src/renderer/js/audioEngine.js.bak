@@ -118,8 +118,8 @@ class RendererAudioEngine {
     async loadDevicePreferences() {
         try {
             // Load device preferences from settingsAPI
-            if (window.kaiAPI.settings) {
-                const devicePrefs = await window.kaiAPI.settings.get('devicePreferences', null);
+            if (window.settingsAPI) {
+                const devicePrefs = await window.settingsAPI.getDevicePreferences();
                 console.log('📂 Loaded device preferences:', devicePrefs);
 
                 if (devicePrefs?.PA?.id) {
@@ -1006,5 +1006,4 @@ class RendererAudioEngine {
     }
 }
 
-// Export removed - RendererAudioEngine is instantiated by KaiPlayerApp in main.js
-// No longer attached to window global
+window.RendererAudioEngine = RendererAudioEngine;

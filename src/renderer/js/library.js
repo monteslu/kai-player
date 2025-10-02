@@ -1,4 +1,5 @@
 import { getFormatIcon, formatDuration, formatFileSize } from '../../shared/formatUtils.js';
+import { getQueueManager } from './appInstance.js';
 
 class LibraryManager {
     constructor() {
@@ -722,16 +723,17 @@ class LibraryManager {
             }
             
             // Add to queue using the queue manager
-            if (window.queueManager) {
-                const wasQueueEmpty = window.queueManager.queue.length === 0;
-                const queueItem = window.queueManager.addSong(songData);
-                
+            const queueManager = getQueueManager();
+            if (queueManager) {
+                const wasQueueEmpty = queueManager.queue.length === 0;
+                const queueItem = queueManager.addSong(songData);
+
                 const title = songData.title || songData.name.replace('.kai', '');
-                
+
                 // If queue was empty, start playing this first song
                 if (wasQueueEmpty) {
                     this.showToast(`Playing "${title}" from queue`);
-                    await window.queueManager.playFromQueue(queueItem.id, false); // Don't switch tabs
+                    await queueManager.playFromQueue(queueItem.id, false); // Don't switch tabs
                 } else {
                     this.showToast(`Added "${title}" to queue`);
                 }
@@ -761,7 +763,9 @@ class LibraryManager {
             
             // Read song.json from the KAI file
             const songInfo = await window.kaiAPI.library.getSongInfo(songPath);
-            
+
+            console.log('📊 Song info received:', songInfo);
+
             if (songInfo.error) {
                 content.innerHTML = `
                     <div class="info-error">
@@ -771,7 +775,7 @@ class LibraryManager {
                 `;
                 return;
             }
-            
+
             // Display song information
             this.displaySongInfo(songInfo);
             
@@ -789,46 +793,48 @@ class LibraryManager {
 
     displaySongInfo(songInfo) {
         const content = document.getElementById('songInfoContent');
-        const song = songInfo.song || {};
-        const audio = songInfo.audio || {};
-        const meta = songInfo.meta || {};
+        // All metadata is directly on songInfo object (no nesting)
 
         // Get full path and filename
-        const fullPath = songInfo.filePath || 'Unknown';
-        const fileName = songInfo.filePath ? songInfo.filePath.split('/').pop().split('\\').pop() : 'Unknown';
+        const fullPath = songInfo.path || 'Unknown';
+        const fileName = songInfo.path ? songInfo.path.split('/').pop().split('\\').pop() : 'Unknown';
+
+        // Format duration
+        const duration = songInfo.duration_sec ? formatDuration(songInfo.duration_sec) :
+                        songInfo.duration ? formatDuration(songInfo.duration) : 'Unknown';
 
         let html = `
             <div class="info-section">
                 <h3>Song Details</h3>
                 <div class="info-grid">
                     <div class="info-label">Title:</div>
-                    <div class="info-value">${song.title || 'Unknown'}</div>
+                    <div class="info-value">${songInfo.title || 'Unknown'}</div>
                     <div class="info-label">Artist:</div>
-                    <div class="info-value">${song.artist || 'Unknown'}</div>
+                    <div class="info-value">${songInfo.artist || 'Unknown'}</div>
                     <div class="info-label">Album:</div>
-                    <div class="info-value">${song.album || 'Unknown'}</div>
+                    <div class="info-value">${songInfo.album || 'Unknown'}</div>
                     <div class="info-label">Duration:</div>
-                    <div class="info-value">${formatDuration(song.duration_sec)}</div>
+                    <div class="info-value">${duration}</div>
                     <div class="info-label">Year:</div>
-                    <div class="info-value">${song.year || 'Unknown'}</div>
+                    <div class="info-value">${songInfo.year || 'Unknown'}</div>
                     <div class="info-label">Genre:</div>
-                    <div class="info-value">${song.genre || 'Unknown'}</div>
+                    <div class="info-value">${songInfo.genre || 'Unknown'}</div>
                     <div class="info-label">Key:</div>
-                    <div class="info-value">${song.key || 'Unknown'}</div>
+                    <div class="info-value">${songInfo.key || 'Unknown'}</div>
                 </div>
             </div>
 
             <div class="info-section">
                 <h3>Audio Details</h3>
                 <div class="info-grid">
-                    <div class="info-label">Profile:</div>
-                    <div class="info-value">${audio.profile || 'Unknown'}</div>
+                    <div class="info-label">Format:</div>
+                    <div class="info-value">${songInfo.format || 'Unknown'}</div>
                     <div class="info-label">Sample Rate:</div>
-                    <div class="info-value">${song.sample_rate || 'Unknown'} Hz</div>
+                    <div class="info-value">${songInfo.sample_rate ? songInfo.sample_rate + ' Hz' : 'Unknown'}</div>
                     <div class="info-label">Channels:</div>
-                    <div class="info-value">${song.channels || 'Unknown'}</div>
+                    <div class="info-value">${songInfo.channels || 'Unknown'}</div>
                     <div class="info-label">Stems:</div>
-                    <div class="info-value">${this.formatStemList(audio.sources)}</div>
+                    <div class="info-value">${this.formatStemList(songInfo.sources)}</div>
                 </div>
             </div>
 
@@ -842,9 +848,9 @@ class LibraryManager {
                     <div class="info-label">KAI Version:</div>
                     <div class="info-value">${songInfo.kai_version || 'Unknown'}</div>
                     <div class="info-label">Source File:</div>
-                    <div class="info-value">${song.source_filename || 'Unknown'}</div>
+                    <div class="info-value">${songInfo.source_filename || 'Unknown'}</div>
                     <div class="info-label">File Size:</div>
-                    <div class="info-value">${formatFileSize(songInfo.fileSize)}</div>
+                    <div class="info-value">${songInfo.fileSize ? formatFileSize(songInfo.fileSize) : 'Unknown'}</div>
                 </div>
             </div>
         `;

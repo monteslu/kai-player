@@ -808,8 +808,8 @@ class KaraokeRenderer {
     
     isEffectDisabled(effectName) {
         // Check if the effectsManager exists and has disabled effects
-        if (window.effectsManager && window.effectsManager.disabledEffects) {
-            return window.effectsManager.disabledEffects.has(effectName);
+        if (getAppInstance()?.effectsManager?.disabledEffects) {
+            return getAppInstance().effectsManager.disabledEffects.has(effectName);
         }
         return false;
     }
@@ -1408,8 +1408,8 @@ class KaraokeRenderer {
         const micEnd = shouldProfile ? performance.now() : 0;
         
         // If song is loaded but not playing, show song info instead of lyrics
-        if (!this.isPlaying && window.appInstance && window.appInstance.currentSong) {
-            this.drawSongInfo(width, height, window.appInstance.currentSong);
+        if (!this.isPlaying && getAppInstance() && getAppInstance().currentSong) {
+            this.drawSongInfo(width, height, getAppInstance().currentSong);
             return;
         }
         
@@ -2452,8 +2452,8 @@ class KaraokeRenderer {
     async ensureInputDeviceSelection() {
         try {
             // Get saved input device preference from settings API
-            if (window.settingsAPI) {
-                const prefs = await window.settingsAPI.getDevicePreferences();
+            if (window.kaiAPI.settings) {
+                const prefs = await window.kaiAPI.settings.get('devicePreferences');
                 if (prefs && prefs.input) {
                     const inputSelect = document.getElementById('inputDeviceSelect');
                     if (inputSelect && prefs.input.id !== inputSelect.value) {
@@ -2772,5 +2772,5 @@ class KaraokeRenderer {
     }
 }
 
-// Export to global scope for use by other scripts
-window.KaraokeRenderer = KaraokeRenderer;
+// Export removed - KaraokeRenderer is used by PlayerController
+// No longer attached to window global

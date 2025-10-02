@@ -1,4 +1,5 @@
 import { formatTime } from '../../shared/formatUtils.js';
+import { getAppInstance, getEditor } from './appInstance.js';
 
 export class LyricsEditor {
     constructor() {
@@ -212,10 +213,10 @@ export class LyricsEditor {
         
         // Line number click - play just this line's section
         lineNumber.addEventListener('click', () => {
-            if (window.appInstance && window.appInstance.editor) {
+            if (getAppInstance() && getAppInstance().editor) {
                 const startTime = parseFloat(startTimeInput.value) || 0;
                 const endTime = parseFloat(endTimeInput.value) || 0;
-                window.appInstance.editor.playLineSection(startTime, endTime);
+                getAppInstance().editor.playLineSection(startTime, endTime);
             }
         });
         
@@ -754,14 +755,14 @@ export class LyricsEditor {
 
     triggerWaveformRedraw() {
         // Access the editor controller through the window global
-        console.log('triggerWaveformRedraw called, checking for editor:', !!window.appInstance?.editor);
-        if (window.appInstance && window.appInstance.editor) {
+        console.log('triggerWaveformRedraw called, checking for editor:', !!getAppInstance()?.editor);
+        if (getAppInstance() && getAppInstance().editor) {
             console.log('Calling drawWaveform on editor');
-            window.appInstance.editor.drawWaveform();
+            getAppInstance().editor.drawWaveform();
         } else {
             console.warn('Cannot trigger waveform redraw - editor not found', {
-                hasAppInstance: !!window.appInstance,
-                hasEditor: !!window.appInstance?.editor
+                hasAppInstance: !!getAppInstance(),
+                hasEditor: !!getAppInstance()?.editor
             });
         }
     }

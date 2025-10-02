@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import './EffectsPanel.css';
 
-export function EffectsPanel({ effects, onEffectChange }) {
+export function EffectsPanel({ effects, onPrevious, onNext, onRandom, onSelect, onToggle }) {
   const [currentEffect, setCurrentEffect] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
@@ -20,39 +20,6 @@ export function EffectsPanel({ effects, onEffectChange }) {
       }, 100);
     }
   }, [effects]);
-
-  const handlePrevious = async () => {
-    try {
-      await fetch('/admin/effects/previous', {
-        method: 'POST',
-        credentials: 'include'
-      });
-    } catch (error) {
-      console.error('Previous effect failed:', error);
-    }
-  };
-
-  const handleNext = async () => {
-    try {
-      await fetch('/admin/effects/next', {
-        method: 'POST',
-        credentials: 'include'
-      });
-    } catch (error) {
-      console.error('Next effect failed:', error);
-    }
-  };
-
-  const handleRandom = async () => {
-    try {
-      await fetch('/admin/effects/random', {
-        method: 'POST',
-        credentials: 'include'
-      });
-    } catch (error) {
-      console.error('Random effect failed:', error);
-    }
-  };
 
   const sanitizeFilename = (name) => {
     // Match exactly what the screenshot generator uses
@@ -129,13 +96,13 @@ export function EffectsPanel({ effects, onEffectChange }) {
       </div>
 
       <div className="effects-controls">
-        <button className="btn btn-sm" onClick={handlePrevious} title="Previous Effect">
+        <button className="btn btn-sm" onClick={onPrevious} title="Previous Effect">
           ◀ Previous
         </button>
-        <button className="btn btn-sm btn-primary" onClick={handleRandom} title="Random Effect">
+        <button className="btn btn-sm btn-primary" onClick={onRandom} title="Random Effect">
           🎲 Random
         </button>
-        <button className="btn btn-sm" onClick={handleNext} title="Next Effect">
+        <button className="btn btn-sm" onClick={onNext} title="Next Effect">
           Next ▶
         </button>
       </div>
@@ -186,18 +153,20 @@ export function EffectsPanel({ effects, onEffectChange }) {
             const thumbnailUrl = `/screenshots/${encodeURIComponent(thumbnailName)}.png`;
             const isDisabled = effects?.disabled?.includes(effectName);
 
-            const handleToggleDisabled = async (e) => {
+            const handleToggleDisabled = (e) => {
               e.stopPropagation(); // Prevent triggering the select effect
-              try {
-                const endpoint = isDisabled ? '/admin/effects/enable' : '/admin/effects/disable';
-                await fetch(endpoint, {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  credentials: 'include',
-                  body: JSON.stringify({ effectName })
-                });
-              } catch (error) {
-                console.error('Toggle disabled failed:', error);
+              if (onToggle) {
+                onToggle(effectName, isDisabled);
+              }
+            };
+
+            const handleSelectEffect = () => {
+              // Don't allow selecting disabled effects
+              if (isDisabled) return;
+
+              if (onSelect) {
+                onSelect(effectName);
+                setCurrentEffect(effectName);
               }
             };
 
@@ -205,23 +174,7 @@ export function EffectsPanel({ effects, onEffectChange }) {
               <div
                 key={index}
                 className={`effect-item ${isActive ? 'active' : ''} ${isDisabled ? 'disabled' : ''}`}
-                onClick={async () => {
-                  // Don't allow selecting disabled effects
-                  if (isDisabled) return;
-
-                  try {
-                    await fetch('/admin/effects/select', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      credentials: 'include',
-                      body: JSON.stringify({ effectName })
-                    });
-                    setCurrentEffect(effectName);
-                    if (onEffectChange) onEffectChange(effectName);
-                  } catch (error) {
-                    console.error('Select effect failed:', error);
-                  }
-                }}
+                onClick={handleSelectEffect}
               >
                 <img
                   src={thumbnailUrl}

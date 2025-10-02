@@ -89,5 +89,5 @@ class SettingsAPI {
     }
 }
 
-// Create global instance
-window.settingsAPI = new SettingsAPI();
+// settingsAPI removed - was never actually used (window.kaiAPI.settings is the real API)
+// This file is now deprecated

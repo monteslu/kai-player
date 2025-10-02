@@ -1,3 +1,5 @@
+import { getAppInstance, getPlayer } from './appInstance.js';
+
 class EffectsManager {
     constructor() {
         this.presets = [];
@@ -253,8 +255,8 @@ class EffectsManager {
         document.querySelector(`[data-effect-name="${effectName}"]`)?.closest('.effect-item')?.classList.add('active');
 
         // Apply the effect to the karaoke renderer if available
-        if (window.appInstance && window.appInstance.player && window.appInstance.player.karaokeRenderer) {
-            const renderer = window.appInstance.player.karaokeRenderer;
+        if (getAppInstance() && getAppInstance().player && getAppInstance().player.karaokeRenderer) {
+            const renderer = getAppInstance().player.karaokeRenderer;
             if (renderer.setButterchurnPreset) {
                 console.log('🎨 Applying effect to karaoke renderer:', preset.displayName);
                 renderer.setButterchurnPreset(preset.preset);
@@ -264,8 +266,8 @@ class EffectsManager {
         }
 
         // Update the main app's effect display
-        if (window.appInstance && typeof window.appInstance.updateEffectDisplay === 'function') {
-            setTimeout(() => window.appInstance.updateEffectDisplay(), 100);
+        if (getAppInstance() && typeof getAppInstance().updateEffectDisplay === 'function') {
+            setTimeout(() => getAppInstance().updateEffectDisplay(), 100);
         }
 
         // Report effect change to main process (for AppState and web admin sync)
@@ -354,8 +356,8 @@ class EffectsManager {
     async loadDisabledEffects() {
         try {
             // Load from settings (waveformPreferences) - the ONLY source of truth
-            if (window.settingsAPI) {
-                const waveformPrefs = await window.settingsAPI.getWaveformPreferences();
+            if (window.kaiAPI.settings) {
+                const waveformPrefs = await window.kaiAPI.settings.get('waveformPreferences');
                 if (waveformPrefs && waveformPrefs.disabledEffects) {
                     const disabledArray = waveformPrefs.disabledEffects;
                     this.disabledEffects = new Set(disabledArray);
@@ -366,8 +368,8 @@ class EffectsManager {
             }
 
             // Fallback to appInstance.waveformPreferences if settingsAPI not ready
-            if (window.appInstance && window.appInstance.waveformPreferences && window.appInstance.waveformPreferences.disabledEffects) {
-                const disabledArray = window.appInstance.waveformPreferences.disabledEffects;
+            if (getAppInstance() && getAppInstance().waveformPreferences && getAppInstance().waveformPreferences.disabledEffects) {
+                const disabledArray = getAppInstance().waveformPreferences.disabledEffects;
                 this.disabledEffects = new Set(disabledArray);
                 this.loadedFromMainPrefs = true;
                 console.log('🎨 Loaded disabled effects from appInstance.waveformPreferences:', disabledArray);
@@ -396,13 +398,13 @@ class EffectsManager {
             const disabledArray = Array.from(this.disabledEffects);
 
             // Save to settings (waveformPreferences)
-            if (window.settingsAPI) {
-                const waveformPrefs = await window.settingsAPI.getWaveformPreferences();
+            if (window.kaiAPI.settings) {
+                const waveformPrefs = await window.kaiAPI.settings.get('waveformPreferences') || {};
                 waveformPrefs.disabledEffects = disabledArray;
-                await window.settingsAPI.setWaveformPreferences(waveformPrefs);
+                await window.kaiAPI.settings.set('waveformPreferences', waveformPrefs);
                 console.log('🎨 Saved disabled effects to settings');
             } else {
-                console.warn('🎨 settingsAPI not available, cannot save disabled effects');
+                console.warn('🎨 settings API not available, cannot save disabled effects');
             }
         } catch (error) {
             console.error('🎨 Failed to save disabled effects:', error);
@@ -411,8 +413,8 @@ class EffectsManager {
 
     // Reload disabled effects from main app preferences (called after main app is initialized)
     reloadFromMainPreferences() {
-        if (window.appInstance && window.appInstance.waveformPreferences && window.appInstance.waveformPreferences.disabledEffects) {
-            const disabledArray = window.appInstance.waveformPreferences.disabledEffects;
+        if (getAppInstance() && getAppInstance().waveformPreferences && getAppInstance().waveformPreferences.disabledEffects) {
+            const disabledArray = getAppInstance().waveformPreferences.disabledEffects;
             this.disabledEffects = new Set(disabledArray);
             this.loadedFromMainPrefs = true;
             console.log('🎨 Reloaded disabled effects from waveformPreferences:', disabledArray);
@@ -434,9 +436,9 @@ class EffectsManager {
 
     // Sync UI with current karaoke renderer state
     syncWithRenderer() {
-        if (!window.appInstance || !window.appInstance.player || !window.appInstance.player.karaokeRenderer) return;
+        if (!getAppInstance() || !getAppInstance().player || !getAppInstance().player.karaokeRenderer) return;
 
-        const renderer = window.appInstance.player.karaokeRenderer;
+        const renderer = getAppInstance().player.karaokeRenderer;
         const currentPresetName = renderer.currentPreset;
         if (currentPresetName && currentPresetName !== this.currentEffect?.name) {
             const preset = this.presets.find(p => p.name === currentPresetName);
@@ -518,15 +520,8 @@ class EffectsManager {
 
 }
 
-// Initialize when DOM is loaded
-document.addEventListener('DOMContentLoaded', () => {
-    window.effectsManager = new EffectsManager();
+// EffectsManager is now initialized by KaiPlayerApp in main.js
+// No longer attached to window - accessed via app.effectsManager
 
-    // Sync with renderer after a short delay to ensure everything is loaded
-    setTimeout(() => {
-        if (window.effectsManager) {
-            window.effectsManager.syncWithRenderer();
-            console.log('🎨 EffectsManager initialized. Disabled effects:', Array.from(window.effectsManager.disabledEffects));
-        }
-    }, 500);
-});
+// Export for use in main.js
+export { EffectsManager };

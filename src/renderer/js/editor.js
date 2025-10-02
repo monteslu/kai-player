@@ -1,4 +1,5 @@
 import { LyricsEditor } from './lyricsEditor.js';
+import { getAppInstance, getPlayer } from './appInstance.js';
 
 export class LyricsEditorController {
     constructor() {
@@ -355,8 +356,8 @@ export class LyricsEditorController {
         }));
         
         // Find the player instance through the main app and update karaoke renderer
-        if (window.appInstance && window.appInstance.player && window.appInstance.player.karaokeRenderer) {
-            window.appInstance.player.karaokeRenderer.loadLyrics(editedLyrics, this.songDuration);
+        if (getAppInstance() && getAppInstance().player && getAppInstance().player.karaokeRenderer) {
+            getAppInstance().player.karaokeRenderer.loadLyrics(editedLyrics, this.songDuration);
         }
         
         this.hasChanges = true;
@@ -602,7 +603,7 @@ export class LyricsEditorController {
 
     async saveAnalyzeVocalsSetting() {
         try {
-            await window.settingsAPI.set('editor.analyzeVocals', this.analyzeVocalsCheckbox.checked);
+            await window.kaiAPI.settings.set('editor.analyzeVocals', this.analyzeVocalsCheckbox.checked);
         } catch (error) {
             console.error('Failed to save analyze vocals setting:', error);
         }
@@ -610,7 +611,7 @@ export class LyricsEditorController {
 
     async loadAnalyzeVocalsSetting() {
         try {
-            const saved = await window.settingsAPI.get('editor.analyzeVocals');
+            const saved = await window.kaiAPI.settings.get('editor.analyzeVocals');
             if (saved !== null && saved !== undefined) {
                 this.analyzeVocalsCheckbox.checked = saved;
             }

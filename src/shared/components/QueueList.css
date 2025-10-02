@@ -1,0 +1,270 @@
+/* QueueList - Based on renderer player-queue-sidebar styling */
+
+/* Quick Search Section */
+.player-queue-section .quick-search-controls {
+    position: relative;
+    margin-bottom: 8px;
+}
+
+#quickLibrarySearch {
+    width: 100%;
+    padding: 6px 10px;
+    background: #1a1a1a;
+    border: 1px solid #444;
+    border-radius: 4px;
+    color: #ccc;
+    font-size: 14px;
+}
+
+#quickLibrarySearch:focus {
+    outline: none;
+    border-color: #007acc;
+}
+
+.quick-search-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    z-index: 1000;
+    max-height: 300px;
+    overflow-y: auto;
+    background: #1a1a1a;
+    border: 1px solid #007acc;
+    border-radius: 0 0 4px 4px;
+    border-top: none;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+.no-search-message {
+    padding: 20px;
+    text-align: center;
+    color: #666;
+    font-size: 14px;
+}
+
+.quick-search-item {
+    padding: 8px 12px;
+    border-bottom: 1px solid #333;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+}
+
+.quick-search-item:hover {
+    background: #333;
+}
+
+.quick-search-item:last-child {
+    border-bottom: none;
+}
+
+.quick-search-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.quick-search-title {
+    color: #ccc;
+    font-size: 14px;
+    margin-bottom: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.quick-search-artist {
+    color: #888;
+    font-size: 12px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.quick-search-buttons {
+    display: flex;
+    gap: 4px;
+    flex-shrink: 0;
+    margin-left: 8px;
+}
+
+.quick-search-add, .quick-search-load {
+    border: none;
+    border-radius: 4px;
+    color: white;
+    padding: 4px 8px;
+    font-size: 12px;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.quick-search-add {
+    background: #007acc;
+}
+
+.quick-search-add:hover {
+    background: #0066aa;
+}
+
+.quick-search-load {
+    background: #ff6b35;
+}
+
+.quick-search-load:hover {
+    background: #e55a2b;
+}
+
+/* Player Queue Section */
+.player-queue-section {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: #2a2a2a;
+    border-radius: 6px;
+    padding: 8px;
+    min-height: 0;
+}
+
+.player-queue-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 6px;
+}
+
+.player-queue-header h4 {
+    margin: 0;
+    color: #ccc;
+    font-size: 16px;
+    font-weight: 500;
+}
+
+.queue-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.queue-action-btn {
+    background: #3a3a3a;
+    border: none;
+    border-radius: 4px;
+    color: #ccc;
+    padding: 6px 8px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: background 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.queue-action-btn .material-icons {
+    font-size: 18px;
+}
+
+.queue-action-btn:hover {
+    background: #4a4a4a;
+    color: white;
+}
+
+.player-queue-list {
+    flex: 1;
+    overflow-y: auto;
+    background: #1a1a1a;
+    border-radius: 4px;
+    border: 1px solid #444;
+    min-height: 0;
+}
+
+.player-queue-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 200px;
+    color: #666;
+    text-align: center;
+}
+
+.player-queue-empty .empty-icon {
+    font-size: 48px;
+    margin-bottom: 10px;
+}
+
+.player-queue-item {
+    padding: 6px;
+    border-bottom: 1px solid #333;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.player-queue-item:last-child {
+    border-bottom: none;
+}
+
+.player-queue-item.current {
+    background: #007acc20;
+    border-left: 4px solid #007acc;
+}
+
+.queue-item-number {
+    font-family: monospace;
+    color: #888;
+    font-size: 12px;
+    width: 20px;
+    text-align: right;
+    flex-shrink: 0;
+}
+
+.queue-item-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.queue-item-title {
+    color: #ccc;
+    font-size: 14px;
+    margin-bottom: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.queue-item-artist {
+    color: #888;
+    font-size: 12px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.queue-item-actions {
+    display: flex;
+    gap: 4px;
+    flex-shrink: 0;
+}
+
+.queue-item-btn {
+    background: #3a3a3a;
+    border: none;
+    border-radius: 3px;
+    color: #ccc;
+    padding: 4px 6px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: background 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.queue-item-btn .material-icons {
+    font-size: 16px;
+}
+
+.queue-item-btn:hover {
+    background: #4a4a4a;
+    color: white;
+}

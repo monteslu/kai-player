@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import './SongSearch.css';
-import { getFormatIcon, formatDuration } from '../../../shared/formatUtils.js';
+import { getFormatIcon, formatDuration } from '../../shared/formatUtils.js';
 
 export function SongSearch({ onAddToQueue }) {
   const [searchTerm, setSearchTerm] = useState('');

@@ -1,0 +1,159 @@
+/* PlayerControls - Based on renderer styling */
+
+.transport-extended {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    padding: 16px;
+    background: #2a2a2a;
+    border-radius: 8px;
+}
+
+.play-controls {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex: 1;
+    min-width: 0;
+}
+
+.transport-btn {
+    width: 48px;
+    height: 48px;
+    background: #3a3a3a;
+    border: none;
+    border-radius: 8px;
+    color: white;
+    font-size: 18px;
+    cursor: pointer;
+    transition: background 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.transport-btn:hover {
+    background: #4a4a4a;
+}
+
+.transport-btn:active {
+    background: #5a5a5a;
+}
+
+.transport-btn .material-icons {
+    font-size: 24px;
+}
+
+.play-pause-btn {
+    font-size: 24px;
+}
+
+.progress-container {
+    flex: 1;
+    max-width: 300px;
+    margin: 0;
+}
+
+.progress-bar {
+    position: relative;
+    width: 100%;
+    height: 12px;
+    background: #555555;
+    border: 1px solid #666666;
+    border-radius: 6px;
+    cursor: pointer;
+    overflow: hidden;
+}
+
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #007acc, #00a0ff);
+    border-radius: 3px;
+    width: 0%;
+    transition: width 0.1s ease;
+    pointer-events: none;
+}
+
+.progress-handle {
+    position: absolute;
+    top: -3px;
+    left: 0%;
+    width: 12px;
+    height: 12px;
+    background: #007acc;
+    border-radius: 50%;
+    transform: translateX(-50%);
+    cursor: grab;
+    opacity: 0;
+    transition: opacity 0.2s;
+    pointer-events: none;
+}
+
+.progress-bar:hover .progress-handle {
+    opacity: 1;
+}
+
+.progress-handle:active {
+    cursor: grabbing;
+}
+
+.time-display {
+    font-family: 'Monaco', monospace;
+    font-size: 16px;
+    color: #ccc;
+    display: flex;
+    gap: 4px;
+    align-items: center;
+}
+
+.effects-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.effects-controls button {
+    width: auto;
+    height: 32px;
+    padding: 0 12px;
+    font-size: 12px;
+    background: #007acc;
+    border: none;
+    border-radius: 4px;
+    color: white;
+    cursor: pointer;
+    transition: background 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+}
+
+.effects-controls button:hover {
+    background: #0088dd;
+}
+
+.effects-controls button:active {
+    background: #006bb3;
+}
+
+.effects-controls .icon-btn {
+    width: 32px;
+    padding: 0;
+}
+
+.effects-controls .icon-btn .material-icons {
+    font-size: 18px;
+}
+
+.current-effect-name {
+    font-size: 13px;
+    color: #ccc;
+    min-width: 150px;
+    max-width: 200px;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}

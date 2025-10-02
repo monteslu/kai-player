@@ -2487,6 +2487,13 @@ body {
     font-size: 14px;
     cursor: pointer;
     transition: background 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.queue-action-btn .material-icons {
+    font-size: 18px;
 }
 
 .queue-action-btn:hover {
@@ -2511,6 +2518,11 @@ body {
     height: 200px;
     color: #666;
     text-align: center;
+}
+
+.player-queue-empty .empty-icon {
+    font-size: 48px;
+    margin-bottom: 10px;
 }
 
 .player-queue-item {
@@ -2576,6 +2588,13 @@ body {
     font-size: 12px;
     cursor: pointer;
     transition: background 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.queue-item-btn .material-icons {
+    font-size: 16px;
 }
 
 .queue-item-btn:hover {

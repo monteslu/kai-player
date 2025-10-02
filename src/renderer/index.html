@@ -223,13 +223,17 @@
                                         <div class="player-queue-header">
                                             <h4>Queue</h4>
                                             <div class="queue-actions">
-                                                <button id="playerClearQueueBtn" class="queue-action-btn" title="Clear Queue">🗑️</button>
-                                                <button id="playerShuffleQueueBtn" class="queue-action-btn" title="Shuffle">🔀</button>
+                                                <button id="playerClearQueueBtn" class="queue-action-btn" title="Clear Queue">
+                                                    <span class="material-icons">delete</span>
+                                                </button>
+                                                <button id="playerShuffleQueueBtn" class="queue-action-btn" title="Shuffle">
+                                                    <span class="material-icons">shuffle</span>
+                                                </button>
                                             </div>
                                         </div>
                                         <div class="player-queue-list" id="playerQueueList">
                                             <div class="player-queue-empty">
-                                                <div class="empty-icon">🎵</div>
+                                                <span class="material-icons empty-icon">queue_music</span>
                                                 <div class="empty-message">Queue is empty</div>
                                             </div>
                                         </div>
@@ -716,7 +720,7 @@
     </script>
     
     <!-- App Scripts -->
-    <script src="js/settingsAPI.js"></script>
+    <!-- settingsAPI.js removed - deprecated, use window.kaiAPI.settings instead -->
     <script type="module" src="lib/cdgraphics-wrapper.js"></script>
     <script src="js/karaokeRenderer.js"></script>
     <script src="js/cdgRenderer.js"></script>
@@ -725,11 +729,17 @@
     <script src="js/mixer.js"></script>
     <script src="js/player.js"></script>
     <script src="js/coaching.js"></script>
-    <script src="js/effects.js"></script>
+    <script type="module" src="js/effects.js"></script>
     <script src="js/requests.js"></script>
     <script type="module" src="js/editor.js"></script>
     <script type="module" src="js/library.js"></script>
     <script type="module" src="js/queue.js"></script>
     <script type="module" src="js/main.js"></script>
+
+    <!-- React Mount Point -->
+    <div id="react-root"></div>
+
+    <!-- React Bundle (loaded after vanilla JS) -->
+    <script type="module" src="dist/renderer.js"></script>
 </body>
 </html>

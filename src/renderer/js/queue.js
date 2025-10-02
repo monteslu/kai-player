@@ -472,8 +472,12 @@ class QueueManager {
                         <div class="queue-item-artist" title="${item.artist}${requesterText}">${item.artist}${requesterText}</div>
                     </div>
                     <div class="queue-item-actions">
-                        <button class="queue-item-btn play-queue-sidebar-btn" data-item-id="${item.id}" title="Play Now">▶️</button>
-                        <button class="queue-item-btn remove-queue-sidebar-btn" data-item-id="${item.id}" title="Remove">❌</button>
+                        <button class="queue-item-btn play-queue-sidebar-btn" data-item-id="${item.id}" title="Load Song">
+                            <span class="material-icons">queue_play_next</span>
+                        </button>
+                        <button class="queue-item-btn remove-queue-sidebar-btn" data-item-id="${item.id}" title="Remove">
+                            <span class="material-icons">close</span>
+                        </button>
                     </div>
                 </div>
             `;
@@ -650,7 +654,8 @@ class QueueManager {
 }
 
 // Initialize when DOM is loaded
-document.addEventListener('DOMContentLoaded', () => {
-    // Always initialize queue manager since it's used by the player sidebar
-    window.queueManager = new QueueManager();
-});
+// QueueManager is now initialized by KaiPlayerApp in main.js
+// No longer attached to window - accessed via app.queueManager
+
+// Export for use in main.js
+export { QueueManager };

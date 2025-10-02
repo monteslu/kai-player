@@ -683,6 +683,28 @@ class WebServer {
             }
         });
 
+        this.app.post('/admin/queue/load', async (req, res) => {
+            try {
+                const { songId } = req.body;
+                const result = await queueService.loadFromQueue(this.mainApp, songId);
+                res.json(result);
+            } catch (error) {
+                console.error('Error loading from queue:', error);
+                res.status(500).json({ error: 'Failed to load from queue' });
+            }
+        });
+
+        this.app.post('/admin/queue/remove/:songId', async (req, res) => {
+            try {
+                const { songId } = req.params;
+                const result = queueService.removeSongFromQueue(this.mainApp.appState, parseFloat(songId));
+                res.json(result);
+            } catch (error) {
+                console.error('Error removing from queue:', error);
+                res.status(500).json({ error: 'Failed to remove from queue' });
+            }
+        });
+
         // Effects management endpoints
         this.app.get('/admin/effects', async (req, res) => {
             try {
@@ -1359,12 +1381,16 @@ class WebServer {
             const title = songData.title || songData.metadata?.title || 'Unknown';
             const artist = songData.artist || songData.metadata?.artist || 'Unknown';
             const duration = songData.duration || songData.metadata?.duration || 0;
+            const path = songData.path || songData.originalFilePath || null;
+            const requester = songData.requester || null;
 
             this.io.emit('song-loaded', {
                 songId: `${title} - ${artist}`,
                 title,
                 artist,
-                duration
+                duration,
+                path,
+                requester
             });
         }
     }

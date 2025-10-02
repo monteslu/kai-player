@@ -7,12 +7,14 @@
   "homepage": "./",
   "scripts": {
     "start": "electron . --no-sandbox",
-    "dev": "npm run build:web && electron . --dev --no-sandbox",
-    "build": "npm run build:web && electron-builder",
-    "build:web": "cd src/web && npm install && npm run build",
-    "build:linux": "npm run build:web && electron-builder --linux",
-    "build:win": "npm run build:web && electron-builder --win",
-    "build:mac": "npm run build:web && electron-builder --mac",
+    "dev": "npm run build:all && electron . --dev --no-sandbox",
+    "build": "npm run build:all && electron-builder",
+    "build:all": "npm run build:renderer && npm run build:web",
+    "build:renderer": "vite build --config src/renderer/vite.config.js",
+    "build:web": "vite build --config src/web/vite.config.js",
+    "build:linux": "npm run build:all && electron-builder --linux",
+    "build:win": "npm run build:all && electron-builder --win",
+    "build:mac": "npm run build:all && electron-builder --mac",
     "rebuild": "electron-rebuild",
     "postinstall": "electron-builder install-app-deps"
   },
@@ -27,11 +29,15 @@
   "author": "Loukai Team",
   "license": "AGPL-3.0",
   "devDependencies": {
+    "@vitejs/plugin-react": "^4.2.0",
     "electron-builder": "^24.0.0",
-    "electron-rebuild": "^3.2.9"
+    "electron-rebuild": "^3.2.9",
+    "vite": "^5.0.0"
   },
   "dependencies": {
     "bcrypt": "^6.0.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
     "butterchurn": "^2.6.7",
     "butterchurn-presets": "^2.4.7",
     "cdgraphics": "^7.0.0",

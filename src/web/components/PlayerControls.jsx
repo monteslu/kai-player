@@ -1,5 +1,5 @@
 import './PlayerControls.css';
-import { formatDuration } from '../../../shared/formatUtils.js';
+import { formatDuration } from '../../shared/formatUtils.js';
 
 export function PlayerControls({ playback, currentSong, onPlay, onPause, onRestart, onNext, onSeek }) {
   const { isPlaying, position = 0, duration = 0 } = playback || {};

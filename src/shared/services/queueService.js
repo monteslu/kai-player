@@ -156,3 +156,36 @@ export function reorderQueue(appState, fromIndex, toIndex) {
     queue: appState.getQueue()
   };
 }
+
+/**
+ * Load a song from the queue by ID
+ * @param {Object} mainApp - Main app instance with loadKaiFile method
+ * @param {string|number} itemId - Queue item ID to load
+ * @returns {Object} Result with success status
+ */
+export async function loadFromQueue(mainApp, itemId) {
+  const queue = mainApp.appState.getQueue();
+  const item = queue.find(q => q.id === parseFloat(itemId));
+
+  if (!item) {
+    return {
+      success: false,
+      error: 'Song not found in queue'
+    };
+  }
+
+  try {
+    // Load and play the song using mainApp's loadKaiFile method
+    await mainApp.loadKaiFile(item.path);
+
+    return {
+      success: true,
+      song: item
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+}

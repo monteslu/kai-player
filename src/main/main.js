@@ -20,6 +20,7 @@ import * as libraryService from '../shared/services/libraryService.js';
 import * as playerService from '../shared/services/playerService.js';
 import * as requestsService from '../shared/services/requestsService.js';
 import * as serverSettingsService from '../shared/services/serverSettingsService.js';
+import { registerAllHandlers } from './handlers/index.js';
 
 // ESM equivalent of __dirname
 const __filename = fileURLToPath(import.meta.url);
@@ -75,12 +76,8 @@ class KaiPlayerApp {
     // When current song changes, broadcast to web clients
     this.appState.on('currentSongChanged', (song) => {
       if (this.webServer && song) {
-        this.webServer.broadcastSongLoaded({
-          songId: `${song.title} - ${song.artist}`,
-          title: song.title,
-          artist: song.artist,
-          duration: song.duration
-        });
+        // Pass the complete song object to preserve path and requester
+        this.webServer.broadcastSongLoaded(song);
       }
     });
 
@@ -1204,6 +1201,10 @@ class KaiPlayerApp {
   }
 
   setupIPC() {
+    // Register organized IPC handlers
+    registerAllHandlers(this);
+
+    // Continue with remaining handlers that haven't been organized yet
     ipcMain.handle('app:getVersion', () => {
       return app.getVersion();
     });
@@ -1226,21 +1227,7 @@ class KaiPlayerApp {
       return await this.loadKaiFile(filePath);
     });
 
-    ipcMain.handle('audio:getDevices', () => {
-      return this.audioEngine ? this.audioEngine.getDevices() : [];
-    });
-
-    ipcMain.handle('audio:enumerateDevices', async () => {
-      // This will be called from renderer to get real device list
-      return [];
-    });
-
-    ipcMain.handle('audio:setDevice', (event, deviceType, deviceId) => {
-      if (this.audioEngine) {
-        return this.audioEngine.setDevice(deviceType, deviceId);
-      }
-      return false;
-    });
+    // Audio handlers moved to src/main/handlers/audioHandlers.js
 
     ipcMain.handle('mixer:toggleMute', (event, stemId, bus) => {
       if (this.audioEngine) {
@@ -1277,26 +1264,7 @@ class KaiPlayerApp {
       return false;
     });
 
-    ipcMain.handle('player:play', () => {
-      if (this.audioEngine) {
-        return this.audioEngine.play();
-      }
-      return false;
-    });
-
-    ipcMain.handle('player:pause', () => {
-      if (this.audioEngine) {
-        return this.audioEngine.pause();
-      }
-      return false;
-    });
-
-    ipcMain.handle('player:seek', (event, positionSec) => {
-      if (this.audioEngine) {
-        return this.audioEngine.seek(positionSec);
-      }
-      return false;
-    });
+    // Player handlers moved to src/main/handlers/playerHandlers.js
 
     ipcMain.handle('autotune:setEnabled', (event, enabled) => {
       if (this.audioEngine) {
@@ -1424,106 +1392,7 @@ class KaiPlayerApp {
       }
     });
 
-    // Library management - using shared libraryService
-    ipcMain.handle('library:getSongsFolder', () => {
-      return libraryService.getSongsFolder(this);
-    });
-
-    ipcMain.handle('library:setSongsFolder', async () => {
-      await this.promptForSongsFolder();
-      return this.settings.getSongsFolder();
-    });
-
-    ipcMain.handle('library:getCachedSongs', async () => {
-      return libraryService.getCachedSongs(this);
-    });
-
-    ipcMain.handle('library:scanFolder', async () => {
-      const result = await libraryService.scanLibrary(this, (progress) => {
-        this.sendToRenderer('library:scanProgress', progress);
-      });
-
-      if (result.success) {
-        // Update web server cache
-        if (this.webServer) {
-          this.webServer.cachedSongs = result.files;
-          this.webServer.songsCacheTime = Date.now();
-          this.webServer.fuse = null; // Reset Fuse.js - will rebuild on next search
-        }
-
-        // Save to disk cache
-        const songsFolder = this.settings.getSongsFolder();
-        const cacheFile = path.join(app.getPath('userData'), 'library-cache.json');
-        try {
-          await fsPromises.writeFile(cacheFile, JSON.stringify({
-            songsFolder,
-            files: result.files,
-            cachedAt: new Date().toISOString()
-          }), 'utf8');
-          console.log('💾 Library cache saved to disk');
-        } catch (err) {
-          console.error('Failed to save library cache:', err);
-        }
-      }
-
-      return result;
-    });
-
-    ipcMain.handle('library:syncLibrary', async () => {
-      const result = await libraryService.syncLibrary(this, (progress) => {
-        this.sendToRenderer('library:scanProgress', progress);
-      });
-
-      if (result.success) {
-        // Update web server cache
-        if (this.webServer) {
-          this.webServer.cachedSongs = result.files;
-          this.webServer.songsCacheTime = Date.now();
-          this.webServer.fuse = null;
-        }
-
-        // Save to disk cache
-        const songsFolder = this.settings.getSongsFolder();
-        const cacheFile = path.join(app.getPath('userData'), 'library-cache.json');
-        try {
-          await fsPromises.writeFile(cacheFile, JSON.stringify({
-            songsFolder,
-            files: result.files,
-            cachedAt: new Date().toISOString()
-          }), 'utf8');
-        } catch (err) {
-          console.error('Failed to save library cache:', err);
-        }
-
-        // Return with 'songs' key for renderer compatibility
-        return {
-          ...result,
-          songs: result.files
-        };
-      }
-
-      return result;
-    });
-
-    ipcMain.handle('library:getSongInfo', async (event, filePath) => {
-      const result = await libraryService.getSongInfo(this, filePath);
-
-      // For compatibility with existing code, wrap result if needed
-      if (result.success && result.song) {
-        // Get file size if not already present
-        if (!result.song.fileSize) {
-          try {
-            const stats = await fsPromises.stat(filePath);
-            result.song.fileSize = stats.size;
-          } catch (statError) {
-            result.song.fileSize = 0;
-          }
-        }
-        return result.song;
-      }
-
-      return result;
-    });
+    // Library handlers moved to src/main/handlers/libraryHandlers.js
 
     // Shell operations
     ipcMain.handle('shell:openExternal', async (event, url) => {
@@ -1590,7 +1459,8 @@ class KaiPlayerApp {
       }
     });
 
-    // Queue Management - using shared queueService
+    // Queue handlers - need to stay in main.js due to auto-load and legacy songQueue sync
+
     ipcMain.handle('queue:addSong', async (event, queueItem) => {
       const result = queueService.addSongToQueue(this.appState, queueItem);
 
@@ -1696,13 +1566,15 @@ class KaiPlayerApp {
       }
     });
 
-    // Settings management IPC handlers
-    ipcMain.handle('settings:get', (event, key, defaultValue = null) => {
-      return this.settings.get(key, defaultValue);
-    });
+    // Settings handlers moved to src/main/handlers/settingsHandlers.js (but need web socket broadcast logic)
 
     ipcMain.handle('settings:set', (event, key, value) => {
       this.settings.set(key, value);
+
+      // Update AppState for device preferences
+      if (key === 'devicePreferences') {
+        this.appState.setAudioDevices(value);
+      }
 
       // Broadcast settings changes to web admin clients
       if (this.webServer && this.webServer.io) {
@@ -1721,22 +1593,6 @@ class KaiPlayerApp {
       }
 
       return { success: true };
-    });
-
-    ipcMain.handle('settings:getAll', () => {
-      return this.settings.settings;
-    });
-
-    ipcMain.handle('settings:updateBatch', (event, updates) => {
-      try {
-        for (const [key, value] of Object.entries(updates)) {
-          this.settings.settings[key] = value;
-        }
-        this.settings.save();
-        return { success: true };
-      } catch (error) {
-        return { success: false, error: error.message };
-      }
     });
 
     // Renderer playback state updates (legacy - keeping for compatibility)

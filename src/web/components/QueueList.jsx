@@ -1,5 +1,5 @@
 import './QueueList.css';
-import { formatDuration } from '../../../shared/formatUtils.js';
+import { formatDuration } from '../../shared/formatUtils.js';
 
 export function QueueList({ queue = [], onRemove, onClear }) {
   return (

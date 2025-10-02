@@ -7,21 +7,22 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
   plugins: [react()],
-  base: '/admin/',
   root: __dirname,
   build: {
     outDir: 'dist',
     emptyOutDir: true,
-    sourcemap: true,
-  },
-  server: {
-    proxy: {
-      '/api': 'http://localhost:3000',
-      '/admin': 'http://localhost:3000',
-      '/socket.io': {
-        target: 'http://localhost:3000',
-        ws: true
+    rollupOptions: {
+      input: path.resolve(__dirname, 'react-entry.jsx'),
+      output: {
+        entryFileNames: 'renderer.js',
+        assetFileNames: 'renderer.[ext]'
       }
+    }
+  },
+  resolve: {
+    alias: {
+      '@shared': path.resolve(__dirname, '../shared'),
+      '@renderer': path.resolve(__dirname, '.')
     }
   }
 });

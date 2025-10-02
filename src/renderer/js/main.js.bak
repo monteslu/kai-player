@@ -1,9 +1,6 @@
 console.log('🎮 main.js loaded and executing');
 
 import { LyricsEditorController } from './editor.js';
-import { QueueManager } from './queue.js';
-import { EffectsManager } from './effects.js';
-import { setAppInstance } from './appInstance.js';
 
 class KaiPlayerApp {
     constructor() {
@@ -84,18 +81,6 @@ class KaiPlayerApp {
         this.coaching = new CoachingController();
         this.editor = new LyricsEditorController();
 
-        // Initialize queue and effects managers (used to be window globals)
-        this.queueManager = new QueueManager();
-        this.effectsManager = new EffectsManager();
-
-        // Sync effects manager with renderer after initialization
-        setTimeout(() => {
-            if (this.effectsManager) {
-                this.effectsManager.syncWithRenderer();
-                console.log('🎨 EffectsManager initialized. Disabled effects:', Array.from(this.effectsManager.disabledEffects));
-            }
-        }, 500);
-
         // Update mixer UI with loaded state from audioEngine
         if (this.mixer) {
             console.log('🎚️ Updating mixer UI with loaded state');
@@ -108,12 +93,9 @@ class KaiPlayerApp {
         }
 
         this.updateStatus('Ready');
-
+        
         // Set initial UI state (no song loaded)
         this.updateUIForSongState();
-
-        // Setup IPC listeners for web admin commands
-        this.setupAdminIPCListeners();
         
         const version = await kaiAPI.app.getVersion();
     }
@@ -274,8 +256,8 @@ class KaiPlayerApp {
             }
 
             // Save preference
-            if (window.kaiAPI.settings) {
-                window.kaiAPI.settings.set('iemMonoVocals', enabled);
+            if (window.settingsAPI) {
+                window.settingsAPI.set('iemMonoVocals', enabled);
             }
         });
 
@@ -341,22 +323,22 @@ class KaiPlayerApp {
         // Effect control event listeners
         kaiAPI.effect.onNext(() => {
             console.log('🎨 Received next effect command from admin');
-            if (this.effectsManager) {
-                this.effectsManager.nextEffect();
+            if (window.effectsManager) {
+                window.effectsManager.nextEffect();
             }
         });
 
         kaiAPI.effect.onPrevious(() => {
             console.log('🎨 Received previous effect command from admin');
-            if (this.effectsManager) {
-                this.effectsManager.previousEffect();
+            if (window.effectsManager) {
+                window.effectsManager.previousEffect();
             }
         });
 
         // Effects management handlers for admin interface - need to handle as IPC responses
         kaiAPI.events.on('effects:getList', (event) => {
-            if (this.effectsManager && this.effectsManager.presets) {
-                const effects = this.effectsManager.presets.map(preset => ({
+            if (window.effectsManager && window.effectsManager.presets) {
+                const effects = window.effectsManager.presets.map(preset => ({
                     name: preset.name,
                     displayName: preset.displayName || preset.name,
                     author: preset.author || 'Unknown',
@@ -381,29 +363,29 @@ class KaiPlayerApp {
 
         kaiAPI.events.on('effects:getDisabled', (event) => {
             let disabledEffects = [];
-            if (this.effectsManager && this.effectsManager.disabledEffects) {
-                disabledEffects = Array.from(this.effectsManager.disabledEffects);
+            if (window.effectsManager && window.effectsManager.disabledEffects) {
+                disabledEffects = Array.from(window.effectsManager.disabledEffects);
             }
             event.sender.send('effects:getDisabled-response', disabledEffects);
         });
 
         kaiAPI.events.on('effects:select', (event, effectName) => {
             console.log('🎨 Admin selecting effect:', effectName);
-            if (this.effectsManager) {
-                this.effectsManager.selectEffect(effectName);
+            if (window.effectsManager) {
+                window.effectsManager.selectEffect(effectName);
             }
         });
 
         kaiAPI.events.on('effects:toggle', (event, data) => {
             console.log('🎨 Admin toggling effect:', data.effectName, 'enabled:', data.enabled);
-            if (this.effectsManager) {
+            if (window.effectsManager) {
                 if (data.enabled) {
-                    this.effectsManager.disabledEffects.delete(data.effectName);
+                    window.effectsManager.disabledEffects.delete(data.effectName);
                 } else {
-                    this.effectsManager.disabledEffects.add(data.effectName);
+                    window.effectsManager.disabledEffects.add(data.effectName);
                 }
-                this.effectsManager.saveDisabledEffects();
-                this.effectsManager.filterAndDisplayPresets();
+                window.effectsManager.saveDisabledEffects();
+                window.effectsManager.filterAndDisplayPresets();
             }
         });
 
@@ -467,41 +449,41 @@ class KaiPlayerApp {
         // Effects control event listeners from admin
         window.kaiAPI.events.on('effects:next', () => {
             console.log('🎨 Received effects:next from admin');
-            if (this.effectsManager) {
-                this.effectsManager.nextEffect();
+            if (window.effectsManager) {
+                window.effectsManager.nextEffect();
             }
         });
 
         window.kaiAPI.events.on('effects:previous', () => {
             console.log('🎨 Received effects:previous from admin');
-            if (this.effectsManager) {
-                this.effectsManager.previousEffect();
+            if (window.effectsManager) {
+                window.effectsManager.previousEffect();
             }
         });
 
         window.kaiAPI.events.on('effects:random', () => {
             console.log('🎨 Received effects:random from admin');
-            if (this.effectsManager) {
-                this.effectsManager.selectRandomEffect();
+            if (window.effectsManager) {
+                window.effectsManager.selectRandomEffect();
             }
         });
 
         window.kaiAPI.events.on('effects:disable', (event, effectName) => {
             console.log('🎨 Received effects:disable from admin:', effectName);
-            if (this.effectsManager) {
-                if (!this.effectsManager.disabledEffects.has(effectName)) {
-                    this.effectsManager.disabledEffects.add(effectName);
-                    this.effectsManager.displayPresets();
+            if (window.effectsManager) {
+                if (!window.effectsManager.disabledEffects.has(effectName)) {
+                    window.effectsManager.disabledEffects.add(effectName);
+                    window.effectsManager.displayPresets();
                 }
             }
         });
 
         window.kaiAPI.events.on('effects:enable', (event, effectName) => {
             console.log('🎨 Received effects:enable from admin:', effectName);
-            if (this.effectsManager) {
-                if (this.effectsManager.disabledEffects.has(effectName)) {
-                    this.effectsManager.disabledEffects.delete(effectName);
-                    this.effectsManager.displayPresets();
+            if (window.effectsManager) {
+                if (window.effectsManager.disabledEffects.has(effectName)) {
+                    window.effectsManager.disabledEffects.delete(effectName);
+                    window.effectsManager.displayPresets();
                 }
             }
         });
@@ -529,8 +511,8 @@ class KaiPlayerApp {
             }
 
             // Notify queue manager that a song started
-            if (this.queueManager && songData.originalFilePath) {
-                this.queueManager.notifySongStarted(songData.originalFilePath);
+            if (window.queueManager && songData.originalFilePath) {
+                window.queueManager.notifySongStarted(songData.originalFilePath);
             }
 
             // Use pending metadata if available, otherwise use data from songData
@@ -673,16 +655,16 @@ class KaiPlayerApp {
                         }
                         
                         this.randomEffectTimeout = setTimeout(() => {
-                            if (this.effectsManager && typeof this.effectsManager.selectRandomEffect === 'function') {
+                            if (window.effectsManager && typeof window.effectsManager.selectRandomEffect === 'function') {
                                 console.log('🎲 Applying random effect for new song...');
-                                this.effectsManager.selectRandomEffect();
+                                window.effectsManager.selectRandomEffect();
                             } else {
                                 console.warn('Effects manager not available for random effect');
                                 // Retry once more after a longer delay
                                 setTimeout(() => {
-                                    if (this.effectsManager && typeof this.effectsManager.selectRandomEffect === 'function') {
+                                    if (window.effectsManager && typeof window.effectsManager.selectRandomEffect === 'function') {
                                         console.log('🎲 Retrying random effect selection...');
-                                        this.effectsManager.selectRandomEffect();
+                                        window.effectsManager.selectRandomEffect();
                                     }
                                 }, 1000);
                             }
@@ -1350,7 +1332,7 @@ class KaiPlayerApp {
     }
 
     async initializeSidebarState() {
-        const savedState = await window.kaiAPI.settings.get('sidebarCollapsed', false);
+        const savedState = await window.settingsAPI.getSidebarCollapsed();
         const sidebar = document.querySelector('.sidebar');
         const hamburgerIcon = document.querySelector('#hamburgerBtn .material-icons');
         
@@ -1375,12 +1357,12 @@ class KaiPlayerApp {
                 // Expand sidebar
                 sidebar.classList.remove('collapsed');
                 if (hamburgerIcon) hamburgerIcon.textContent = 'menu';
-                await window.kaiAPI.settings.set('sidebarCollapsed', false);
+                await window.settingsAPI.setSidebarCollapsed(false);
             } else {
                 // Collapse sidebar
                 sidebar.classList.add('collapsed');
                 if (hamburgerIcon) hamburgerIcon.textContent = 'menu_open';
-                await window.kaiAPI.settings.set('sidebarCollapsed', true);
+                await window.settingsAPI.setSidebarCollapsed(true);
             }
         }
     }
@@ -1488,8 +1470,8 @@ class KaiPlayerApp {
         this.updateStatus('Song ended');
         
         // Check for queue auto-advance
-        if (this.queueManager) {
-            this.queueManager.handleSongEnded();
+        if (window.queueManager) {
+            window.queueManager.handleSongEnded();
         }
     }
 
@@ -1513,10 +1495,10 @@ class KaiPlayerApp {
 
     async nextTrack() {
         // Check if queue manager exists and has next song
-        if (this.queueManager) {
-            const nextSong = this.queueManager.getNextSong();
+        if (window.queueManager) {
+            const nextSong = window.queueManager.getNextSong();
             if (nextSong) {
-                await this.queueManager.playNext();
+                await window.queueManager.playNext();
                 return;
             }
         }
@@ -1653,7 +1635,7 @@ class KaiPlayerApp {
     // Waveform preferences methods
     async loadWaveformPreferences() {
         try {
-            const saved = await window.kaiAPI.settings.get('waveformPreferences', null);
+            const saved = await window.settingsAPI.getWaveformPreferences();
             if (saved) {
                 this.waveformPreferences = { ...this.waveformPreferences, ...saved };
                 
@@ -1695,8 +1677,8 @@ class KaiPlayerApp {
             }
             
             // Reload disabled effects in the effects manager if it's available
-            if (this.effectsManager && typeof this.effectsManager.reloadFromMainPreferences === 'function') {
-                this.effectsManager.reloadFromMainPreferences();
+            if (window.effectsManager && typeof window.effectsManager.reloadFromMainPreferences === 'function') {
+                window.effectsManager.reloadFromMainPreferences();
             }
         } catch (error) {
             console.warn('Failed to load waveform preferences:', error);
@@ -1705,7 +1687,7 @@ class KaiPlayerApp {
     
     async saveWaveformPreferences() {
         try {
-            await window.kaiAPI.settings.set('waveformPreferences', this.waveformPreferences);
+            await window.settingsAPI.setWaveformPreferences(this.waveformPreferences);
         } catch (error) {
             console.warn('Failed to save waveform preferences:', error);
         }
@@ -1763,7 +1745,7 @@ class KaiPlayerApp {
 
     async loadAutoTunePreferences() {
         try {
-            const saved = await window.kaiAPI.settings.get('autoTunePreferences', null);
+            const saved = await window.settingsAPI.getAutoTunePreferences();
             if (saved) {
                 this.autoTunePreferences = { ...this.autoTunePreferences, ...saved };
                 
@@ -1794,7 +1776,7 @@ class KaiPlayerApp {
     
     async saveAutoTunePreferences() {
         try {
-            await window.kaiAPI.settings.set('autoTunePreferences', this.autoTunePreferences);
+            await window.settingsAPI.setAutoTunePreferences(this.autoTunePreferences);
         } catch (error) {
             console.warn('Failed to save auto-tune preferences:', error);
         }
@@ -1814,7 +1796,7 @@ class KaiPlayerApp {
                 this.devicePreferences[deviceType] = { id: deviceId };
             }
             
-            await window.kaiAPI.settings.set('devicePreferences', this.devicePreferences);
+            await window.settingsAPI.setDevicePreferences(this.devicePreferences);
         } catch (error) {
             console.warn('Failed to save device preference:', error);
         }
@@ -1899,8 +1881,8 @@ class KaiPlayerApp {
         }
         
         // Sync the effects manager UI if it's loaded
-        if (this.effectsManager && typeof this.effectsManager.syncWithRenderer === 'function') {
-            this.effectsManager.syncWithRenderer();
+        if (window.effectsManager && typeof window.effectsManager.syncWithRenderer === 'function') {
+            window.effectsManager.syncWithRenderer();
         }
     }
     
@@ -1974,40 +1956,29 @@ class KaiPlayerApp {
             }
         }
     }
-
-    setupAdminIPCListeners() {
-        // Listen for mixer commands from web admin
-        if (window.kaiAPI?.mixer) {
-            window.kaiAPI.mixer.onSetMasterGain((event, data) => {
-                const { bus, gainDb } = data;
-                if (this.audioEngine) {
-                    this.audioEngine.setMasterGain(bus, gainDb);
-                }
-            });
-
-            window.kaiAPI.mixer.onToggleMasterMute((event, data) => {
-                const { bus, muted } = data;
-                if (this.audioEngine) {
-                    if (muted !== undefined) {
-                        this.audioEngine.setMasterMute(bus, muted);
-                    } else {
-                        this.audioEngine.toggleMasterMute(bus);
-                    }
-                }
-            });
-        }
-    }
 }
 
-// Initialize app when DOM is ready
 window.addEventListener('DOMContentLoaded', () => {
-    const app = new KaiPlayerApp();
+    window.appInstance = new KaiPlayerApp();
 
-    // Register app instance for cross-module access via appInstance.js singleton
-    setAppInstance(app);
+    // Listen for mixer commands from web admin
+    if (window.kaiAPI?.mixer) {
+        window.kaiAPI.mixer.onSetMasterGain((event, data) => {
+            const { bus, gainDb } = data;
+            if (window.appInstance?.audioEngine) {
+                window.appInstance.audioEngine.setMasterGain(bus, gainDb);
+            }
+        });
 
-    // Also expose on window for debugging in dev tools
-    if (process.env.NODE_ENV === 'development') {
-        window.kaiApp = app;
+        window.kaiAPI.mixer.onToggleMasterMute((event, data) => {
+            const { bus, muted } = data;
+            if (window.appInstance?.audioEngine) {
+                if (muted !== undefined) {
+                    window.appInstance.audioEngine.setMasterMute(bus, muted);
+                } else {
+                    window.appInstance.audioEngine.toggleMasterMute(bus);
+                }
+            }
+        });
     }
 });
