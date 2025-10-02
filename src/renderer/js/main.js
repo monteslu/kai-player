@@ -400,7 +400,8 @@ class KaiPlayerApp {
         });
 
         // Mixer control event listeners from admin
-        kaiAPI.mixer.onSetMasterGain((event, bus, gainDb) => {
+        kaiAPI.mixer.onSetMasterGain((event, data) => {
+            const { bus, gainDb } = data;
             console.log(`🎚️ Received setMasterGain from admin: ${bus} = ${gainDb} dB`);
             if (this.audioEngine) {
                 this.audioEngine.setMasterGain(bus, gainDb);
@@ -409,17 +410,24 @@ class KaiPlayerApp {
             }
         });
 
-        kaiAPI.mixer.onToggleMasterMute((event, bus) => {
-            console.log(`🔇 Received toggleMasterMute from admin: ${bus}`);
+        kaiAPI.mixer.onToggleMasterMute((event, data) => {
+            const { bus, muted } = data;
+            console.log(`🔇 Received toggleMasterMute from admin: ${bus} = ${muted}`);
             if (this.audioEngine) {
-                this.audioEngine.toggleMasterMute(bus);
+                // If muted is provided, use setMasterMute, otherwise toggle
+                if (muted !== undefined) {
+                    this.audioEngine.setMasterMute(bus, muted);
+                } else {
+                    this.audioEngine.toggleMasterMute(bus);
+                }
                 // Update UI
                 this.mixer?.updateControlStates();
             }
         });
 
         // Listen for setMasterMute command (with specific mute state)
-        kaiAPI.mixer.onSetMasterMute((event, bus, muted) => {
+        kaiAPI.mixer.onSetMasterMute((event, data) => {
+            const { bus, muted } = data;
             console.log(`🔇 Received setMasterMute from admin: ${bus} = ${muted}`);
             if (this.audioEngine) {
                 this.audioEngine.setMasterMute(bus, muted);
@@ -1945,15 +1953,21 @@ window.addEventListener('DOMContentLoaded', () => {
 
     // Listen for mixer commands from web admin
     if (window.kaiAPI?.mixer) {
-        window.kaiAPI.mixer.onSetMasterGain((event, bus, gainDb) => {
+        window.kaiAPI.mixer.onSetMasterGain((event, data) => {
+            const { bus, gainDb } = data;
             if (window.appInstance?.audioEngine) {
                 window.appInstance.audioEngine.setMasterGain(bus, gainDb);
             }
         });
 
-        window.kaiAPI.mixer.onToggleMasterMute((event, bus) => {
+        window.kaiAPI.mixer.onToggleMasterMute((event, data) => {
+            const { bus, muted } = data;
             if (window.appInstance?.audioEngine) {
-                window.appInstance.audioEngine.toggleMasterMute(bus);
+                if (muted !== undefined) {
+                    window.appInstance.audioEngine.setMasterMute(bus, muted);
+                } else {
+                    window.appInstance.audioEngine.toggleMasterMute(bus);
+                }
             }
         });
     }

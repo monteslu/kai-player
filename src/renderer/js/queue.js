@@ -121,7 +121,14 @@ class QueueManager {
             try {
                 const result = await window.kaiAPI.queue.get();
                 // Handle new service response format {success, queue}
-                this.queue = result.queue || result || [];
+                if (result && Array.isArray(result.queue)) {
+                    this.queue = result.queue;
+                } else if (Array.isArray(result)) {
+                    this.queue = result;
+                } else {
+                    console.warn('Unexpected queue format:', result);
+                    this.queue = [];
+                }
                 this.updateQueueDisplay();
             } catch (error) {
                 console.error('Failed to refresh queue from main:', error);
@@ -432,7 +439,13 @@ class QueueManager {
     updatePlayerQueueDisplay() {
         const playerQueueList = document.getElementById('playerQueueList');
         if (!playerQueueList) return;
-        
+
+        // Ensure this.queue is always an array
+        if (!Array.isArray(this.queue)) {
+            console.error('Queue is not an array:', this.queue);
+            this.queue = [];
+        }
+
         if (this.queue.length === 0) {
             playerQueueList.innerHTML = `
                 <div class="player-queue-empty">

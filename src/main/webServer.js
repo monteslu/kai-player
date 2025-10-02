@@ -12,6 +12,13 @@ import { Server } from 'socket.io';
 import http from 'http';
 import Fuse from 'fuse.js';
 import * as queueService from '../shared/services/queueService.js';
+import * as libraryService from '../shared/services/libraryService.js';
+import * as playerService from '../shared/services/playerService.js';
+import * as preferencesService from '../shared/services/preferencesService.js';
+import * as effectsService from '../shared/services/effectsService.js';
+import * as mixerService from '../shared/services/mixerService.js';
+import * as requestsService from '../shared/services/requestsService.js';
+import * as serverSettingsService from '../shared/services/serverSettingsService.js';
 
 // ESM equivalent of __dirname
 const __filename = fileURLToPath(import.meta.url);
@@ -436,15 +443,20 @@ class WebServer {
 
         // Admin endpoints (for the main Electron app) - all require auth via middleware above
         this.app.get('/admin/requests', (req, res) => {
-            res.json({
-                requests: this.songRequests,
-                settings: this.settings
-            });
+            const result = requestsService.getRequests(this);
+            if (result.success) {
+                res.json({
+                    requests: result.requests,
+                    settings: result.settings
+                });
+            } else {
+                res.status(500).json(result);
+            }
         });
 
         this.app.post('/admin/requests/:id/approve', async (req, res) => {
             const requestId = parseFloat(req.params.id);
-            const result = await this.approveRequest(requestId);
+            const result = await requestsService.approveRequest(this, requestId);
 
             if (result.success) {
                 res.json(result);
@@ -456,7 +468,7 @@ class WebServer {
 
         this.app.post('/admin/requests/:id/reject', async (req, res) => {
             const requestId = parseFloat(req.params.id);
-            const result = await this.rejectRequest(requestId);
+            const result = await requestsService.rejectRequest(this, requestId);
 
             if (result.success) {
                 res.json(result);
@@ -467,11 +479,11 @@ class WebServer {
         });
 
         this.app.post('/admin/settings', (req, res) => {
-            try {
-                this.settings = { ...this.settings, ...req.body };
-                res.json({ success: true, settings: this.settings });
-            } catch (error) {
-                res.status(500).json({ error: 'Failed to update settings' });
+            const result = serverSettingsService.updateServerSettings(this, req.body);
+            if (result.success) {
+                res.json(result);
+            } else {
+                res.status(500).json(result);
             }
         });
 
@@ -560,24 +572,10 @@ class WebServer {
         // Player control endpoints
         this.app.post('/admin/player/play', async (req, res) => {
             try {
-                console.log('🎮 Admin play button pressed');
-                console.log('🎮 mainApp exists:', !!this.mainApp);
-                console.log('🎮 playerPlay method exists:', !!this.mainApp?.playerPlay);
-
-                if (this.mainApp && this.mainApp.playerPlay) {
-                    console.log('🎮 Calling playerPlay method...');
-                    console.log('🎮 playerPlay function:', typeof this.mainApp.playerPlay);
-                    const result = await this.mainApp.playerPlay();
-                    console.log('🎮 playerPlay method completed, result:', result);
-                } else {
-                    console.log('🎮 ERROR: playerPlay method not available');
-                    console.log('🎮 mainApp type:', typeof this.mainApp);
-                    console.log('🎮 mainApp keys:', this.mainApp ? Object.keys(this.mainApp).slice(0, 10) : 'none');
-                }
-
-                res.json({ success: true, message: 'Play command sent' });
+                const result = playerService.play(this.mainApp);
+                res.json(result);
             } catch (error) {
-                console.error('🎮 Error sending play command:', error);
+                console.error('Error sending play command:', error);
                 res.status(500).json({ error: 'Failed to send play command' });
             }
         });
@@ -590,12 +588,8 @@ class WebServer {
                     return res.status(400).json({ error: 'Song path required' });
                 }
 
-                if (this.mainApp.loadKaiFile) {
-                    await this.mainApp.loadKaiFile(path);
-                    res.json({ success: true, message: 'Song loaded' });
-                } else {
-                    res.status(500).json({ error: 'Load song not available' });
-                }
+                const result = await playerService.loadSong(this.mainApp, path);
+                res.json(result);
             } catch (error) {
                 console.error('Error loading song:', error);
                 res.status(500).json({ error: 'Failed to load song' });
@@ -604,8 +598,8 @@ class WebServer {
 
         this.app.post('/admin/player/pause', async (req, res) => {
             try {
-                await this.mainApp.playerPause?.();
-                res.json({ success: true, message: 'Pause command sent' });
+                const result = playerService.pause(this.mainApp);
+                res.json(result);
             } catch (error) {
                 console.error('Error sending pause command:', error);
                 res.status(500).json({ error: 'Failed to send pause command' });
@@ -614,8 +608,8 @@ class WebServer {
 
         this.app.post('/admin/player/restart', async (req, res) => {
             try {
-                await this.mainApp.playerRestart?.();
-                res.json({ success: true, message: 'Restart command sent' });
+                const result = playerService.restart(this.mainApp);
+                res.json(result);
             } catch (error) {
                 console.error('Error sending restart command:', error);
                 res.status(500).json({ error: 'Failed to send restart command' });
@@ -625,11 +619,12 @@ class WebServer {
         this.app.post('/admin/player/seek', async (req, res) => {
             try {
                 const { position } = req.body;
-                if (typeof position !== 'number') {
-                    return res.status(400).json({ error: 'Position required' });
+                const result = playerService.seek(this.mainApp, position);
+                if (result.success) {
+                    res.json(result);
+                } else {
+                    res.status(400).json(result);
                 }
-                await this.mainApp.playerSeek?.(position);
-                res.json({ success: true, message: 'Seek command sent' });
             } catch (error) {
                 console.error('Error sending seek command:', error);
                 res.status(500).json({ error: 'Failed to send seek command' });
@@ -638,8 +633,8 @@ class WebServer {
 
         this.app.post('/admin/player/next', async (req, res) => {
             try {
-                await this.mainApp.playerNext?.();
-                res.json({ success: true, message: 'Next command sent' });
+                const result = await playerService.playNext(this.mainApp);
+                res.json(result);
             } catch (error) {
                 console.error('Error sending next command:', error);
                 res.status(500).json({ error: 'Failed to send next command' });
@@ -691,22 +686,16 @@ class WebServer {
         // Effects management endpoints
         this.app.get('/admin/effects', async (req, res) => {
             try {
-                // Get effects list from renderer via IPC
-                const effects = await this.mainApp.getEffectsList?.() || [];
-
-                // Get current effect from AppState
-                const state = this.mainApp.appState.getSnapshot();
-                const currentEffect = state.effects?.current || null;
-
-                // Get disabled effects from settings (waveformPreferences)
-                const waveformPrefs = this.mainApp.settings.get('waveformPreferences', {});
-                const disabledEffects = waveformPrefs.disabledEffects || [];
-
-                res.json({
-                    effects,
-                    currentEffect,
-                    disabledEffects
-                });
+                const result = await effectsService.getEffects(this.mainApp);
+                if (result.success) {
+                    res.json({
+                        effects: result.effects,
+                        currentEffect: result.currentEffect,
+                        disabledEffects: result.disabledEffects
+                    });
+                } else {
+                    res.status(500).json({ error: result.error });
+                }
             } catch (error) {
                 console.error('Error fetching effects:', error);
                 res.status(500).json({ error: 'Failed to fetch effects' });
@@ -715,13 +704,12 @@ class WebServer {
 
         this.app.post('/admin/effects/select', async (req, res) => {
             try {
-                const { effectName } = req.body;
-                if (!effectName) {
-                    return res.status(400).json({ error: 'Effect name required' });
+                const result = await effectsService.selectEffect(this.mainApp, req.body.effectName);
+                if (result.success) {
+                    res.json(result);
+                } else {
+                    res.status(400).json(result);
                 }
-
-                await this.mainApp.selectEffect?.(effectName);
-                res.json({ success: true, message: `Selected effect: ${effectName}` });
             } catch (error) {
                 console.error('Error selecting effect:', error);
                 res.status(500).json({ error: 'Failed to select effect' });
@@ -730,13 +718,12 @@ class WebServer {
 
         this.app.post('/admin/effects/toggle', async (req, res) => {
             try {
-                const { effectName, enabled } = req.body;
-                if (!effectName || typeof enabled !== 'boolean') {
-                    return res.status(400).json({ error: 'Effect name and enabled status required' });
+                const result = await effectsService.toggleEffect(this.mainApp, req.body.effectName, req.body.enabled);
+                if (result.success) {
+                    res.json(result);
+                } else {
+                    res.status(400).json(result);
                 }
-
-                await this.mainApp.toggleEffect?.(effectName, enabled);
-                res.json({ success: true, message: `Effect ${effectName} ${enabled ? 'enabled' : 'disabled'}` });
             } catch (error) {
                 console.error('Error toggling effect:', error);
                 res.status(500).json({ error: 'Failed to toggle effect' });
@@ -747,20 +734,31 @@ class WebServer {
         this.app.post('/admin/library/refresh', async (req, res) => {
             try {
                 console.log('🔄 Admin requested library cache refresh');
-                await this.refreshSongsCache();
 
-                // Notify all web-ui clients to refresh their alphabet navigation
-                this.io.emit('library-refreshed', {
-                    songsCount: this.cachedSongs.length,
-                    timestamp: this.songsCacheTime
-                });
+                // Use libraryService to scan library
+                const result = await libraryService.scanLibrary(this.mainApp);
 
-                res.json({
-                    success: true,
-                    message: `Library refreshed successfully. Found ${this.cachedSongs.length} songs.`,
-                    songsCount: this.cachedSongs.length,
-                    cacheTime: this.songsCacheTime
-                });
+                if (result.success) {
+                    // Update web server cache
+                    this.cachedSongs = result.files;
+                    this.songsCacheTime = Date.now();
+                    this.fuse = null; // Reset Fuse.js - will rebuild on next search
+
+                    // Notify all web-ui clients to refresh their alphabet navigation
+                    this.io.emit('library-refreshed', {
+                        songsCount: this.cachedSongs.length,
+                        timestamp: this.songsCacheTime
+                    });
+
+                    res.json({
+                        success: true,
+                        message: `Library refreshed successfully. Found ${this.cachedSongs.length} songs.`,
+                        songsCount: this.cachedSongs.length,
+                        cacheTime: this.songsCacheTime
+                    });
+                } else {
+                    res.status(500).json({ error: result.error || 'Failed to refresh library cache' });
+                }
             } catch (error) {
                 console.error('Error refreshing library cache:', error);
                 res.status(500).json({ error: 'Failed to refresh library cache' });
@@ -771,32 +769,12 @@ class WebServer {
         this.app.post('/admin/mixer/master-gain', async (req, res) => {
             try {
                 const { bus, gainDb } = req.body;
-                if (!bus || typeof gainDb !== 'number') {
-                    return res.status(400).json({ error: 'bus (PA/IEM/mic) and gainDb required' });
-                }
+                const result = mixerService.setMasterGain(this.mainApp, bus, gainDb);
 
-                // Update AppState immediately
-                const currentMixer = this.mainApp.appState.state.mixer;
-                if (currentMixer[bus]) {
-                    console.log(`🎚️ Setting ${bus} gain: ${currentMixer[bus].gain} → ${gainDb} dB`);
-
-                    // Create a new mixer state object with the updated bus
-                    const updatedMixer = {
-                        ...currentMixer,
-                        [bus]: {
-                            ...currentMixer[bus],
-                            gain: gainDb
-                        }
-                    };
-                    this.mainApp.appState.updateMixerState(updatedMixer);
-                }
-
-                // Call audioEngine via renderer window to apply audio changes
-                if (this.mainApp.mainWindow && !this.mainApp.mainWindow.isDestroyed()) {
-                    this.mainApp.mainWindow.webContents.send('mixer:setMasterGain', bus, gainDb);
-                    res.json({ success: true, bus, gainDb });
+                if (result.success) {
+                    res.json(result);
                 } else {
-                    res.status(500).json({ error: 'Renderer window not available' });
+                    res.status(400).json(result);
                 }
             } catch (error) {
                 console.error('Error setting master gain:', error);
@@ -807,37 +785,12 @@ class WebServer {
         this.app.post('/admin/mixer/master-mute', async (req, res) => {
             try {
                 const { bus } = req.body;
-                if (!bus) {
-                    return res.status(400).json({ error: 'bus (PA/IEM/mic) required' });
-                }
+                const result = mixerService.toggleMasterMute(this.mainApp, bus);
 
-                // Update AppState immediately (toggle mute)
-                const currentMixer = this.mainApp.appState.state.mixer;
-                let newMuted = false;
-
-                if (currentMixer[bus]) {
-                    const oldMuted = currentMixer[bus].muted;
-                    newMuted = !oldMuted;
-                    console.log(`🔇 Toggling ${bus} mute: ${oldMuted} → ${newMuted}`);
-
-                    // Create a new mixer state object with the updated bus
-                    const updatedMixer = {
-                        ...currentMixer,
-                        [bus]: {
-                            ...currentMixer[bus],
-                            muted: newMuted
-                        }
-                    };
-                    this.mainApp.appState.updateMixerState(updatedMixer);
-                }
-
-                // Call audioEngine via renderer window to apply audio changes
-                if (this.mainApp.mainWindow && !this.mainApp.mainWindow.isDestroyed()) {
-                    // Send the new muted state, not a toggle command
-                    this.mainApp.mainWindow.webContents.send('mixer:setMasterMute', bus, newMuted);
-                    res.json({ success: true, bus, muted: newMuted });
+                if (result.success) {
+                    res.json(result);
                 } else {
-                    res.status(500).json({ error: 'Renderer window not available' });
+                    res.status(400).json(result);
                 }
             } catch (error) {
                 console.error('Error toggling master mute:', error);
@@ -848,18 +801,12 @@ class WebServer {
         // ===== NEW: Effects Control Endpoints =====
         this.app.post('/admin/effects/set', async (req, res) => {
             try {
-                const { effectName } = req.body;
-                if (!effectName) {
-                    return res.status(400).json({ error: 'effectName required' });
+                const result = await effectsService.setEffect(this.mainApp, req.body.effectName);
+                if (result.success) {
+                    res.json(result);
+                } else {
+                    res.status(400).json(result);
                 }
-
-                // Update AppState
-                this.mainApp.appState.updateEffectsState({ current: effectName });
-
-                // Send to renderer
-                await this.mainApp.sendToRendererAndWait('effects:set', { effectName }, 2000);
-
-                res.json({ success: true, effectName });
             } catch (error) {
                 console.error('Error setting effect:', error);
                 res.status(500).json({ error: 'Failed to set effect' });
@@ -868,8 +815,8 @@ class WebServer {
 
         this.app.post('/admin/effects/next', async (req, res) => {
             try {
-                this.mainApp.sendToRenderer('effects:next');
-                res.json({ success: true });
+                const result = effectsService.nextEffect(this.mainApp);
+                res.json(result);
             } catch (error) {
                 console.error('Error changing to next effect:', error);
                 res.status(500).json({ error: 'Failed to change effect' });
@@ -878,8 +825,8 @@ class WebServer {
 
         this.app.post('/admin/effects/previous', async (req, res) => {
             try {
-                this.mainApp.sendToRenderer('effects:previous');
-                res.json({ success: true });
+                const result = effectsService.previousEffect(this.mainApp);
+                res.json(result);
             } catch (error) {
                 console.error('Error changing to previous effect:', error);
                 res.status(500).json({ error: 'Failed to change effect' });
@@ -888,8 +835,8 @@ class WebServer {
 
         this.app.post('/admin/effects/random', async (req, res) => {
             try {
-                this.mainApp.sendToRenderer('effects:random');
-                res.json({ success: true });
+                const result = effectsService.randomEffect(this.mainApp);
+                res.json(result);
             } catch (error) {
                 console.error('Error selecting random effect:', error);
                 res.status(500).json({ error: 'Failed to select random effect' });
@@ -898,26 +845,17 @@ class WebServer {
 
         this.app.post('/admin/effects/disable', async (req, res) => {
             try {
-                const { effectName } = req.body;
-                if (!effectName) {
-                    return res.status(400).json({ error: 'effectName required' });
+                const result = await effectsService.disableEffect(this.mainApp, req.body.effectName);
+                if (result.success) {
+                    // Broadcast to web clients
+                    this.io.emit('effects:disabled', {
+                        effectName: req.body.effectName,
+                        disabled: result.disabled
+                    });
+                    res.json(result);
+                } else {
+                    res.status(400).json(result);
                 }
-
-                // Get current waveformPreferences from settings
-                const waveformPrefs = this.mainApp.settings.get('waveformPreferences', {});
-                const disabled = [...(waveformPrefs.disabledEffects || [])];
-
-                if (!disabled.includes(effectName)) {
-                    disabled.push(effectName);
-                    waveformPrefs.disabledEffects = disabled;
-                    this.mainApp.settings.set('waveformPreferences', waveformPrefs);
-                    await this.mainApp.settings.save();
-
-                    // Notify renderer to update its disabled effects list
-                    this.mainApp.sendToRenderer('effects:disable', effectName);
-                }
-
-                res.json({ success: true, disabled });
             } catch (error) {
                 console.error('Error disabling effect:', error);
                 res.status(500).json({ error: 'Failed to disable effect' });
@@ -926,22 +864,17 @@ class WebServer {
 
         this.app.post('/admin/effects/enable', async (req, res) => {
             try {
-                const { effectName } = req.body;
-                if (!effectName) {
-                    return res.status(400).json({ error: 'effectName required' });
+                const result = await effectsService.enableEffect(this.mainApp, req.body.effectName);
+                if (result.success) {
+                    // Broadcast to web clients
+                    this.io.emit('effects:enabled', {
+                        effectName: req.body.effectName,
+                        disabled: result.disabled
+                    });
+                    res.json(result);
+                } else {
+                    res.status(400).json(result);
                 }
-
-                // Get current waveformPreferences from settings
-                const waveformPrefs = this.mainApp.settings.get('waveformPreferences', {});
-                const disabled = (waveformPrefs.disabledEffects || []).filter(e => e !== effectName);
-                waveformPrefs.disabledEffects = disabled;
-                this.mainApp.settings.set('waveformPreferences', waveformPrefs);
-                await this.mainApp.settings.save();
-
-                // Notify renderer to update its disabled effects list
-                this.mainApp.sendToRenderer('effects:enable', effectName);
-
-                res.json({ success: true, disabled });
             } catch (error) {
                 console.error('Error enabling effect:', error);
                 res.status(500).json({ error: 'Failed to enable effect' });
@@ -951,8 +884,12 @@ class WebServer {
         // ===== NEW: Preferences Control Endpoints =====
         this.app.get('/admin/preferences', (req, res) => {
             try {
-                const state = this.mainApp.appState.getSnapshot();
-                res.json(state.preferences);
+                const result = preferencesService.getPreferences(this.mainApp.appState);
+                if (result.success) {
+                    res.json(result.preferences);
+                } else {
+                    res.status(500).json({ error: result.error });
+                }
             } catch (error) {
                 console.error('Error fetching preferences:', error);
                 res.status(500).json({ error: 'Failed to fetch preferences' });
@@ -961,8 +898,8 @@ class WebServer {
 
         this.app.get('/admin/settings/waveform', (req, res) => {
             try {
-                const waveformPrefs = this.mainApp.settings.get('waveformPreferences', {});
-                res.json({ settings: waveformPrefs });
+                const result = preferencesService.getWaveformSettings(this.mainApp.settings);
+                res.json(result);
             } catch (error) {
                 console.error('Error fetching waveform settings:', error);
                 res.status(500).json({ error: 'Failed to fetch waveform settings' });
@@ -971,15 +908,15 @@ class WebServer {
 
         this.app.post('/admin/settings/waveform', async (req, res) => {
             try {
-                const waveformPrefs = this.mainApp.settings.get('waveformPreferences', {});
-                const updated = { ...waveformPrefs, ...req.body };
-                this.mainApp.settings.set('waveformPreferences', updated);
-                await this.mainApp.settings.save();
+                const result = await preferencesService.updateWaveformSettings(this.mainApp.settings, req.body);
 
-                // Send to renderer for immediate effect
-                this.mainApp.sendToRenderer('waveform:settingsChanged', updated);
-
-                res.json({ success: true, settings: updated });
+                if (result.success) {
+                    // Send to renderer for immediate effect
+                    this.mainApp.sendToRenderer('waveform:settingsChanged', result.settings);
+                    res.json(result);
+                } else {
+                    res.status(500).json(result);
+                }
             } catch (error) {
                 console.error('Error updating waveform settings:', error);
                 res.status(500).json({ error: 'Failed to update waveform settings' });
@@ -988,8 +925,8 @@ class WebServer {
 
         this.app.get('/admin/settings/autotune', (req, res) => {
             try {
-                const autotunePrefs = this.mainApp.settings.get('autoTunePreferences', {});
-                res.json({ settings: autotunePrefs });
+                const result = preferencesService.getAutoTuneSettings(this.mainApp.settings);
+                res.json(result);
             } catch (error) {
                 console.error('Error fetching autotune settings:', error);
                 res.status(500).json({ error: 'Failed to fetch autotune settings' });
@@ -998,15 +935,15 @@ class WebServer {
 
         this.app.post('/admin/settings/autotune', async (req, res) => {
             try {
-                const autotunePrefs = this.mainApp.settings.get('autoTunePreferences', {});
-                const updated = { ...autotunePrefs, ...req.body };
-                this.mainApp.settings.set('autoTunePreferences', updated);
-                await this.mainApp.settings.save();
+                const result = await preferencesService.updateAutoTuneSettings(this.mainApp.settings, req.body);
 
-                // Send to renderer for immediate effect
-                this.mainApp.sendToRenderer('autotune:settingsChanged', updated);
-
-                res.json({ success: true, settings: updated });
+                if (result.success) {
+                    // Send to renderer for immediate effect
+                    this.mainApp.sendToRenderer('autotune:settingsChanged', result.settings);
+                    res.json(result);
+                } else {
+                    res.status(500).json(result);
+                }
             } catch (error) {
                 console.error('Error updating autotune settings:', error);
                 res.status(500).json({ error: 'Failed to update autotune settings' });
@@ -1015,19 +952,15 @@ class WebServer {
 
         this.app.post('/admin/preferences/autotune', async (req, res) => {
             try {
-                const { enabled, strength, speed } = req.body;
-                const updates = {};
+                const result = preferencesService.updateAutoTunePreferences(this.mainApp.appState, req.body);
 
-                if (typeof enabled === 'boolean') updates.enabled = enabled;
-                if (typeof strength === 'number') updates.strength = strength;
-                if (typeof speed === 'number') updates.speed = speed;
-
-                this.mainApp.appState.setAutoTunePreferences(updates);
-
-                // Send to renderer
-                await this.mainApp.sendToRendererAndWait('autotune:setSettings', updates, 2000);
-
-                res.json({ success: true, autoTune: this.mainApp.appState.state.preferences.autoTune });
+                if (result.success) {
+                    // Send to renderer
+                    await this.mainApp.sendToRendererAndWait('autotune:setSettings', req.body, 2000);
+                    res.json(result);
+                } else {
+                    res.status(500).json(result);
+                }
             } catch (error) {
                 console.error('Error updating autotune preferences:', error);
                 res.status(500).json({ error: 'Failed to update autotune preferences' });
@@ -1036,24 +969,20 @@ class WebServer {
 
         this.app.post('/admin/preferences/microphone', async (req, res) => {
             try {
-                const { enabled, gain, toSpeakers } = req.body;
-                const updates = {};
+                const result = preferencesService.updateMicrophonePreferences(this.mainApp.appState, req.body);
 
-                if (typeof enabled === 'boolean') updates.enabled = enabled;
-                if (typeof gain === 'number') updates.gain = gain;
-                if (typeof toSpeakers === 'boolean') updates.toSpeakers = toSpeakers;
-
-                this.mainApp.appState.setMicrophonePreferences(updates);
-
-                // Send to renderer
-                if (updates.enabled !== undefined) {
-                    await this.mainApp.sendToRendererAndWait('microphone:setEnabled', { enabled: updates.enabled }, 2000);
+                if (result.success) {
+                    // Send to renderer
+                    if (req.body.enabled !== undefined) {
+                        await this.mainApp.sendToRendererAndWait('microphone:setEnabled', { enabled: req.body.enabled }, 2000);
+                    }
+                    if (req.body.gain !== undefined) {
+                        await this.mainApp.sendToRendererAndWait('microphone:setGain', { gain: req.body.gain }, 2000);
+                    }
+                    res.json(result);
+                } else {
+                    res.status(500).json(result);
                 }
-                if (updates.gain !== undefined) {
-                    await this.mainApp.sendToRendererAndWait('microphone:setGain', { gain: updates.gain }, 2000);
-                }
-
-                res.json({ success: true, microphone: this.mainApp.appState.state.preferences.microphone });
             } catch (error) {
                 console.error('Error updating microphone preferences:', error);
                 res.status(500).json({ error: 'Failed to update microphone preferences' });
@@ -1062,21 +991,15 @@ class WebServer {
 
         this.app.post('/admin/preferences/effects', async (req, res) => {
             try {
-                const updates = {};
-                const { enableWaveforms, enableEffects, randomEffectOnSong, overlayOpacity, showUpcomingLyrics } = req.body;
+                const result = preferencesService.updateEffectsPreferences(this.mainApp.appState, req.body);
 
-                if (typeof enableWaveforms === 'boolean') updates.enableWaveforms = enableWaveforms;
-                if (typeof enableEffects === 'boolean') updates.enableEffects = enableEffects;
-                if (typeof randomEffectOnSong === 'boolean') updates.randomEffectOnSong = randomEffectOnSong;
-                if (typeof overlayOpacity === 'number') updates.overlayOpacity = overlayOpacity;
-                if (typeof showUpcomingLyrics === 'boolean') updates.showUpcomingLyrics = showUpcomingLyrics;
-
-                this.mainApp.appState.updateEffectsState(updates);
-
-                // Send to renderer
-                await this.mainApp.sendToRendererAndWait('effects:updateSettings', updates, 2000);
-
-                res.json({ success: true, effects: this.mainApp.appState.state.effects });
+                if (result.success) {
+                    // Send to renderer
+                    await this.mainApp.sendToRendererAndWait('effects:updateSettings', req.body, 2000);
+                    res.json(result);
+                } else {
+                    res.status(500).json(result);
+                }
             } catch (error) {
                 console.error('Error updating effects preferences:', error);
                 res.status(500).json({ error: 'Failed to update effects preferences' });
@@ -1093,6 +1016,34 @@ class WebServer {
                 res.status(404).send('Web UI not built. Run: cd src/web && npm run build');
             }
         });
+    }
+
+    setupStateChangeListeners() {
+        // Subscribe to mixer state changes and broadcast to admin clients
+        this.mainApp.appState.on('mixerChanged', (mixerState) => {
+            this.io.to('admin-clients').emit('mixer-update', mixerState);
+        });
+
+        // Subscribe to effects state changes and broadcast to admin clients
+        this.mainApp.appState.on('effectsChanged', (effectsState) => {
+            this.io.to('admin-clients').emit('effects-update', effectsState);
+        });
+
+        // Subscribe to queue changes and broadcast to admin clients
+        this.mainApp.appState.on('queueChanged', (queue) => {
+            const currentSong = this.mainApp.appState.state.currentSong;
+            this.io.to('admin-clients').emit('queue-update', {
+                queue,
+                currentSong
+            });
+        });
+
+        // Subscribe to playback state changes and broadcast to admin clients
+        this.mainApp.appState.on('playbackChanged', (playbackState) => {
+            this.io.to('admin-clients').emit('playback-state-update', playbackState);
+        });
+
+        console.log('✅ State change listeners configured for WebSocket broadcasting');
     }
 
     setupSocketHandlers() {
@@ -1218,45 +1169,11 @@ class WebServer {
     }
 
     async approveRequest(requestId) {
-        const request = this.songRequests.find(r => r.id === requestId);
-
-        if (!request) {
-            return { success: false, error: 'Request not found' };
-        }
-
-        if (request.status !== 'pending') {
-            return { success: false, error: 'Request is not pending' };
-        }
-
-        request.status = 'approved';
-        await this.addToQueue(request);
-        request.status = 'queued';
-
-        // Broadcast the approval
-        this.io.to('admin-clients').emit('request-approved', request);
-        this.io.to('electron-apps').emit('request-approved', request);
-
-        return { success: true, request };
+        return await requestsService.approveRequest(this, requestId);
     }
 
     async rejectRequest(requestId) {
-        const request = this.songRequests.find(r => r.id === requestId);
-
-        if (!request) {
-            return { success: false, error: 'Request not found' };
-        }
-
-        if (request.status !== 'pending') {
-            return { success: false, error: 'Request is not pending' };
-        }
-
-        request.status = 'rejected';
-
-        // Broadcast the rejection
-        this.io.to('admin-clients').emit('request-rejected', request);
-        this.io.to('electron-apps').emit('request-rejected', request);
-
-        return { success: true, request };
+        return await requestsService.rejectRequest(this, requestId);
     }
 
     async start(port) {
@@ -1286,6 +1203,9 @@ class WebServer {
 
                 // Setup Socket.IO connection handling
                 this.setupSocketHandlers();
+
+                // Setup state change listeners for broadcasting
+                this.setupStateChangeListeners();
 
                 // Add global error handling to prevent server crashes
                 this.httpServer.on('error', (error) => {
@@ -1390,56 +1310,20 @@ class WebServer {
     }
 
     updateSettings(newSettings) {
-        this.settings = { ...this.settings, ...newSettings };
-        // Save to persistent storage
-        this.saveSettings();
-        // Broadcast changes to all connected clients
-        this.broadcastSettingsChange(this.settings);
+        const result = serverSettingsService.updateServerSettings(this, newSettings);
+        return result.success;
     }
 
     loadSettings() {
-        try {
-            // Load from main app's settings manager
-            const savedSettings = {};
-            if (this.mainApp && this.mainApp.settings) {
-                savedSettings.serverName = this.mainApp.settings.get('server.serverName', this.defaultSettings.serverName);
-                savedSettings.allowSongRequests = this.mainApp.settings.get('server.allowSongRequests', this.defaultSettings.allowSongRequests);
-                savedSettings.requireKJApproval = this.mainApp.settings.get('server.requireKJApproval', this.defaultSettings.requireKJApproval);
-                savedSettings.maxRequestsPerIP = this.mainApp.settings.get('server.maxRequestsPerIP', this.defaultSettings.maxRequestsPerIP);
-            }
-            const finalSettings = { ...this.defaultSettings, ...savedSettings };
-            console.log('🔧 Final loaded settings:', finalSettings);
-            return finalSettings;
-        } catch (error) {
-            console.error('Error loading settings:', error);
-            return { ...this.defaultSettings };
-        }
+        return serverSettingsService.loadSettings(this);
     }
 
     saveSettings() {
-        try {
-            if (this.mainApp && this.mainApp.settings) {
-                console.log('🔧 Saving server settings:', this.settings);
-                this.mainApp.settings.set('server.serverName', this.settings.serverName);
-                this.mainApp.settings.set('server.allowSongRequests', this.settings.allowSongRequests);
-                this.mainApp.settings.set('server.requireKJApproval', this.settings.requireKJApproval);
-                this.mainApp.settings.set('server.maxRequestsPerIP', this.settings.maxRequestsPerIP);
-                console.log('🔧 Server settings saved to persistent storage');
-            } else {
-                console.error('🚨 Cannot save settings: mainApp or settings manager not available');
-            }
-        } catch (error) {
-            console.error('Error saving settings:', error);
-        }
+        return serverSettingsService.saveSettings(this);
     }
 
     broadcastSettingsChange(settings) {
-        if (this.io) {
-            // Broadcast to admin clients and electron apps
-            this.io.to('admin-clients').emit('settings-update', settings);
-            this.io.to('electron-apps').emit('settings-update', settings);
-            console.log('📡 Settings changes broadcasted to clients');
-        }
+        serverSettingsService.broadcastSettingsChange(this, settings);
     }
 
     getSongRequests() {
@@ -1447,7 +1331,8 @@ class WebServer {
     }
 
     clearRequests() {
-        this.songRequests = [];
+        const result = requestsService.clearRequests(this);
+        return result.success;
     }
 
 

@@ -1,16 +1,18 @@
-import { EventEmitter } from 'events';
+import StateManager from '../shared/state/StateManager.js';
 
 /**
  * AppState - Canonical application state model
  *
  * This is the single source of truth for all application state.
  * Renderer reports changes via IPC, web clients query this state.
+ *
+ * Now extends the universal StateManager with app-specific methods
+ * and maintains backward compatibility with existing code.
  */
-class AppState extends EventEmitter {
+class AppState extends StateManager {
   constructor() {
-    super();
-
-    this.state = {
+    // Initialize StateManager with app-specific initial state
+    super({
       // Playback state (updated frequently from renderer)
       playback: {
         isPlaying: false,
@@ -76,7 +78,15 @@ class AppState extends EventEmitter {
           }
         }
       }
-    };
+    });
+
+    // Set up event forwarding for backward compatibility
+    // StateManager emits domain-specific events (e.g., 'playbackChanged')
+    // But old code expects 'playbackStateChanged', so we forward playback events
+    this.on('playbackChanged', (state) => this.emit('playbackStateChanged', state, {}));
+
+    // Note: currentSongChanged, queueChanged, mixerChanged, effectsChanged, preferencesChanged
+    // are already emitted by the AppState methods directly for backward compatibility
   }
 
   /**
@@ -84,29 +94,20 @@ class AppState extends EventEmitter {
    * Called frequently (10x/sec) with position updates
    */
   updatePlaybackState(updates) {
-    const changed = {};
+    // Use StateManager's update method
+    const updatesWithTimestamp = {
+      ...updates,
+      lastUpdate: Date.now()
+    };
 
-    for (const [key, value] of Object.entries(updates)) {
-      if (this.state.playback[key] !== value) {
-        changed[key] = { old: this.state.playback[key], new: value };
-        this.state.playback[key] = value;
-      }
-    }
-
-    this.state.playback.lastUpdate = Date.now();
-
-    // Always emit playback state changes (including position updates)
-    // This ensures web UI gets real-time position updates
-    if (Object.keys(changed).length > 0) {
-      this.emit('playbackStateChanged', this.state.playback, changed);
-    }
+    this.update('playback', updatesWithTimestamp);
   }
 
   /**
    * Set current song (called when song is loaded)
    */
   setCurrentSong(songData) {
-    this.state.currentSong = songData ? {
+    const newSong = songData ? {
       path: songData.path || songData.filePath,
       title: songData.title,
       artist: songData.artist,
@@ -114,18 +115,22 @@ class AppState extends EventEmitter {
       requester: songData.requester || 'KJ'
     } : null;
 
-    // Update playback state with new song
-    if (songData) {
-      this.state.playback.songPath = songData.path || songData.filePath;
-      this.state.playback.duration = songData.duration || 0;
-      this.state.playback.position = 0;
-    } else {
-      this.state.playback.songPath = null;
-      this.state.playback.duration = 0;
-      this.state.playback.position = 0;
-    }
+    // Update currentSong domain
+    this.state.currentSong = newSong;
+    this.emit('currentSongChanged', newSong);
 
-    this.emit('currentSongChanged', this.state.currentSong);
+    // Update playback state with new song
+    const playbackUpdates = songData ? {
+      songPath: songData.path || songData.filePath,
+      duration: songData.duration || 0,
+      position: 0
+    } : {
+      songPath: null,
+      duration: 0,
+      position: 0
+    };
+
+    this.update('playback', playbackUpdates);
   }
 
   /**
@@ -172,39 +177,45 @@ class AppState extends EventEmitter {
    * Mixer state operations
    */
   updateMixerState(mixerState) {
-    this.state.mixer = { ...this.state.mixer, ...mixerState };
-    this.emit('mixerChanged', this.state.mixer);
+    this.update('mixer', mixerState);
   }
 
   /**
    * Effects state operations
    */
   updateEffectsState(effectsState) {
-    this.state.effects = { ...this.state.effects, ...effectsState };
-    this.emit('effectsChanged', this.state.effects);
+    this.update('effects', effectsState);
   }
 
   /**
    * Preferences operations
    */
   updatePreferences(preferences) {
-    this.state.preferences = { ...this.state.preferences, ...preferences };
-    this.emit('preferencesChanged', this.state.preferences);
+    this.update('preferences', preferences);
   }
 
   setAutoTunePreferences(autoTunePrefs) {
-    this.state.preferences.autoTune = { ...this.state.preferences.autoTune, ...autoTunePrefs };
-    this.emit('preferencesChanged', this.state.preferences);
+    this.update('preferences', (current) => ({
+      ...current,
+      autoTune: { ...current.autoTune, ...autoTunePrefs }
+    }));
   }
 
   setMicrophonePreferences(micPrefs) {
-    this.state.preferences.microphone = { ...this.state.preferences.microphone, ...micPrefs };
-    this.emit('preferencesChanged', this.state.preferences);
+    this.update('preferences', (current) => ({
+      ...current,
+      microphone: { ...current.microphone, ...micPrefs }
+    }));
   }
 
   setAudioDevices(devices) {
-    this.state.preferences.audio.devices = { ...this.state.preferences.audio.devices, ...devices };
-    this.emit('preferencesChanged', this.state.preferences);
+    this.update('preferences', (current) => ({
+      ...current,
+      audio: {
+        ...current.audio,
+        devices: { ...current.audio.devices, ...devices }
+      }
+    }));
   }
 
   /**

@@ -16,6 +16,10 @@ import WebServer from './webServer.js';
 import AppState from './appState.js';
 import StatePersistence from './statePersistence.js';
 import * as queueService from '../shared/services/queueService.js';
+import * as libraryService from '../shared/services/libraryService.js';
+import * as playerService from '../shared/services/playerService.js';
+import * as requestsService from '../shared/services/requestsService.js';
+import * as serverSettingsService from '../shared/services/serverSettingsService.js';
 
 // ESM equivalent of __dirname
 const __filename = fileURLToPath(import.meta.url);
@@ -1420,9 +1424,9 @@ class KaiPlayerApp {
       }
     });
 
-    // Library management
+    // Library management - using shared libraryService
     ipcMain.handle('library:getSongsFolder', () => {
-      return this.settings.getSongsFolder();
+      return libraryService.getSongsFolder(this);
     });
 
     ipcMain.handle('library:setSongsFolder', async () => {
@@ -1431,219 +1435,94 @@ class KaiPlayerApp {
     });
 
     ipcMain.handle('library:getCachedSongs', async () => {
-      if (this.cachedLibrary) {
-        return { files: this.cachedLibrary };
-      }
-      return { error: 'No cached songs available' };
+      return libraryService.getCachedSongs(this);
     });
 
     ipcMain.handle('library:scanFolder', async () => {
-      const songsFolder = this.settings.getSongsFolder();
-      if (!songsFolder) {
-        return { error: 'No songs folder set' };
-      }
+      const result = await libraryService.scanLibrary(this, (progress) => {
+        this.sendToRenderer('library:scanProgress', progress);
+      });
 
-      try {
-        // First, quickly count all files
-        const allFiles = await this.findAllKaiFiles(songsFolder);
-        const totalFiles = allFiles.length;
-
-        // Notify renderer of total count
-        this.sendToRenderer('library:scanProgress', { current: 0, total: totalFiles });
-
-        // Now process files with metadata extraction and progress updates
-        const files = await this.scanForKaiFilesWithProgress(songsFolder, totalFiles);
-
-        // Store in main process
-        this.cachedLibrary = files;
-
+      if (result.success) {
         // Update web server cache
         if (this.webServer) {
-          this.webServer.cachedSongs = files;
+          this.webServer.cachedSongs = result.files;
           this.webServer.songsCacheTime = Date.now();
           this.webServer.fuse = null; // Reset Fuse.js - will rebuild on next search
         }
 
         // Save to disk cache
+        const songsFolder = this.settings.getSongsFolder();
         const cacheFile = path.join(app.getPath('userData'), 'library-cache.json');
         try {
           await fsPromises.writeFile(cacheFile, JSON.stringify({
             songsFolder,
-            files,
+            files: result.files,
             cachedAt: new Date().toISOString()
           }), 'utf8');
           console.log('💾 Library cache saved to disk');
         } catch (err) {
           console.error('Failed to save library cache:', err);
         }
-
-        return { files };
-      } catch (error) {
-        console.error('❌ Failed to scan library:', error);
-        return { error: error.message };
       }
+
+      return result;
     });
 
     ipcMain.handle('library:syncLibrary', async () => {
-      const songsFolder = this.settings.getSongsFolder();
-      if (!songsFolder) {
-        return { error: 'No songs folder set' };
-      }
+      const result = await libraryService.syncLibrary(this, (progress) => {
+        this.sendToRenderer('library:scanProgress', progress);
+      });
 
-      try {
-        // Load cached library
-        const cacheFile = path.join(app.getPath('userData'), 'library-cache.json');
-        let cachedData = { files: [] };
-        try {
-          const cacheContent = await fsPromises.readFile(cacheFile, 'utf8');
-          cachedData = JSON.parse(cacheContent);
-        } catch (err) {
-          console.log('No cache found, will perform full scan');
-        }
-
-        // Step 1: Scan filesystem to find all valid files
-        console.log('🔍 Scanning filesystem...');
-        const filesystemScan = await this.scanFilesystemForSync(songsFolder);
-        const totalFiles = filesystemScan.length;
-        this.sendToRenderer('library:scanProgress', { current: Math.floor(totalFiles * 0.1), total: totalFiles });
-
-        // Build a map of current filesystem state (keyed by primary file path)
-        const currentFilesMap = new Map();
-        for (const item of filesystemScan) {
-          currentFilesMap.set(item.path, item);
-        }
-
-        // Check cached files to see which ones are still valid
-        const stillValid = [];
-        const removedPaths = [];
-
-        for (const cachedFile of cachedData.files) {
-          const filePath = cachedFile.file || cachedFile.path;
-          const fsItem = currentFilesMap.get(filePath);
-
-          if (fsItem) {
-            // File still exists in filesystem with correct pairing
-            stillValid.push(cachedFile);
-            currentFilesMap.delete(filePath); // Mark as processed
-          } else {
-            // File is gone or invalid
-            removedPaths.push(filePath);
-          }
-        }
-
-        // Remaining items in currentFilesMap are NEW files that need metadata parsing
-        const newFiles = Array.from(currentFilesMap.values());
-
-        console.log(`🔄 Sync: ${newFiles.length} new, ${removedPaths.length} removed, ${totalFiles} total`);
-
-        // Start with files that are still valid (already have metadata)
-        let updatedFiles = stillValid;
-
-        // Step 2: Process new files (10-100% progress)
-        if (newFiles.length > 0) {
-          const newFilesData = await this.parseMetadataWithProgress(newFiles, totalFiles, 0.1);
-          updatedFiles = updatedFiles.concat(newFilesData);
-        } else {
-          // No new files, go straight to 100%
-          this.sendToRenderer('library:scanProgress', { current: totalFiles, total: totalFiles });
-        }
-
-        // Store in main process
-        this.cachedLibrary = updatedFiles;
-
+      if (result.success) {
         // Update web server cache
         if (this.webServer) {
-          this.webServer.cachedSongs = updatedFiles;
+          this.webServer.cachedSongs = result.files;
           this.webServer.songsCacheTime = Date.now();
           this.webServer.fuse = null;
         }
 
         // Save to disk cache
-        await fsPromises.writeFile(cacheFile, JSON.stringify({
-          songsFolder,
-          files: updatedFiles,
-          cachedAt: new Date().toISOString()
-        }), 'utf8');
+        const songsFolder = this.settings.getSongsFolder();
+        const cacheFile = path.join(app.getPath('userData'), 'library-cache.json');
+        try {
+          await fsPromises.writeFile(cacheFile, JSON.stringify({
+            songsFolder,
+            files: result.files,
+            cachedAt: new Date().toISOString()
+          }), 'utf8');
+        } catch (err) {
+          console.error('Failed to save library cache:', err);
+        }
 
-        console.log('💾 Library synced and cache updated');
-        return { success: true, songs: updatedFiles };
-      } catch (error) {
-        console.error('❌ Failed to sync library:', error);
-        return { error: error.message };
+        // Return with 'songs' key for renderer compatibility
+        return {
+          ...result,
+          songs: result.files
+        };
       }
+
+      return result;
     });
 
     ipcMain.handle('library:getSongInfo', async (event, filePath) => {
-      try {
-        console.log('📖 Reading song info from:', filePath);
-        // fs already imported at top
-        const lowerPath = filePath.toLowerCase();
+      const result = await libraryService.getSongInfo(this, filePath);
 
-        let songInfo = null;
-
-        // Detect file type and get appropriate info
-        if (lowerPath.endsWith('.kai')) {
-          // KAI format - read full song.json
-          songInfo = await this.readKaiSongJson(filePath);
-        } else if (lowerPath.endsWith('.kar') || (lowerPath.endsWith('.zip') && !lowerPath.endsWith('.kai.zip'))) {
-          // CDG archive format
-          const metadata = await this.extractCDGArchiveMetadata(filePath);
-          if (metadata) {
-            songInfo = {
-              format: 'cdg-archive',
-              song: {
-                title: metadata.title,
-                artist: metadata.artist,
-                genre: metadata.genre
-              }
-            };
-          }
-        } else if (lowerPath.endsWith('.mp3')) {
-          // CDG pair format - MP3 + CDG
-          const baseName = filePath.substring(0, filePath.lastIndexOf('.'));
-          const cdgPath = baseName + '.cdg';
-
-          // Check if CDG file exists
-          try {
-            await fs.access(cdgPath);
-            const metadata = await this.extractCDGPairMetadata(filePath, cdgPath);
-            songInfo = {
-              format: 'cdg-pair',
-              song: {
-                title: metadata.title,
-                artist: metadata.artist,
-                genre: metadata.genre
-              },
-              cdgPath: cdgPath
-            };
-          } catch (err) {
-            return { error: 'No matching CDG file found for this MP3' };
-          }
-        } else {
-          return { error: 'Unsupported file format' };
-        }
-
-        if (songInfo) {
-          // Add file path and size for reference
-          songInfo.filePath = filePath;
-
-          // Get file size
+      // For compatibility with existing code, wrap result if needed
+      if (result.success && result.song) {
+        // Get file size if not already present
+        if (!result.song.fileSize) {
           try {
             const stats = await fsPromises.stat(filePath);
-            songInfo.fileSize = stats.size;
+            result.song.fileSize = stats.size;
           } catch (statError) {
-            console.warn('Could not get file size:', statError.message);
-            songInfo.fileSize = 0;
+            result.song.fileSize = 0;
           }
-
-          return songInfo;
-        } else {
-          return { error: 'Failed to read song information from file' };
         }
-      } catch (error) {
-        console.error('❌ Failed to get song info:', error);
-        return { error: error.message };
+        return result.song;
       }
+
+      return result;
     });
 
     // Shell operations
@@ -1662,38 +1541,40 @@ class KaiPlayerApp {
     });
 
     ipcMain.handle('webServer:getSettings', () => {
-      return this.getWebServerSettings();
+      if (this.webServer) {
+        const result = serverSettingsService.getServerSettings(this.webServer);
+        return result.success ? result.settings : null;
+      }
+      return null;
     });
 
     ipcMain.handle('webServer:updateSettings', (event, settings) => {
-      this.updateWebServerSettings(settings);
-      return { success: true };
+      if (this.webServer) {
+        return serverSettingsService.updateServerSettings(this.webServer, settings);
+      }
+      return { success: false, error: 'Web server not available' };
     });
 
     ipcMain.handle('webServer:getSongRequests', () => {
-      return this.getSongRequests();
+      if (this.webServer) {
+        const result = requestsService.getRequests(this.webServer);
+        return result.success ? result.requests : [];
+      }
+      return [];
     });
 
     ipcMain.handle('webServer:approveRequest', async (event, requestId) => {
-      try {
-        if (this.webServer) {
-          return await this.webServer.approveRequest(requestId);
-        }
-        return { error: 'Web server not available' };
-      } catch (error) {
-        return { error: error.message };
+      if (this.webServer) {
+        return await requestsService.approveRequest(this.webServer, requestId);
       }
+      return { success: false, error: 'Web server not available' };
     });
 
     ipcMain.handle('webServer:rejectRequest', async (event, requestId) => {
-      try {
-        if (this.webServer) {
-          return await this.webServer.rejectRequest(requestId);
-        }
-        return { error: 'Web server not available' };
-      } catch (error) {
-        return { error: error.message };
+      if (this.webServer) {
+        return await requestsService.rejectRequest(this.webServer, requestId);
       }
+      return { success: false, error: 'Web server not available' };
     });
 
     ipcMain.handle('webServer:refreshCache', async () => {
@@ -1827,6 +1708,13 @@ class KaiPlayerApp {
       if (this.webServer && this.webServer.io) {
         if (key === 'waveformPreferences') {
           this.webServer.io.to('admin-clients').emit('settings:waveform', value);
+
+          // If disabled effects changed, also emit effects update
+          if (value.disabledEffects !== undefined) {
+            this.webServer.io.emit('effects-update', {
+              disabled: value.disabledEffects
+            });
+          }
         } else if (key === 'autoTunePreferences') {
           this.webServer.io.to('admin-clients').emit('settings:autotune', value);
         }
@@ -3076,45 +2964,8 @@ class KaiPlayerApp {
 
   // Methods called by WebServer
   async getLibrarySongs() {
-    try {
-      let songsFolder = this.settings.getSongsFolder();
-
-      // If no songs folder is set, try the app root directory
-      if (!songsFolder) {
-        songsFolder = process.cwd();
-      }
-
-      const files = await this.scanForKaiFiles(songsFolder);
-      const songs = [];
-
-
-      for (const file of files) {
-        try {
-          // scanForKaiFiles already includes metadata in the file object
-
-          if (file.title && file.artist) {
-            const song = {
-              path: file.path,
-              title: file.title,
-              artist: file.artist,
-              duration: file.duration || 0,
-              format: file.format || 'kai',
-              cdgPath: file.cdgPath // Include CDG path for cdg-pair format
-            };
-            songs.push(song);
-          } else {
-          }
-        } catch (error) {
-          console.error('Error processing song:', error);
-        }
-      }
-
-
-      return songs;
-    } catch (error) {
-      console.error('Error getting library songs:', error);
-      return [];
-    }
+    const result = await libraryService.getLibrarySongs(this);
+    return result.songs || [];
   }
 
   getQueue() {
@@ -3221,15 +3072,8 @@ class KaiPlayerApp {
   // clearQueue() moved below - uses AppState
 
   async getCurrentSong() {
-    if (this.currentSong && this.currentSong.metadata) {
-      return {
-        path: this.currentSong.metadata.path || this.currentSong.filePath,
-        title: this.currentSong.metadata.title,
-        artist: this.currentSong.metadata.artist,
-        requester: this.currentSong.requester || 'KJ'
-      };
-    }
-    return null;
+    const result = playerService.getCurrentSong(this);
+    return result.song;
   }
 
   // Web server management methods
@@ -3238,14 +3082,18 @@ class KaiPlayerApp {
   }
 
   getWebServerSettings() {
-    return this.webServer ? this.webServer.getSettings() : null;
+    if (this.webServer) {
+      const result = serverSettingsService.getServerSettings(this.webServer);
+      return result.success ? result.settings : null;
+    }
+    return null;
   }
 
   updateWebServerSettings(settings) {
     if (this.webServer) {
-      // Update webServer settings (which saves to persistent storage and broadcasts)
-      this.webServer.updateSettings(settings);
+      return serverSettingsService.updateServerSettings(this.webServer, settings);
     }
+    return { success: false, error: 'Web server not available' };
   }
 
   getSongRequests() {
@@ -3254,70 +3102,24 @@ class KaiPlayerApp {
 
   // Player control methods for web server
   async playerPlay() {
-    console.log('🎮 Admin play command - sending IPC message to renderer');
-
-    if (this.mainWindow && !this.mainWindow.isDestroyed()) {
-      this.mainWindow.webContents.send('admin:play');
-      return { success: true };
-    } else {
-      throw new Error('Main window not available');
-    }
+    console.log('🎮 Admin play command - using playerService');
+    return playerService.play(this);
   }
 
   async playerPause() {
-    if (this.mainWindow && !this.mainWindow.isDestroyed()) {
-      this.mainWindow.webContents.send('admin:play'); // Same button toggles play/pause
-      return { success: true };
-    } else {
-      throw new Error('Main window not available');
-    }
+    return playerService.pause(this);
   }
 
   async playerRestart() {
-    if (this.mainWindow && !this.mainWindow.isDestroyed()) {
-      this.mainWindow.webContents.send('admin:restart');
-      return { success: true };
-    } else {
-      throw new Error('Main window not available');
-    }
+    return playerService.restart(this);
   }
 
   async playerSeek(position) {
-    if (this.mainWindow && !this.mainWindow.isDestroyed()) {
-      this.mainWindow.webContents.send('player:seek', position);
-      return { success: true };
-    } else {
-      throw new Error('Main window not available');
-    }
+    return playerService.seek(this, position);
   }
 
   async playerNext() {
-    // Move to next song in queue using AppState
-    const queue = this.appState.getQueue();
-
-    if (queue.length > 0) {
-      // Remove first song from queue
-      const currentSong = queue[0];
-      if (currentSong && currentSong.id) {
-        this.appState.removeFromQueue(currentSong.id);
-      }
-
-      // Update legacy queue
-      this.songQueue = this.appState.getQueue();
-
-      // Load next song if there is one
-      const newQueue = this.appState.getQueue();
-      if (newQueue.length > 0) {
-        const nextSong = newQueue[0];
-        await this.loadKaiFile(nextSong.path);
-      } else {
-        // No more songs, send stop command to renderer
-        this.mainWindow?.webContents.send('admin:restart'); // This will stop/reset
-        this.currentSong = null;
-      }
-    }
-
-    return { success: true };
+    return playerService.playNext(this);
   }
 
   async clearQueue() {

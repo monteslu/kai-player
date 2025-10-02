@@ -168,6 +168,22 @@ export function App() {
       });
     });
 
+    newSocket.on('effects:disabled', (data) => {
+      console.log('🎨 Effect disabled:', data);
+      setEffects(prev => ({
+        ...prev,
+        disabled: data.disabled || []
+      }));
+    });
+
+    newSocket.on('effects:enabled', (data) => {
+      console.log('🎨 Effect enabled:', data);
+      setEffects(prev => ({
+        ...prev,
+        disabled: data.disabled || []
+      }));
+    });
+
     newSocket.on('song-request', (request) => {
       setRequests(prev => [request, ...prev]);
     });
