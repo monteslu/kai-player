@@ -18,6 +18,8 @@ import StatePersistence from './statePersistence.js';
 import * as queueService from '../shared/services/queueService.js';
 import * as libraryService from '../shared/services/libraryService.js';
 import * as playerService from '../shared/services/playerService.js';
+import * as requestsService from '../shared/services/requestsService.js';
+import * as serverSettingsService from '../shared/services/serverSettingsService.js';
 
 // ESM equivalent of __dirname
 const __filename = fileURLToPath(import.meta.url);
@@ -1539,38 +1541,40 @@ class KaiPlayerApp {
     });
 
     ipcMain.handle('webServer:getSettings', () => {
-      return this.getWebServerSettings();
+      if (this.webServer) {
+        const result = serverSettingsService.getServerSettings(this.webServer);
+        return result.success ? result.settings : null;
+      }
+      return null;
     });
 
     ipcMain.handle('webServer:updateSettings', (event, settings) => {
-      this.updateWebServerSettings(settings);
-      return { success: true };
+      if (this.webServer) {
+        return serverSettingsService.updateServerSettings(this.webServer, settings);
+      }
+      return { success: false, error: 'Web server not available' };
     });
 
     ipcMain.handle('webServer:getSongRequests', () => {
-      return this.getSongRequests();
+      if (this.webServer) {
+        const result = requestsService.getRequests(this.webServer);
+        return result.success ? result.requests : [];
+      }
+      return [];
     });
 
     ipcMain.handle('webServer:approveRequest', async (event, requestId) => {
-      try {
-        if (this.webServer) {
-          return await this.webServer.approveRequest(requestId);
-        }
-        return { error: 'Web server not available' };
-      } catch (error) {
-        return { error: error.message };
+      if (this.webServer) {
+        return await requestsService.approveRequest(this.webServer, requestId);
       }
+      return { success: false, error: 'Web server not available' };
     });
 
     ipcMain.handle('webServer:rejectRequest', async (event, requestId) => {
-      try {
-        if (this.webServer) {
-          return await this.webServer.rejectRequest(requestId);
-        }
-        return { error: 'Web server not available' };
-      } catch (error) {
-        return { error: error.message };
+      if (this.webServer) {
+        return await requestsService.rejectRequest(this.webServer, requestId);
       }
+      return { success: false, error: 'Web server not available' };
     });
 
     ipcMain.handle('webServer:refreshCache', async () => {
@@ -3078,14 +3082,18 @@ class KaiPlayerApp {
   }
 
   getWebServerSettings() {
-    return this.webServer ? this.webServer.getSettings() : null;
+    if (this.webServer) {
+      const result = serverSettingsService.getServerSettings(this.webServer);
+      return result.success ? result.settings : null;
+    }
+    return null;
   }
 
   updateWebServerSettings(settings) {
     if (this.webServer) {
-      // Update webServer settings (which saves to persistent storage and broadcasts)
-      this.webServer.updateSettings(settings);
+      return serverSettingsService.updateServerSettings(this.webServer, settings);
     }
+    return { success: false, error: 'Web server not available' };
   }
 
   getSongRequests() {

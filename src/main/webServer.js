@@ -17,6 +17,8 @@ import * as playerService from '../shared/services/playerService.js';
 import * as preferencesService from '../shared/services/preferencesService.js';
 import * as effectsService from '../shared/services/effectsService.js';
 import * as mixerService from '../shared/services/mixerService.js';
+import * as requestsService from '../shared/services/requestsService.js';
+import * as serverSettingsService from '../shared/services/serverSettingsService.js';
 
 // ESM equivalent of __dirname
 const __filename = fileURLToPath(import.meta.url);
@@ -441,15 +443,20 @@ class WebServer {
 
         // Admin endpoints (for the main Electron app) - all require auth via middleware above
         this.app.get('/admin/requests', (req, res) => {
-            res.json({
-                requests: this.songRequests,
-                settings: this.settings
-            });
+            const result = requestsService.getRequests(this);
+            if (result.success) {
+                res.json({
+                    requests: result.requests,
+                    settings: result.settings
+                });
+            } else {
+                res.status(500).json(result);
+            }
         });
 
         this.app.post('/admin/requests/:id/approve', async (req, res) => {
             const requestId = parseFloat(req.params.id);
-            const result = await this.approveRequest(requestId);
+            const result = await requestsService.approveRequest(this, requestId);
 
             if (result.success) {
                 res.json(result);
@@ -461,7 +468,7 @@ class WebServer {
 
         this.app.post('/admin/requests/:id/reject', async (req, res) => {
             const requestId = parseFloat(req.params.id);
-            const result = await this.rejectRequest(requestId);
+            const result = await requestsService.rejectRequest(this, requestId);
 
             if (result.success) {
                 res.json(result);
@@ -472,11 +479,11 @@ class WebServer {
         });
 
         this.app.post('/admin/settings', (req, res) => {
-            try {
-                this.settings = { ...this.settings, ...req.body };
-                res.json({ success: true, settings: this.settings });
-            } catch (error) {
-                res.status(500).json({ error: 'Failed to update settings' });
+            const result = serverSettingsService.updateServerSettings(this, req.body);
+            if (result.success) {
+                res.json(result);
+            } else {
+                res.status(500).json(result);
             }
         });
 
@@ -1011,6 +1018,34 @@ class WebServer {
         });
     }
 
+    setupStateChangeListeners() {
+        // Subscribe to mixer state changes and broadcast to admin clients
+        this.mainApp.appState.on('mixerChanged', (mixerState) => {
+            this.io.to('admin-clients').emit('mixer-update', mixerState);
+        });
+
+        // Subscribe to effects state changes and broadcast to admin clients
+        this.mainApp.appState.on('effectsChanged', (effectsState) => {
+            this.io.to('admin-clients').emit('effects-update', effectsState);
+        });
+
+        // Subscribe to queue changes and broadcast to admin clients
+        this.mainApp.appState.on('queueChanged', (queue) => {
+            const currentSong = this.mainApp.appState.state.currentSong;
+            this.io.to('admin-clients').emit('queue-update', {
+                queue,
+                currentSong
+            });
+        });
+
+        // Subscribe to playback state changes and broadcast to admin clients
+        this.mainApp.appState.on('playbackChanged', (playbackState) => {
+            this.io.to('admin-clients').emit('playback-state-update', playbackState);
+        });
+
+        console.log('✅ State change listeners configured for WebSocket broadcasting');
+    }
+
     setupSocketHandlers() {
         this.io.on('connection', (socket) => {
             console.log('Client connected:', socket.id);
@@ -1134,45 +1169,11 @@ class WebServer {
     }
 
     async approveRequest(requestId) {
-        const request = this.songRequests.find(r => r.id === requestId);
-
-        if (!request) {
-            return { success: false, error: 'Request not found' };
-        }
-
-        if (request.status !== 'pending') {
-            return { success: false, error: 'Request is not pending' };
-        }
-
-        request.status = 'approved';
-        await this.addToQueue(request);
-        request.status = 'queued';
-
-        // Broadcast the approval
-        this.io.to('admin-clients').emit('request-approved', request);
-        this.io.to('electron-apps').emit('request-approved', request);
-
-        return { success: true, request };
+        return await requestsService.approveRequest(this, requestId);
     }
 
     async rejectRequest(requestId) {
-        const request = this.songRequests.find(r => r.id === requestId);
-
-        if (!request) {
-            return { success: false, error: 'Request not found' };
-        }
-
-        if (request.status !== 'pending') {
-            return { success: false, error: 'Request is not pending' };
-        }
-
-        request.status = 'rejected';
-
-        // Broadcast the rejection
-        this.io.to('admin-clients').emit('request-rejected', request);
-        this.io.to('electron-apps').emit('request-rejected', request);
-
-        return { success: true, request };
+        return await requestsService.rejectRequest(this, requestId);
     }
 
     async start(port) {
@@ -1202,6 +1203,9 @@ class WebServer {
 
                 // Setup Socket.IO connection handling
                 this.setupSocketHandlers();
+
+                // Setup state change listeners for broadcasting
+                this.setupStateChangeListeners();
 
                 // Add global error handling to prevent server crashes
                 this.httpServer.on('error', (error) => {
@@ -1306,56 +1310,20 @@ class WebServer {
     }
 
     updateSettings(newSettings) {
-        this.settings = { ...this.settings, ...newSettings };
-        // Save to persistent storage
-        this.saveSettings();
-        // Broadcast changes to all connected clients
-        this.broadcastSettingsChange(this.settings);
+        const result = serverSettingsService.updateServerSettings(this, newSettings);
+        return result.success;
     }
 
     loadSettings() {
-        try {
-            // Load from main app's settings manager
-            const savedSettings = {};
-            if (this.mainApp && this.mainApp.settings) {
-                savedSettings.serverName = this.mainApp.settings.get('server.serverName', this.defaultSettings.serverName);
-                savedSettings.allowSongRequests = this.mainApp.settings.get('server.allowSongRequests', this.defaultSettings.allowSongRequests);
-                savedSettings.requireKJApproval = this.mainApp.settings.get('server.requireKJApproval', this.defaultSettings.requireKJApproval);
-                savedSettings.maxRequestsPerIP = this.mainApp.settings.get('server.maxRequestsPerIP', this.defaultSettings.maxRequestsPerIP);
-            }
-            const finalSettings = { ...this.defaultSettings, ...savedSettings };
-            console.log('🔧 Final loaded settings:', finalSettings);
-            return finalSettings;
-        } catch (error) {
-            console.error('Error loading settings:', error);
-            return { ...this.defaultSettings };
-        }
+        return serverSettingsService.loadSettings(this);
     }
 
     saveSettings() {
-        try {
-            if (this.mainApp && this.mainApp.settings) {
-                console.log('🔧 Saving server settings:', this.settings);
-                this.mainApp.settings.set('server.serverName', this.settings.serverName);
-                this.mainApp.settings.set('server.allowSongRequests', this.settings.allowSongRequests);
-                this.mainApp.settings.set('server.requireKJApproval', this.settings.requireKJApproval);
-                this.mainApp.settings.set('server.maxRequestsPerIP', this.settings.maxRequestsPerIP);
-                console.log('🔧 Server settings saved to persistent storage');
-            } else {
-                console.error('🚨 Cannot save settings: mainApp or settings manager not available');
-            }
-        } catch (error) {
-            console.error('Error saving settings:', error);
-        }
+        return serverSettingsService.saveSettings(this);
     }
 
     broadcastSettingsChange(settings) {
-        if (this.io) {
-            // Broadcast to admin clients and electron apps
-            this.io.to('admin-clients').emit('settings-update', settings);
-            this.io.to('electron-apps').emit('settings-update', settings);
-            console.log('📡 Settings changes broadcasted to clients');
-        }
+        serverSettingsService.broadcastSettingsChange(this, settings);
     }
 
     getSongRequests() {
@@ -1363,7 +1331,8 @@ class WebServer {
     }
 
     clearRequests() {
-        this.songRequests = [];
+        const result = requestsService.clearRequests(this);
+        return result.success;
     }
 
 

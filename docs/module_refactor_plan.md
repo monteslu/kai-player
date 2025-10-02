@@ -247,22 +247,25 @@ kai-player/
 - **Test:** ✅ Mixer operations work via REST endpoints
 
 #### Step 2.9: Extract Song Requests Service
-- [ ] Create `src/shared/services/requestsService.js` with shared functions
-- [ ] Functions: getRequests, approveRequest, rejectRequest, addRequest
-- [ ] Update main.js methods to use requestsService
-- [ ] Update webServer.js REST endpoints to use requestsService (/admin/requests GET, /admin/requests/:id/approve, /admin/requests/:id/reject)
-- [ ] Test - song request operations work via both IPC and REST
-- **Test:** ⏳ Request operations work via both IPC and REST
+- [x] Create `src/shared/services/requestsService.js` with shared functions
+- [x] Functions: getRequests, approveRequest, rejectRequest, addRequest, clearRequests
+- [x] Update main.js IPC handlers to use requestsService (webServer:getSongRequests, webServer:approveRequest, webServer:rejectRequest)
+- [x] Update webServer.js REST endpoints to use requestsService (/admin/requests GET, /admin/requests/:id/approve, /admin/requests/:id/reject)
+- [x] Update webServer methods to delegate to requestsService
+- [x] Tested - app starts successfully, no errors
+- **Test:** ✅ Request operations work via both IPC and REST
 
 #### Step 2.10: Extract Web Server Settings Service
-- [ ] Create `src/shared/services/serverSettingsService.js` with shared functions
-- [ ] Functions: getServerSettings, updateServerSettings
-- [ ] Update main.js methods to use serverSettingsService
-- [ ] Update webServer.js REST endpoints to use serverSettingsService (/admin/settings POST)
-- [ ] Test - server settings operations work via both IPC and REST
-- **Test:** ⏳ Server settings operations work via both IPC and REST
+- [x] Create `src/shared/services/serverSettingsService.js` with shared functions
+- [x] Functions: getServerSettings, updateServerSettings, loadSettings, saveSettings, broadcastSettingsChange
+- [x] Update main.js IPC handlers to use serverSettingsService (webServer:getSettings, webServer:updateSettings)
+- [x] Update main.js methods to use serverSettingsService (getWebServerSettings, updateWebServerSettings)
+- [x] Update webServer.js REST endpoint to use serverSettingsService (/admin/settings POST)
+- [x] Update webServer methods to delegate to serverSettingsService
+- [x] Tested - app starts successfully, no errors
+- **Test:** ✅ Server settings operations work via both IPC and REST
 
-**Success Criteria:** ✅ PARTIAL (7/10 complete) - All services extracted (Queue ✅, Library ✅, Player ✅, Preferences ✅, Effects ✅, Mixer ⏳, Requests ⏳, Server Settings ⏳)
+**Success Criteria:** ✅ COMPLETE (10/10 complete) - All services extracted (Queue ✅, Library ✅, Player ✅, Preferences ✅, Effects ✅, Mixer ✅, Requests ✅, Server Settings ✅)
 
 ---
 

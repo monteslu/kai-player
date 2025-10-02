@@ -59,7 +59,7 @@ export function setMasterGain(mainApp, bus, gainDb) {
     }
 
     // Send to renderer to apply audio changes
-    mainApp.sendToRenderer('mixer:setMasterGain', bus, gainDb);
+    mainApp.sendToRenderer('mixer:setMasterGain', { bus, gainDb });
 
     return {
       success: true,
@@ -111,7 +111,7 @@ export function toggleMasterMute(mainApp, bus) {
     }
 
     // Send to renderer to apply audio changes
-    mainApp.sendToRenderer('mixer:setMasterMute', bus, newMuted);
+    mainApp.sendToRenderer('mixer:toggleMasterMute', { bus, muted: newMuted });
 
     return {
       success: true,
@@ -160,7 +160,7 @@ export function setMasterMute(mainApp, bus, muted) {
     }
 
     // Send to renderer to apply audio changes
-    mainApp.sendToRenderer('mixer:setMasterMute', bus, muted);
+    mainApp.sendToRenderer('mixer:setMasterMute', { bus, muted });
 
     return {
       success: true,
