@@ -106,14 +106,15 @@ export async function scanLibrary(mainApp, progressCallback) {
     }
 
     // Get total file count for progress
-    const totalFiles = await mainApp.countFilesRecursive?.(songsFolder) || 0;
+    const allFiles = await mainApp.findAllKaiFiles?.(songsFolder) || [];
+    const totalFiles = allFiles.length;
 
     if (progressCallback) {
       progressCallback({ current: 0, total: totalFiles });
     }
 
     // Scan with progress
-    const files = await mainApp.scanForKaiFilesWithProgress?.(songsFolder, totalFiles) || [];
+    const files = await mainApp.scanForKaiFilesWithProgress?.(songsFolder, totalFiles, progressCallback) || [];
 
     // Cache the results
     mainApp.cachedLibrary = files;
@@ -232,6 +233,60 @@ export async function syncLibrary(mainApp, progressCallback) {
 }
 
 /**
+ * Search songs in the library
+ * @param {Object} mainApp - Main application instance
+ * @param {string} query - Search query
+ * @returns {Object} Result with success status and matching songs
+ */
+export function searchSongs(mainApp, query) {
+  try {
+    if (!query || !query.trim()) {
+      return {
+        success: true,
+        songs: []
+      };
+    }
+
+    const cachedSongs = mainApp.cachedLibrary || [];
+    if (cachedSongs.length === 0) {
+      return {
+        success: true,
+        songs: []
+      };
+    }
+
+    const searchLower = query.toLowerCase().trim();
+    const matches = cachedSongs
+      .filter(song =>
+        song.title?.toLowerCase().includes(searchLower) ||
+        song.artist?.toLowerCase().includes(searchLower) ||
+        song.album?.toLowerCase().includes(searchLower)
+      )
+      .sort((a, b) => {
+        // Prioritize title matches over artist/album matches
+        const aTitleMatch = a.title?.toLowerCase().includes(searchLower);
+        const bTitleMatch = b.title?.toLowerCase().includes(searchLower);
+        if (aTitleMatch && !bTitleMatch) return -1;
+        if (!aTitleMatch && bTitleMatch) return 1;
+        // Then sort alphabetically by title
+        return (a.title || '').localeCompare(b.title || '');
+      })
+      .slice(0, 50); // Limit to 50 results
+
+    return {
+      success: true,
+      songs: matches
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error.message,
+      songs: []
+    };
+  }
+}
+
+/**
  * Get song info by file path
  * @param {Object} mainApp - Main application instance
  * @param {string} filePath - Path to the song file
@@ -305,4 +360,65 @@ export function clearLibraryCache(mainApp) {
     success: true,
     message: 'Library cache cleared'
   };
+}
+
+/**
+ * Update cache after library scan/sync
+ * Updates both mainApp cache and webServer cache (if available)
+ * @param {Object} mainApp - Main application instance
+ * @param {Array} files - Scanned files to cache
+ * @returns {Promise<Object>} Result with success status
+ */
+export async function updateLibraryCache(mainApp, files) {
+  try {
+    // Update main app cache
+    mainApp.cachedLibrary = files;
+
+    // Update web server cache if available
+    if (mainApp.webServer) {
+      mainApp.webServer.cachedSongs = files;
+      mainApp.webServer.songsCacheTime = Date.now();
+      mainApp.webServer.fuse = null; // Reset Fuse.js - will rebuild on next search
+
+      // Notify web admin clients via socket
+      if (mainApp.webServer.io) {
+        mainApp.webServer.io.emit('library-refreshed', {
+          count: files.length,
+          timestamp: Date.now()
+        });
+      }
+    }
+
+    // Save to disk cache (Electron only)
+    if (mainApp.settings?.getSongsFolder) {
+      const path = await import('path');
+      const fsPromises = await import('fs/promises');
+      const { app } = await import('electron');
+
+      const songsFolder = mainApp.settings.getSongsFolder();
+      const cacheFile = path.default.join(app.getPath('userData'), 'library-cache.json');
+
+      try {
+        await fsPromises.default.writeFile(cacheFile, JSON.stringify({
+          songsFolder,
+          files,
+          cachedAt: new Date().toISOString()
+        }), 'utf8');
+        console.log('💾 Library cache saved to disk');
+      } catch (err) {
+        console.error('Failed to save library cache to disk:', err);
+      }
+    }
+
+    return {
+      success: true,
+      count: files.length
+    };
+  } catch (error) {
+    console.error('Failed to update library cache:', error);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
 }

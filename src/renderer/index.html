@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Loukai</title>
     <link rel="stylesheet" href="styles/main.css">
+    <link rel="stylesheet" href="dist/renderer.css">
 </head>
 <body>
     <div class="app-container">
@@ -96,7 +97,11 @@
                 <div class="tab-content">
                     <!-- Library Tab -->
                     <div id="library-tab" class="tab-pane">
-                        <div class="library-container">
+                        <!-- React Library Panel will be mounted here -->
+                        <div id="react-library-root"></div>
+
+                        <!-- Vanilla JS Library - HIDDEN -->
+                        <div class="library-container" style="display: none;">
                             <div class="library-header">
                                 <div class="library-controls">
                                     <button id="setSongsFolderBtn" class="library-btn">
@@ -326,7 +331,11 @@
 
                     <!-- Effects Tab -->
                     <div id="effects-tab" class="tab-pane">
-                        <div class="effects-container">
+                        <!-- React Effects Panel will be mounted here -->
+                        <div id="react-effects-root"></div>
+
+                        <!-- Vanilla JS Effects - HIDDEN -->
+                        <div class="effects-container" style="display: none;">
                             <div class="effects-header">
                                 <div class="effects-search">
                                     <input type="text" id="effectsSearch" placeholder="Search effects..." />
@@ -336,7 +345,7 @@
                                     <button id="randomEffectBtn" class="effects-btn">🎲 Random</button>
                                 </div>
                             </div>
-                            
+
                             <div class="effects-content">
                                 <div class="effects-categories">
                                     <button class="category-btn active" data-category="all">All</button>
@@ -346,7 +355,7 @@
                                     <button class="category-btn" data-category="shifter">Shifter</button>
                                     <button class="category-btn" data-category="other">Other</button>
                                 </div>
-                                
+
                                 <div class="effects-list" id="effectsList">
                                     <div class="effects-loading">
                                         <div class="loading-icon">⏳</div>
@@ -359,7 +368,11 @@
 
                     <!-- Song Requests Tab -->
                     <div id="requests-tab" class="tab-pane">
-                        <div class="requests-container">
+                        <!-- React Requests List will be mounted here -->
+                        <div id="react-requests-root"></div>
+
+                        <!-- Vanilla JS Requests - HIDDEN -->
+                        <div class="requests-container" style="display: none;">
                             <div class="requests-header">
                                 <div class="server-status">
                                     <h3>🌐 Web Server</h3>
@@ -377,7 +390,7 @@
                                     </label>
                                 </div>
                             </div>
-                            
+
                             <div class="requests-content">
                                 <div class="requests-section">
                                     <div class="requests-section-header">
@@ -388,7 +401,7 @@
                                         <div class="no-requests">No pending requests</div>
                                     </div>
                                 </div>
-                                
+
                                 <div class="requests-section">
                                     <div class="requests-section-header">
                                         <h4>✅ Recent Activity</h4>
@@ -537,45 +550,8 @@
 
                     <!-- Lyrics Editor Tab -->
                     <div id="editor-tab" class="tab-pane">
-                        <div class="editor-container">
-                            <div class="editor-header">
-                                <div class="editor-controls">
-                                    <button id="editorSaveBtn" class="editor-btn" disabled>
-                                        💾 Save Changes
-                                    </button>
-                                    <button id="exportLyricsBtn" class="editor-btn" disabled>
-                                        📄 Export Lyrics
-                                    </button>
-                                    <button id="addNewLine" class="editor-btn" disabled>
-                                        + Add Line
-                                    </button>
-                                    <button id="resetLyrics" class="editor-btn" disabled>
-                                        ↶ Reset
-                                    </button>
-                                    <label class="editor-checkbox">
-                                        <input type="checkbox" id="analyzeVocals">
-                                        Analyze vocals
-                                    </label>
-                                </div>
-                                <canvas id="vocalsWaveform" width="3800" height="80"></canvas>
-                            </div>
-
-                            <div class="editor-content">
-                                <div class="editor-column-full">
-                                    <div class="lyrics-editor">
-                                        <div id="lyricsLines" class="lyrics-lines">
-                                            <div class="no-lyrics-message">Load a KAI file to edit lyrics</div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="editor-player">
-                                <span class="audio-label">IEM</span>
-                                <audio id="editorAudio" controls></audio>
-                            </div>
-
-                        </div>
+                        <!-- React Song Editor -->
+                        <div id="react-editor-root" style="height: 100%; display: flex; flex-direction: column;"></div>
                     </div>
                 </div>
             </div>
@@ -725,14 +701,14 @@
     <script src="js/karaokeRenderer.js"></script>
     <script src="js/cdgRenderer.js"></script>
     <script src="js/audioEngine.js"></script>
-    <script type="module" src="js/lyricsEditor.js"></script>
+    <!-- <script type="module" src="js/lyricsEditor.js"></script> --> <!-- Replaced by React SongEditor -->
     <script src="js/mixer.js"></script>
     <script src="js/player.js"></script>
     <script src="js/coaching.js"></script>
-    <script type="module" src="js/effects.js"></script>
-    <script src="js/requests.js"></script>
-    <script type="module" src="js/editor.js"></script>
-    <script type="module" src="js/library.js"></script>
+    <!-- <script type="module" src="js/effects.js"></script> --> <!-- Replaced by React EffectsPanel -->
+    <!-- <script src="js/requests.js"></script> --> <!-- Replaced by React RequestsList -->
+    <!-- <script type="module" src="js/editor.js"></script> --> <!-- Replaced by React SongEditor -->
+    <!-- <script type="module" src="js/library.js"></script> --> <!-- Replaced by React LibraryPanel -->
     <script type="module" src="js/queue.js"></script>
     <script type="module" src="js/main.js"></script>
 

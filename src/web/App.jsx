@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
 import { WebBridge } from './adapters/WebBridge.js';
-import { PlayerControls } from '../shared/components/PlayerControls';
-import { QueueList as SharedQueueList } from '../shared/components/QueueList';
-import { MixerPanel as SharedMixerPanel } from '../shared/components/MixerPanel';
-import { EffectsPanel as SharedEffectsPanel } from '../shared/components/EffectsPanel';
-import { SongSearch } from './components/SongSearch';
-import { RequestsList } from './components/RequestsList';
-import { PlayerSettingsPanel } from './components/PlayerSettingsPanel';
+import { PlayerControls } from '../shared/components/PlayerControls.jsx';
+import { QueueList } from '../shared/components/QueueList.jsx';
+import { MixerPanel } from '../shared/components/MixerPanel.jsx';
+import { EffectsPanel } from '../shared/components/EffectsPanel.jsx';
+import { LibraryPanel } from '../shared/components/LibraryPanel.jsx';
+import { RequestsList } from '../shared/components/RequestsList.jsx';
+import { SongEditor } from '../shared/components/SongEditor.jsx';
 import './App.css';
 
 function LoginScreen({ onLogin, error }) {
@@ -61,8 +61,10 @@ export function App() {
   const [queue, setQueue] = useState([]);
   const [mixer, setMixer] = useState(null);
   const [effects, setEffects] = useState(null);
-  const [audioTab, setAudioTab] = useState('mixer');
+  const [currentTab, setCurrentTab] = useState('queue');
   const [requests, setRequests] = useState([]);
+  const [effectsSearch, setEffectsSearch] = useState('');
+  const [effectsCategory, setEffectsCategory] = useState('all');
 
   // Check authentication on mount
   useEffect(() => {
@@ -319,8 +321,52 @@ export function App() {
         </button>
       </header>
 
-      <main className="app-main">
-        <div className="left-column">
+      <div className="tab-nav">
+        <button
+          className={`tab-btn ${currentTab === 'queue' ? 'active' : ''}`}
+          onClick={() => setCurrentTab('queue')}
+        >
+          Queue
+        </button>
+        <button
+          className={`tab-btn ${currentTab === 'library' ? 'active' : ''}`}
+          onClick={() => setCurrentTab('library')}
+        >
+          Library
+        </button>
+        <button
+          className={`tab-btn ${currentTab === 'mixer' ? 'active' : ''}`}
+          onClick={() => setCurrentTab('mixer')}
+        >
+          Audio Settings
+        </button>
+        <button
+          className={`tab-btn ${currentTab === 'effects' ? 'active' : ''}`}
+          onClick={() => setCurrentTab('effects')}
+        >
+          Effects
+        </button>
+        <button
+          className={`tab-btn ${currentTab === 'requests' ? 'active' : ''}`}
+          onClick={() => setCurrentTab('requests')}
+        >
+          Requests
+          {requests.filter(r => r.status === 'pending').length > 0 && (
+            <span className="badge">
+              {requests.filter(r => r.status === 'pending').length}
+            </span>
+          )}
+        </button>
+        <button
+          className={`tab-btn ${currentTab === 'editor' ? 'active' : ''}`}
+          onClick={() => setCurrentTab('editor')}
+        >
+          Song Editor
+        </button>
+      </div>
+
+      <main className="tab-content">
+        <div className={`tab-pane ${currentTab === 'queue' ? 'active' : ''}`}>
           <PlayerControls
             playback={playback}
             currentSong={currentSong}
@@ -333,86 +379,71 @@ export function App() {
             onPreviousEffect={handleEffectPrevious}
             onNextEffect={handleEffectNext}
           />
-
-          <SongSearch />
-
-          <SharedQueueList
+          <QueueList
             queue={queue}
-            currentIndex={currentSong ? queue.findIndex(item => item.path === currentSong.path) : -1}
-            onPlayFromQueue={handlePlayFromQueue}
-            onRemoveFromQueue={handleRemoveFromQueue}
-            onClearQueue={handleClearQueue}
+            currentSongId={currentSong?.path}
+            onLoad={handlePlayFromQueue}
+            onRemove={handleRemoveFromQueue}
+            onClear={handleClearQueue}
           />
         </div>
 
-        <div className="right-column">
-          <div className="settings-panel">
-            <div className="settings-header">
-              <div className="tab-buttons">
-                <button
-                  className={`tab-btn ${audioTab === 'mixer' ? 'active' : ''}`}
-                  onClick={() => setAudioTab('mixer')}
-                >
-                  Audio Settings
-                </button>
-                <button
-                  className={`tab-btn ${audioTab === 'effects' ? 'active' : ''}`}
-                  onClick={() => setAudioTab('effects')}
-                >
-                  Visual Effects
-                </button>
-                <button
-                  className={`tab-btn ${audioTab === 'player' ? 'active' : ''}`}
-                  onClick={() => setAudioTab('player')}
-                >
-                  Player Settings
-                </button>
-                <button
-                  className={`tab-btn ${audioTab === 'requests' ? 'active' : ''}`}
-                  onClick={() => setAudioTab('requests')}
-                >
-                  Requests
-                  {requests.filter(r => r.status === 'pending').length > 0 && (
-                    <span className="badge">
-                      {requests.filter(r => r.status === 'pending').length}
-                    </span>
-                  )}
-                </button>
-              </div>
-            </div>
+        <div className={`tab-pane ${currentTab === 'library' ? 'active' : ''}`}>
+          <LibraryPanel bridge={bridge} />
+        </div>
 
-            <div className="settings-content">
-              {audioTab === 'mixer' && (
-                <SharedMixerPanel
-                  mixerState={mixer}
-                  onSetMasterGain={handleGainChange}
-                  onToggleMasterMute={handleMuteToggle}
-                />
-              )}
+        <div className={`tab-pane ${currentTab === 'mixer' ? 'active' : ''}`}>
+          <MixerPanel
+            mixer={mixer}
+            onGainChange={handleGainChange}
+            onMuteToggle={handleMuteToggle}
+          />
+        </div>
 
-              {audioTab === 'effects' && (
-                <SharedEffectsPanel
-                  effects={effects?.list || []}
-                  currentEffect={effects?.current}
-                  disabledEffects={effects?.disabled || []}
-                  searchTerm=""
-                  currentCategory="all"
-                  onSelectEffect={handleEffectSelect}
-                  onRandomEffect={handleEffectRandom}
-                  onDisableEffect={(name) => handleEffectToggle(name, false)}
-                  onEnableEffect={(name) => handleEffectToggle(name, true)}
-                />
-              )}
+        <div className={`tab-pane ${currentTab === 'effects' ? 'active' : ''}`}>
+          <EffectsPanel
+            effects={effects?.list || []}
+            currentEffect={effects?.current}
+            disabledEffects={effects?.disabled || []}
+            searchTerm={effectsSearch}
+            currentCategory={effectsCategory}
+            onSearch={setEffectsSearch}
+            onCategoryChange={setEffectsCategory}
+            onSelectEffect={handleEffectSelect}
+            onRandomEffect={handleEffectRandom}
+            onEnableEffect={(name) => handleEffectToggle(name, true)}
+            onDisableEffect={(name) => handleEffectToggle(name, false)}
+          />
+        </div>
 
-              {audioTab === 'player' && (
-                <PlayerSettingsPanel />
-              )}
+        <div className={`tab-pane ${currentTab === 'requests' ? 'active' : ''}`}>
+          <RequestsList
+            requests={requests}
+            onApprove={async (requestId) => {
+              try {
+                await fetch(`/admin/requests/${requestId}/approve`, {
+                  method: 'POST',
+                  credentials: 'include'
+                });
+              } catch (err) {
+                console.error('Approve failed:', err);
+              }
+            }}
+            onReject={async (requestId) => {
+              try {
+                await fetch(`/admin/requests/${requestId}/reject`, {
+                  method: 'POST',
+                  credentials: 'include'
+                });
+              } catch (err) {
+                console.error('Reject failed:', err);
+              }
+            }}
+          />
+        </div>
 
-              {audioTab === 'requests' && (
-                <RequestsList requests={requests} bridge={bridge} />
-              )}
-            </div>
-          </div>
+        <div className={`tab-pane ${currentTab === 'editor' ? 'active' : ''}`}>
+          <SongEditor bridge={bridge} />
         </div>
       </main>
     </div>

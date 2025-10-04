@@ -9,11 +9,24 @@
 
 import { BridgeInterface } from '../../shared/adapters/BridgeInterface.js';
 
+let _instance = null;
+
 export class ElectronBridge extends BridgeInterface {
   constructor() {
+    if (_instance) {
+      return _instance;
+    }
     super();
     this.api = window.kaiAPI;
     this.listeners = new Map(); // Track listeners for cleanup
+    _instance = this;
+  }
+
+  static getInstance() {
+    if (!_instance) {
+      _instance = new ElectronBridge();
+    }
+    return _instance;
   }
 
   // ===== Player Controls =====
@@ -47,11 +60,11 @@ export class ElectronBridge extends BridgeInterface {
   }
 
   async addToQueue(song) {
-    return await this.api.queue.add(song);
+    return await this.api.queue.addSong(song);
   }
 
   async removeFromQueue(id) {
-    return await this.api.queue.remove(id);
+    return await this.api.queue.removeSong(id);
   }
 
   async clearQueue() {
@@ -59,11 +72,20 @@ export class ElectronBridge extends BridgeInterface {
   }
 
   async reorderQueue(fromIndex, toIndex) {
-    return await this.api.queue.reorder(fromIndex, toIndex);
+    // TODO: Not implemented in preload API yet
+    console.warn('reorderQueue not implemented in preload API');
+    return { success: false };
   }
 
   async playNext() {
-    return await this.api.queue.playNext();
+    // TODO: Not implemented in preload API yet
+    console.warn('playNext not implemented in preload API');
+    return { success: false };
+  }
+
+  async playFromQueue(songId) {
+    // Load song by path (songId is the file path)
+    return await this.api.file.loadKaiFromPath(songId);
   }
 
   // ===== Mixer Controls =====
@@ -97,6 +119,14 @@ export class ElectronBridge extends BridgeInterface {
     return await this.api.effects.select(effectName);
   }
 
+  async enableEffect(effectName) {
+    return await this.api.effects.toggle(effectName, true);
+  }
+
+  async disableEffect(effectName) {
+    return await this.api.effects.toggle(effectName, false);
+  }
+
   async toggleEffect(effectName, enabled) {
     return await this.api.effects.toggle(effectName, enabled);
   }
@@ -125,6 +155,120 @@ export class ElectronBridge extends BridgeInterface {
 
   async searchSongs(query) {
     return await this.api.library.search(query);
+  }
+
+  async getSongsFolder() {
+    const result = await this.api.library.getSongsFolder();
+    return result.folder;
+  }
+
+  async setSongsFolder() {
+    const result = await this.api.library.setSongsFolder();
+    return result.folder;
+  }
+
+  async getCachedLibrary() {
+    const result = await this.api.library.getCachedSongs();
+    return result;
+  }
+
+  async syncLibrary() {
+    const result = await this.api.library.syncLibrary();
+    return result;
+  }
+
+  async loadSong(path) {
+    return await this.api.file.loadKaiFromPath(path);
+  }
+
+  // ===== Song Editor =====
+
+  async loadSongForEditing(path) {
+    // Load the KAI file for editing (using editor.loadKai which doesn't affect playback)
+    const result = await this.api.editor.loadKai(path);
+    if (!result.success) {
+      return { success: false, error: result.error };
+    }
+
+    const songData = result.data;
+
+    // Create blob URLs for audio files (for Audio element playback)
+    const audioFiles = songData.audio?.sources?.map(source => {
+      // Create blob URL from audioData buffer
+      const blob = new Blob([source.audioData], { type: 'audio/mpeg' });
+      const downloadUrl = URL.createObjectURL(blob);
+
+      return {
+        name: source.name,
+        filename: source.filename,
+        audioData: source.audioData, // Keep raw data for waveform analysis
+        downloadUrl: downloadUrl // Blob URL for Audio element
+      };
+    }) || [];
+
+    // Return in the format expected by SongEditor
+    return {
+      success: true,
+      data: {
+        format: 'kai',
+        metadata: songData.metadata || {},
+        lyrics: songData.lyrics || [],
+        audioFiles: audioFiles,
+        songJson: songData.originalSongJson || {}
+      }
+    };
+  }
+
+  async saveSongEdits(updates) {
+    const { path, metadata, lyrics, format } = updates;
+
+    if (format === 'kai') {
+      // Build the song object for KaiWriter
+      const songData = {
+        song: {
+          title: metadata.title,
+          artist: metadata.artist,
+          album: metadata.album,
+          year: metadata.year,
+          genre: metadata.genre,
+          key: metadata.key
+        },
+        lyrics: lyrics
+      };
+
+      // Include meta if rejections/suggestions were updated
+      if (metadata.rejections !== undefined || metadata.suggestions !== undefined) {
+        songData.meta = { corrections: {} };
+
+        if (metadata.rejections !== undefined) {
+          songData.meta.corrections.rejected = metadata.rejections.map(r => ({
+            line: r.line_num,
+            start: r.start_time,
+            end: r.end_time,
+            old: r.old_text,
+            new: r.new_text,
+            reason: r.reason,
+            word_retention: r.retention_rate
+          }));
+        }
+
+        if (metadata.suggestions !== undefined) {
+          songData.meta.corrections.missing_lines_suggested = metadata.suggestions.map(s => ({
+            suggested_text: s.suggested_text,
+            start: s.start_time,
+            end: s.end_time,
+            confidence: s.confidence,
+            reason: s.reason,
+            pitch_activity: s.pitch_activity
+          }));
+        }
+      }
+
+      const result = await this.api.editor.saveKai(songData, path);
+      return result;
+    }
+
+    return { success: false, error: 'Unsupported format' };
   }
 
   // ===== Preferences =====
@@ -162,62 +306,81 @@ export class ElectronBridge extends BridgeInterface {
 
   // ===== State Subscriptions =====
 
+  onPlaybackStateChanged(callback) {
+    // Use IPC event instead of polling
+    const handler = (event, state) => callback(state);
+    this.api.player.onPlaybackState(handler);
+
+    // Return cleanup function
+    return () => this.api.player.removePlaybackListener(handler);
+  }
+
+  onCurrentSongChanged(callback) {
+    // Use IPC event instead of polling
+    const handler = (event, song) => callback(song);
+    this.api.song.onChanged(handler);
+
+    // Return cleanup function
+    return () => this.api.song.removeChangedListener(handler);
+  }
+
+  onQueueChanged(callback) {
+    // Use IPC event instead of polling
+    const handler = (event, queue) => {
+      // Get current song from app state
+      this.api.app.getState().then(state => {
+        callback({ queue, currentSong: state.currentSong });
+      });
+    };
+    this.api.queue.onUpdated(handler);
+
+    // Return cleanup function
+    return () => this.api.queue.removeUpdatedListener(handler);
+  }
+
+  onMixerChanged(callback) {
+    // Use IPC event instead of polling
+    const handler = (event, mixer) => callback(mixer);
+    this.api.mixer.onStateChange(handler);
+
+    // Return cleanup function
+    return () => this.api.mixer.removeStateListener(handler);
+  }
+
+  onEffectChanged(callback) {
+    // Use IPC event instead of polling
+    const handler = (event, effects) => callback(effects);
+    this.api.effects.onChanged(handler);
+
+    // Return cleanup function
+    return () => this.api.effects.removeChangedListener(handler);
+  }
+
   onStateChange(domain, callback) {
-    // Map domain to IPC channel
-    const channelMap = {
-      'mixer': 'mixer:state',
-      'queue': 'queue:updated',
-      'playback': 'playback:state',
-      'effects': 'effects:changed',
-      'preferences': 'preferences:updated'
-    };
-
-    const channel = channelMap[domain];
-    if (!channel) {
-      console.warn(`No IPC channel mapping for domain: ${domain}`);
-      return () => {};
+    // Use the specific on* methods for each domain
+    switch (domain) {
+      case 'playback':
+        return this.onPlaybackStateChanged(callback);
+      case 'mixer':
+        return this.onMixerChanged(callback);
+      case 'queue':
+        return this.onQueueChanged(callback);
+      case 'effects':
+        return this.onEffectChanged(callback);
+      case 'preferences': {
+        const handler = (event, prefs) => callback(prefs);
+        this.api.preferences.onUpdated(handler);
+        return () => this.api.preferences.removeUpdatedListener(handler);
+      }
+      default:
+        console.warn(`No state change handler for domain: ${domain}`);
+        return () => {};
     }
-
-    // Wrap callback to handle IPC event format
-    const wrappedCallback = (event, data) => {
-      callback(data);
-    };
-
-    // Subscribe via appropriate kaiAPI method
-    if (domain === 'mixer' && this.api.mixer.onStateChange) {
-      this.api.mixer.onStateChange(wrappedCallback);
-    } else if (domain === 'queue' && this.api.queue.onChange) {
-      this.api.queue.onChange(wrappedCallback);
-    } else if (domain === 'effects' && this.api.effects.onChange) {
-      this.api.effects.onChange(wrappedCallback);
-    }
-
-    // Track for cleanup
-    if (!this.listeners.has(domain)) {
-      this.listeners.set(domain, []);
-    }
-    this.listeners.get(domain).push(wrappedCallback);
-
-    // Return unsubscribe function
-    return () => this.offStateChange(domain, callback);
   }
 
   offStateChange(domain, callback) {
-    const listeners = this.listeners.get(domain);
-    if (!listeners) return;
-
-    // Find and remove listener
-    const index = listeners.indexOf(callback);
-    if (index > -1) {
-      listeners.splice(index, 1);
-    }
-
-    // Clean up via kaiAPI if available
-    if (domain === 'mixer' && this.api.mixer.removeStateListener) {
-      this.api.mixer.removeStateListener(callback);
-    } else if (domain === 'queue' && this.api.queue.offChange) {
-      this.api.queue.offChange(callback);
-    }
+    // No longer needed - cleanup functions returned directly from onStateChange
+    console.warn('offStateChange is deprecated - use the cleanup function returned from onStateChange instead');
   }
 
   // ===== Lifecycle =====
@@ -228,10 +391,8 @@ export class ElectronBridge extends BridgeInterface {
   }
 
   async disconnect() {
-    // Clean up all listeners
-    for (const [domain, listeners] of this.listeners.entries()) {
-      listeners.forEach(listener => this.offStateChange(domain, listener));
-    }
+    // Cleanup is now handled by the cleanup functions returned from each subscription
+    // Components should call the cleanup functions when they unmount
     this.listeners.clear();
     console.log('✅ ElectronBridge disconnected');
   }

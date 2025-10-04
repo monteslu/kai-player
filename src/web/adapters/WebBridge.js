@@ -189,6 +189,44 @@ export class WebBridge extends BridgeInterface {
     return await this._fetch(`/library/search?q=${encodeURIComponent(query)}`);
   }
 
+  async loadSongForEditing(path) {
+    return await this._fetch('/editor/load', {
+      method: 'POST',
+      body: JSON.stringify({ path })
+    });
+  }
+
+  async saveSongEdits(updates) {
+    return await this._fetch('/editor/save', {
+      method: 'POST',
+      body: JSON.stringify(updates)
+    });
+  }
+
+  async getSongsFolder() {
+    const data = await this._fetch('/library/folder');
+    return data.folder;
+  }
+
+  async setSongsFolder() {
+    return await this._fetch('/library/folder', { method: 'POST' });
+  }
+
+  async getCachedLibrary() {
+    return await this._fetch('/library/songs');
+  }
+
+  async syncLibrary() {
+    return await this._fetch('/library/sync', { method: 'POST' });
+  }
+
+  async loadSong(path) {
+    return await this._fetch('/player/load', {
+      method: 'POST',
+      body: JSON.stringify({ path })
+    });
+  }
+
   // ===== Preferences =====
 
   async getPreferences() {

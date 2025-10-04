@@ -116,6 +116,14 @@ export class BridgeInterface {
     throw new Error('searchSongs() not implemented');
   }
 
+  async loadSongForEditing(path) {
+    throw new Error('loadSongForEditing() not implemented');
+  }
+
+  async saveSongEdits(updates) {
+    throw new Error('saveSongEdits() not implemented');
+  }
+
   // ===== Preferences =====
 
   async getPreferences() {

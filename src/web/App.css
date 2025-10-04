@@ -14,7 +14,8 @@ body {
 .app {
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
 }
 
 .app-header {
@@ -24,6 +25,7 @@ body {
   padding: var(--spacing-md) var(--spacing-lg);
   background: var(--bg-secondary);
   border-bottom: 1px solid var(--border-secondary);
+  flex-shrink: 0;
 }
 
 .app-header h1 {
@@ -32,27 +34,70 @@ body {
   font-weight: 600;
 }
 
-.app-main {
+/* Tab Navigation */
+.tab-nav {
   display: flex;
-  gap: var(--spacing-lg);
-  padding: var(--spacing-lg);
-  flex: 1;
+  gap: 4px;
+  padding: var(--spacing-sm) var(--spacing-lg);
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-secondary);
+  flex-shrink: 0;
 }
 
-.left-column {
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-lg);
-  flex: 1;
-  min-width: 400px;
+.tab-btn {
+  padding: var(--spacing-sm) var(--spacing-lg);
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-secondary);
+  font-size: var(--font-size-base);
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
 }
 
-.right-column {
+.tab-btn:hover {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.tab-btn.active {
+  color: var(--accent-primary);
+  border-bottom-color: var(--accent-primary);
+}
+
+.tab-btn .badge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  background: var(--accent-error);
+  color: white;
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 10px;
+  font-weight: 600;
+}
+
+/* Tab Content */
+.tab-content {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-lg);
-  flex: 2;
-  min-width: 600px;
+}
+
+.tab-pane {
+  display: none;
+  flex-direction: column;
+  height: 100%;
+  gap: var(--spacing-md);
+  padding: var(--spacing-md);
+  overflow: auto;
+}
+
+.tab-pane.active {
+  display: flex;
 }
 
 /* Login Screen */
@@ -134,74 +179,13 @@ body {
   color: var(--text-secondary);
 }
 
-/* Button Styles */
-.btn {
-  padding: var(--spacing-sm) var(--spacing-md);
-  background: var(--btn-bg);
-  border: 1px solid var(--border-primary);
-  border-radius: var(--radius-md);
-  color: var(--text-primary);
-  font-size: var(--font-size-md);
-  font-weight: 500;
-  cursor: pointer;
-  transition: all var(--transition-normal);
-}
+/* Button Styles - base styles moved to shared theme.css */
 
-.btn:hover {
-  background: var(--btn-bg-hover);
-}
-
-.btn:active {
-  transform: scale(0.98);
-}
-
-.btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.btn-primary {
-  background: var(--accent-primary);
-  border-color: var(--accent-primary);
-  width: 100%;
-}
-
-.btn-primary:hover {
-  background: #0098ff;
-}
-
-.btn-sm {
-  padding: 6px 12px;
-  font-size: var(--font-size-sm);
-  min-height: 32px;
-}
-
+/* Web-specific button variants */
 .btn-xs {
   padding: 2px 8px;
   font-size: 11px;
   min-height: 24px;
-}
-
-.btn-danger {
-  background: transparent;
-  color: var(--accent-error);
-  border-color: var(--accent-error);
-}
-
-.btn-danger:hover {
-  background: var(--accent-error);
-  color: var(--text-primary);
-}
-
-.btn-success {
-  background: transparent;
-  color: var(--accent-success);
-  border-color: var(--accent-success);
-}
-
-.btn-success:hover {
-  background: var(--accent-success);
-  color: var(--text-primary);
 }
 
 .btn-secondary {
@@ -225,94 +209,6 @@ body {
 }
 
 /* Responsive Design */
-@media (max-width: 1200px) {
-  .app-main {
-    flex-direction: column;
-  }
-
-  .left-column,
-  .right-column {
-    min-width: 0;
-  }
-}
-
-/* Settings Panel with Tabs */
-.settings-panel {
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-secondary);
-  border-radius: var(--radius-md);
-  overflow: hidden;
-}
-
-.settings-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: var(--spacing-md);
-  border-bottom: 1px solid var(--border-secondary);
-}
-
-.settings-header h2 {
-  margin: 0;
-  font-size: var(--font-size-lg);
-  font-weight: 600;
-}
-
-.tab-buttons {
-  display: flex;
-  gap: var(--spacing-xs);
-}
-
-.tab-btn {
-  position: relative;
-  padding: var(--spacing-sm) var(--spacing-md);
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border-secondary);
-  border-radius: var(--radius-sm);
-  color: var(--text-secondary);
-  font-size: var(--font-size-sm);
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.tab-btn:hover {
-  background: var(--bg-primary);
-  color: var(--text-primary);
-}
-
-.tab-btn.active {
-  background: var(--accent-primary);
-  color: white;
-  border-color: var(--accent-primary);
-}
-
-.tab-btn .badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 20px;
-  height: 20px;
-  padding: 0 6px;
-  background: #dc2626;
-  color: white;
-  border-radius: 10px;
-  font-size: 11px;
-  font-weight: 600;
-  line-height: 1;
-}
-
-.tab-btn.active .badge {
-  background: #991b1b;
-}
-
-.settings-content {
-  /* Content styling handled by child components */
-  min-height: 400px; /* Prevent layout shift */
-}
 
 /* Text utilities */
 .text-muted {

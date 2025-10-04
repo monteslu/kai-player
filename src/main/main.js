@@ -66,19 +66,23 @@ class KaiPlayerApp {
   }
 
   setupStateListeners() {
-    // When playback state changes, broadcast to web clients
+    // When playback state changes, broadcast to web clients AND renderer
     this.appState.on('playbackStateChanged', (playbackState, changes) => {
       if (this.webServer) {
         this.webServer.broadcastPlaybackState(playbackState);
       }
+      // Send to renderer for React components
+      this.sendToRenderer('playback:state', playbackState);
     });
 
-    // When current song changes, broadcast to web clients
+    // When current song changes, broadcast to web clients AND renderer
     this.appState.on('currentSongChanged', (song) => {
       if (this.webServer && song) {
         // Pass the complete song object to preserve path and requester
         this.webServer.broadcastSongLoaded(song);
       }
+      // Send to renderer for React components
+      this.sendToRenderer('song:changed', song);
     });
 
     // When queue changes, broadcast to web clients and renderer
@@ -95,24 +99,29 @@ class KaiPlayerApp {
       this.sendToRenderer('queue:updated', queue);
     });
 
-    // When mixer changes, broadcast to web clients
+    // When mixer changes, broadcast to web clients AND renderer
     this.appState.on('mixerChanged', (mixer) => {
       if (this.webServer) {
         this.webServer.io?.emit('mixer-update', mixer);
       }
+      // Send to renderer for React components
+      this.sendToRenderer('mixer:state', mixer);
     });
 
-    // When effects change, broadcast to web clients
+    // When effects change, broadcast to web clients AND renderer
     this.appState.on('effectsChanged', (effects) => {
+      // Get disabled effects from settings, not AppState
+      const waveformPrefs = this.settings.get('waveformPreferences', {});
+      const effectsWithCorrectDisabled = {
+        ...effects,
+        disabled: waveformPrefs.disabledEffects || []
+      };
+
       if (this.webServer) {
-        // Get disabled effects from settings, not AppState
-        const waveformPrefs = this.settings.get('waveformPreferences', {});
-        const effectsWithCorrectDisabled = {
-          ...effects,
-          disabled: waveformPrefs.disabledEffects || []
-        };
         this.webServer.io?.emit('effects-update', effectsWithCorrectDisabled);
       }
+      // Send to renderer for React components
+      this.sendToRenderer('effects:changed', effectsWithCorrectDisabled);
     });
 
     // When preferences change, broadcast to web clients AND renderer
@@ -1280,21 +1289,40 @@ class KaiPlayerApp {
       return false;
     });
 
+    // Load KAI file for editing (without loading into player)
+    ipcMain.handle('editor:loadKai', async (event, filePath) => {
+      try {
+        console.log('Load KAI file for editing:', filePath);
+
+        const editorService = await import('../shared/services/editorService.js');
+        const result = await editorService.loadSong(filePath);
+
+        console.log('KAI file loaded for editing, has lyrics:', result.kaiData.lyrics?.length || 0);
+
+        return {
+          success: true,
+          data: result.kaiData
+        };
+      } catch (error) {
+        console.error('Failed to load KAI file for editing:', error);
+        return { success: false, error: error.message };
+      }
+    });
+
     ipcMain.handle('editor:saveKai', async (event, kaiData, originalPath) => {
       try {
         console.log('Save KAI file request:', originalPath);
         console.log('Updated lyrics:', kaiData.lyrics.length, 'lines');
-        
-        // Use KaiWriter to save the updated lyrics back to the KAI file
-        const result = await KaiWriter.save(kaiData, originalPath);
-        
-        if (result.success) {
-          console.log('KAI file saved successfully');
-          return { success: true };
-        } else {
-          console.error('Failed to save KAI file:', result.error);
-          return { success: false, error: result.error };
-        }
+
+        const editorService = await import('../shared/services/editorService.js');
+        const result = await editorService.saveSong(originalPath, {
+          format: 'kai',
+          metadata: kaiData.song || {},
+          lyrics: kaiData.lyrics
+        });
+
+        console.log('KAI file saved successfully');
+        return { success: true };
       } catch (error) {
         console.error('Failed to save KAI file:', error);
         return { success: false, error: error.message };
@@ -1459,6 +1487,11 @@ class KaiPlayerApp {
       }
     });
 
+    // Library handlers
+    ipcMain.handle('library:search', (event, query) => {
+      return libraryService.searchSongs(this, query);
+    });
+
     // Queue handlers - need to stay in main.js due to auto-load and legacy songQueue sync
 
     ipcMain.handle('queue:addSong', async (event, queueItem) => {
@@ -1566,6 +1599,67 @@ class KaiPlayerApp {
       }
     });
 
+    ipcMain.handle('effects:next', async () => {
+      try {
+        const result = await effectsService.nextEffect(this);
+        return result;
+      } catch (error) {
+        console.error('Failed to go to next effect:', error);
+        return { success: false, error: error.message };
+      }
+    });
+
+    ipcMain.handle('effects:previous', async () => {
+      try {
+        const result = await effectsService.previousEffect(this);
+        return result;
+      } catch (error) {
+        console.error('Failed to go to previous effect:', error);
+        return { success: false, error: error.message };
+      }
+    });
+
+    ipcMain.handle('effects:random', async () => {
+      try {
+        const result = await effectsService.randomEffect(this);
+        return result;
+      } catch (error) {
+        console.error('Failed to select random effect:', error);
+        return { success: false, error: error.message };
+      }
+    });
+
+    // Preferences handlers
+    ipcMain.handle('preferences:setAutoTune', async (event, prefs) => {
+      try {
+        const result = await preferencesService.updateAutoTunePreferences(this.appState, prefs);
+        return result;
+      } catch (error) {
+        console.error('Failed to update auto-tune preferences:', error);
+        return { success: false, error: error.message };
+      }
+    });
+
+    ipcMain.handle('preferences:setMicrophone', async (event, prefs) => {
+      try {
+        const result = await preferencesService.updateMicrophonePreferences(this.appState, prefs);
+        return result;
+      } catch (error) {
+        console.error('Failed to update microphone preferences:', error);
+        return { success: false, error: error.message };
+      }
+    });
+
+    ipcMain.handle('preferences:setEffects', async (event, prefs) => {
+      try {
+        const result = await preferencesService.updateEffectsPreferences(this.appState, prefs);
+        return result;
+      } catch (error) {
+        console.error('Failed to update effects preferences:', error);
+        return { success: false, error: error.message };
+      }
+    });
+
     // Settings handlers moved to src/main/handlers/settingsHandlers.js (but need web socket broadcast logic)
 
     ipcMain.handle('settings:set', (event, key, value) => {
@@ -1599,11 +1693,24 @@ class KaiPlayerApp {
     ipcMain.on('renderer:playbackState', (event, state) => {
       // Store the renderer playback state for position broadcasting
       this.rendererPlaybackState = state;
+
+      // Broadcast to web admin clients for real-time position updates
+      if (this.webServer) {
+        this.webServer.broadcastPlaybackState(state);
+      }
     });
 
     // NEW: Renderer state updates to AppState
     ipcMain.on('renderer:updatePlaybackState', (event, updates) => {
+      console.log('📡 Main received renderer:updatePlaybackState:', updates);
       this.appState.updatePlaybackState(updates);
+
+      // Also broadcast immediately to web admin for responsive updates
+      if (this.webServer && updates) {
+        console.log('📡 Broadcasting to web clients:', updates);
+        // Broadcast the updates directly - they already contain position/duration
+        this.webServer.broadcastPlaybackState(updates);
+      }
     });
 
     ipcMain.on('renderer:songLoaded', (event, songData) => {
@@ -2064,6 +2171,17 @@ class KaiPlayerApp {
       }
 
       this.currentSong = kaiData;
+
+      // Update AppState with new song (this resets position to 0)
+      const songData = {
+        path: filePath,
+        title: kaiData.metadata?.title || 'Unknown',
+        artist: kaiData.metadata?.artist || 'Unknown',
+        duration: kaiData.metadata?.duration || 0,
+        requester: kaiData.requester || 'KJ'
+      };
+      this.appState.setCurrentSong(songData);
+
       console.log('Sending to renderer:', {
         metadata: kaiData.metadata,
         hasMetadata: !!kaiData.metadata
@@ -2131,6 +2249,17 @@ class KaiPlayerApp {
       // For now, just set current song and notify renderer
 
       this.currentSong = cdgData;
+
+      // Update AppState with current song info
+      const songData = {
+        path: mp3Path,
+        title: cdgData.metadata?.title || 'Unknown',
+        artist: cdgData.metadata?.artist || 'Unknown',
+        duration: cdgData.metadata?.duration || 0,
+        requester: cdgData.requester || 'KJ'
+      };
+      this.appState.setCurrentSong(songData);
+
       console.log('💿 CDG loaded, sending to renderer');
       this.sendToRenderer('song:loaded', cdgData.metadata || {});
       this.sendToRenderer('song:data', cdgData);
@@ -2226,7 +2355,8 @@ class KaiPlayerApp {
       this.sendToRenderer('library:scanProgress', { current: 0, total: totalFiles });
 
       // Now process files with metadata extraction and progress updates
-      const files = await this.scanForKaiFilesWithProgress(songsFolder, totalFiles);
+      // Pass null for progressCallback since this.sendToRenderer() is called directly in the method
+      const files = await this.scanForKaiFilesWithProgress(songsFolder, totalFiles, null);
       console.log(`✅ Library scan complete: ${files.length} songs found`);
 
       // Store in main process
@@ -2533,7 +2663,7 @@ class KaiPlayerApp {
     return files;
   }
 
-  async scanForKaiFilesWithProgress(folderPath, totalFiles) {
+  async scanForKaiFilesWithProgress(folderPath, totalFiles, progressCallback) {
     let processedCount = 0;
     const files = [];
     const processedPaths = new Set();
@@ -2543,10 +2673,19 @@ class KaiPlayerApp {
       const now = Date.now();
       // Throttle to max once per second to avoid overwhelming the renderer
       if (force || now - lastProgressReport >= 1000) {
-        this.sendToRenderer('library:scanProgress', {
+        const progressData = {
           current: processedCount,
           total: totalFiles
-        });
+        };
+
+        // Send to renderer
+        this.sendToRenderer('library:scanProgress', progressData);
+
+        // Call progress callback if provided (for libraryService)
+        if (progressCallback) {
+          progressCallback(progressData);
+        }
+
         lastProgressReport = now;
       }
     };

@@ -752,6 +752,358 @@ class WebServer {
             }
         });
 
+        // Get songs folder
+        this.app.get('/admin/library/folder', (req, res) => {
+            try {
+                const folder = this.mainApp.settings?.getSongsFolder?.();
+                res.json({ folder: folder || null });
+            } catch (error) {
+                console.error('Error getting songs folder:', error);
+                res.status(500).json({ error: 'Failed to get songs folder' });
+            }
+        });
+
+        // Get cached library songs
+        this.app.get('/admin/library/songs', (req, res) => {
+            try {
+                res.json({
+                    success: true,
+                    files: this.cachedSongs || [],
+                    cached: this.cachedSongs !== null
+                });
+            } catch (error) {
+                console.error('Error getting cached songs:', error);
+                res.status(500).json({ error: 'Failed to get cached songs' });
+            }
+        });
+
+        // Sync library (quick scan for changes)
+        this.app.post('/admin/library/sync', async (req, res) => {
+            try {
+                const result = await libraryService.syncLibrary(this.mainApp);
+                if (result.success) {
+                    await libraryService.updateLibraryCache(this.mainApp, result.files);
+                }
+                res.json(result);
+            } catch (error) {
+                console.error('Error syncing library:', error);
+                res.status(500).json({ error: 'Failed to sync library' });
+            }
+        });
+
+        // Search library
+        this.app.get('/admin/library/search', (req, res) => {
+            try {
+                const query = req.query.q || '';
+                const result = libraryService.searchSongs(this.mainApp, query);
+                res.json(result);
+            } catch (error) {
+                console.error('Library search failed:', error);
+                res.status(500).json({
+                    success: false,
+                    error: error.message,
+                    songs: []
+                });
+            }
+        });
+
+        // Load song for editing
+        this.app.post('/admin/editor/load', async (req, res) => {
+            try {
+                const { path } = req.body;
+
+                const editorService = await import('../shared/services/editorService.js');
+                const result = await editorService.loadSong(path);
+
+                // For KAI files, add download URLs for audio playback
+                if (result.format === 'kai') {
+                    const audioFiles = result.kaiData.audio.sources.map(source => {
+                        const filename = source.filename || source.name;
+                        const fileId = Buffer.from(`${path}:${filename}`).toString('base64url');
+
+                        return {
+                            name: source.name,
+                            filename: filename,
+                            downloadUrl: `/admin/editor/kai-audio/${fileId}`
+                        };
+                    });
+
+                    res.json({
+                        success: true,
+                        data: {
+                            format: 'kai',
+                            metadata: result.kaiData.metadata || {},
+                            lyrics: result.kaiData.lyrics || [],
+                            audioFiles: audioFiles,
+                            songJson: result.kaiData.originalSongJson || {}
+                        }
+                    });
+                } else {
+                    // For CDG+MP3, read ID3 tags from MP3 file
+                    const pathModule = await import('path');
+                    const fs = await import('fs/promises');
+
+                    // Find the MP3 file - the path might be .cdg or .mp3
+                    let mp3Path;
+                    if (path.toLowerCase().endsWith('.cdg')) {
+                        mp3Path = path.replace(/\.cdg$/i, '.mp3');
+                    } else if (path.toLowerCase().endsWith('.mp3')) {
+                        mp3Path = path;
+                    } else {
+                        return res.json({
+                            success: false,
+                            error: 'Invalid file format'
+                        });
+                    }
+
+                    // Check if MP3 file exists
+                    try {
+                        await fs.access(mp3Path);
+                    } catch (err) {
+                        return res.json({
+                            success: false,
+                            error: `MP3 file not found: ${mp3Path}`
+                        });
+                    }
+
+                    // Read ID3 tags using music-metadata
+                    const mm = await import('music-metadata');
+                    const mmData = await mm.parseFile(mp3Path);
+
+                    // Extract key from comment field if present
+                    let key = '';
+                    if (mmData.common && mmData.common.comment) {
+                        const comments = Array.isArray(mmData.common.comment)
+                            ? mmData.common.comment
+                            : [mmData.common.comment];
+
+                        for (const comment of comments) {
+                            // Convert to string if it's an object
+                            const commentStr = typeof comment === 'string' ? comment : String(comment);
+                            const keyMatch = commentStr.match(/Key:\s*(.+)/i);
+                            if (keyMatch) {
+                                key = keyMatch[1];
+                                break;
+                            }
+                        }
+                    }
+
+                    res.json({
+                        success: true,
+                        data: {
+                            format: 'cdg-pair',
+                            metadata: {
+                                title: mmData.common?.title || '',
+                                artist: mmData.common?.artist || '',
+                                album: mmData.common?.album || '',
+                                year: mmData.common?.year ? String(mmData.common.year) : '',
+                                genre: mmData.common?.genre ? mmData.common.genre[0] : '',
+                                key: key
+                            },
+                            lyrics: null
+                        }
+                    });
+                }
+            } catch (error) {
+                console.error('Failed to load song for editing:', error);
+                res.status(500).json({
+                    success: false,
+                    error: error.message
+                });
+            }
+        });
+
+        // Download KAI audio file
+        this.app.get('/admin/editor/kai-audio/:fileId', async (req, res) => {
+            try {
+                const { fileId } = req.params;
+
+                // Decode the fileId to get path and filename
+                const decoded = Buffer.from(fileId, 'base64url').toString('utf8');
+                const [kaiPath, filename] = decoded.split(':');
+
+                // Load the KAI file to extract the audio
+                const KaiLoader = (await import('../utils/kaiLoader.js')).default;
+                const kaiData = await KaiLoader.load(kaiPath);
+
+                // Find the audio file
+                const audioSource = kaiData.audio.sources.find(s => {
+                    const sourceName = s.filename || s.name;
+                    return sourceName === filename;
+                });
+
+                if (!audioSource || !audioSource.audioData) {
+                    return res.status(404).json({
+                        success: false,
+                        error: 'Audio file not found in KAI archive'
+                    });
+                }
+
+                // Send the audio file
+                const ext = filename.split('.').pop().toLowerCase();
+                const mimeTypes = {
+                    'mp3': 'audio/mpeg',
+                    'wav': 'audio/wav',
+                    'flac': 'audio/flac'
+                };
+
+                res.setHeader('Content-Type', mimeTypes[ext] || 'application/octet-stream');
+                res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+                res.send(audioSource.audioData);
+            } catch (error) {
+                console.error('Failed to download KAI audio:', error);
+                res.status(500).json({
+                    success: false,
+                    error: error.message
+                });
+            }
+        });
+
+        // Save song edits
+        this.app.post('/admin/editor/save', async (req, res) => {
+            try {
+                const { path, format, metadata, lyrics } = req.body;
+                if (!path) {
+                    return res.status(400).json({
+                        success: false,
+                        error: 'Path is required'
+                    });
+                }
+
+                // For KAI files, save metadata and lyrics
+                if (format === 'kai') {
+                    const editorService = await import('../shared/services/editorService.js');
+                    await editorService.saveSong(path, { format, metadata, lyrics });
+
+                    // Update cached library entry if it exists
+                    if (this.mainApp.cachedLibrary) {
+                        const songIndex = this.mainApp.cachedLibrary.findIndex(s => s.path === path);
+                        if (songIndex !== -1) {
+                            // Update the cached song metadata
+                            this.mainApp.cachedLibrary[songIndex] = {
+                                ...this.mainApp.cachedLibrary[songIndex],
+                                title: metadata.title !== undefined ? metadata.title : this.mainApp.cachedLibrary[songIndex].title,
+                                artist: metadata.artist !== undefined ? metadata.artist : this.mainApp.cachedLibrary[songIndex].artist,
+                                album: metadata.album !== undefined ? metadata.album : this.mainApp.cachedLibrary[songIndex].album,
+                                year: metadata.year !== undefined ? metadata.year : this.mainApp.cachedLibrary[songIndex].year,
+                                genre: metadata.genre !== undefined ? metadata.genre : this.mainApp.cachedLibrary[songIndex].genre,
+                                key: metadata.key !== undefined ? metadata.key : this.mainApp.cachedLibrary[songIndex].key
+                            };
+
+                            // Notify renderer about the update
+                            this.mainApp.sendToRenderer('library:songUpdated', {
+                                path: path,
+                                metadata: this.mainApp.cachedLibrary[songIndex]
+                            });
+
+                            // Notify web clients about the update
+                            this.io.emit('library:songUpdated', {
+                                path: path,
+                                metadata: this.mainApp.cachedLibrary[songIndex]
+                            });
+                        }
+                    }
+
+                    res.json({
+                        success: true,
+                        message: 'Song saved successfully'
+                    });
+                } else {
+                    // For CDG+MP3, save ID3 tags to the MP3 file
+                    const pathModule = await import('path');
+                    const fs = await import('fs/promises');
+
+                    // Find the MP3 file - the path might be .cdg or .mp3
+                    let mp3Path;
+                    if (path.toLowerCase().endsWith('.cdg')) {
+                        mp3Path = path.replace(/\.cdg$/i, '.mp3');
+                    } else if (path.toLowerCase().endsWith('.mp3')) {
+                        mp3Path = path;
+                    } else {
+                        return res.json({
+                            success: false,
+                            error: 'Invalid file format'
+                        });
+                    }
+
+                    // Check if MP3 file exists
+                    try {
+                        await fs.access(mp3Path);
+                    } catch (err) {
+                        return res.json({
+                            success: false,
+                            error: `MP3 file not found: ${mp3Path}`
+                        });
+                    }
+
+                    // Write ID3 tags
+                    const NodeID3Module = await import('node-id3');
+                    const NodeID3 = NodeID3Module.default || NodeID3Module;
+
+                    const tags = {
+                        title: metadata.title !== undefined ? metadata.title : '',
+                        artist: metadata.artist !== undefined ? metadata.artist : '',
+                        album: metadata.album !== undefined ? metadata.album : '',
+                        year: metadata.year !== undefined ? metadata.year : '',
+                        genre: metadata.genre !== undefined ? metadata.genre : '',
+                        comment: {
+                            language: 'eng',
+                            text: metadata.key !== undefined && metadata.key ? `Key: ${metadata.key}` : ''
+                        }
+                    };
+
+                    const success = NodeID3.write(tags, mp3Path);
+
+                    if (success) {
+                        // Update cached library entry if it exists
+                        if (this.mainApp.cachedLibrary) {
+                            const songIndex = this.mainApp.cachedLibrary.findIndex(s => s.path === path);
+                            if (songIndex !== -1) {
+                                // Update the cached song metadata
+                                this.mainApp.cachedLibrary[songIndex] = {
+                                    ...this.mainApp.cachedLibrary[songIndex],
+                                    title: metadata.title !== undefined ? metadata.title : this.mainApp.cachedLibrary[songIndex].title,
+                                    artist: metadata.artist !== undefined ? metadata.artist : this.mainApp.cachedLibrary[songIndex].artist,
+                                    album: metadata.album !== undefined ? metadata.album : this.mainApp.cachedLibrary[songIndex].album,
+                                    year: metadata.year !== undefined ? metadata.year : this.mainApp.cachedLibrary[songIndex].year,
+                                    genre: metadata.genre !== undefined ? metadata.genre : this.mainApp.cachedLibrary[songIndex].genre,
+                                    key: metadata.key !== undefined ? metadata.key : this.mainApp.cachedLibrary[songIndex].key
+                                };
+
+                                // Notify renderer about the update
+                                this.mainApp.sendToRenderer('library:songUpdated', {
+                                    path: path,
+                                    metadata: this.mainApp.cachedLibrary[songIndex]
+                                });
+
+                                // Notify web clients about the update
+                                this.io.emit('library:songUpdated', {
+                                    path: path,
+                                    metadata: this.mainApp.cachedLibrary[songIndex]
+                                });
+                            }
+                        }
+
+                        res.json({
+                            success: true,
+                            message: 'Song saved successfully'
+                        });
+                    } else {
+                        res.json({
+                            success: false,
+                            error: 'Failed to write ID3 tags'
+                        });
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to save song edits:', error);
+                res.status(500).json({
+                    success: false,
+                    error: error.message
+                });
+            }
+        });
+
         // Refresh library cache
         this.app.post('/admin/library/refresh', async (req, res) => {
             try {
@@ -761,21 +1113,13 @@ class WebServer {
                 const result = await libraryService.scanLibrary(this.mainApp);
 
                 if (result.success) {
-                    // Update web server cache
-                    this.cachedSongs = result.files;
-                    this.songsCacheTime = Date.now();
-                    this.fuse = null; // Reset Fuse.js - will rebuild on next search
-
-                    // Notify all web-ui clients to refresh their alphabet navigation
-                    this.io.emit('library-refreshed', {
-                        songsCount: this.cachedSongs.length,
-                        timestamp: this.songsCacheTime
-                    });
+                    // Update all caches (mainApp, webServer, disk)
+                    await libraryService.updateLibraryCache(this.mainApp, result.files);
 
                     res.json({
                         success: true,
-                        message: `Library refreshed successfully. Found ${this.cachedSongs.length} songs.`,
-                        songsCount: this.cachedSongs.length,
+                        message: `Library refreshed successfully. Found ${result.files.length} songs.`,
+                        songsCount: result.files.length,
                         cacheTime: this.songsCacheTime
                     });
                 } else {

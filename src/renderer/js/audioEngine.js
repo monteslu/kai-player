@@ -269,6 +269,9 @@ class RendererAudioEngine {
         // Report song loaded to main process
         this.reportSongLoaded();
 
+        // Report initial playback state with position reset to 0
+        this.reportStateChange();
+
         return true;
     }
 
@@ -277,11 +280,15 @@ class RendererAudioEngine {
      */
     reportStateChange() {
         if (window.kaiAPI?.renderer) {
-            window.kaiAPI.renderer.updatePlaybackState({
+            const state = {
                 isPlaying: this.isPlaying,
                 position: this.getCurrentPosition(),
                 duration: this.getDuration()
-            });
+            };
+            console.log('🎵 AudioEngine reporting state:', state);
+            window.kaiAPI.renderer.updatePlaybackState(state);
+        } else {
+            console.warn('⚠️ kaiAPI.renderer not available for reportStateChange');
         }
     }
 
@@ -309,8 +316,10 @@ class RendererAudioEngine {
     startStateReporting() {
         this.stopStateReporting();
 
+        console.log('🎯 startStateReporting() called, setting up interval');
         // Report state every 100ms (10x/sec)
         this.stateReportInterval = setInterval(() => {
+            console.log('⏰ Interval tick, isPlaying:', this.isPlaying);
             if (this.isPlaying) {
                 this.reportStateChange();
             }

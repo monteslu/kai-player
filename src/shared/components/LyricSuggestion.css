@@ -1,0 +1,145 @@
+/* Suggestion Box */
+.lyric-suggestion-box {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--accent-info);
+  border-radius: 4px;
+  padding: 8px;
+  margin: 6px 0;
+  font-size: 13px;
+}
+
+.suggestion-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.suggestion-label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 600;
+  color: var(--accent-info);
+  font-size: 12px;
+}
+
+.suggestion-label .material-icons {
+  font-size: 14px;
+}
+
+.suggestion-delete-btn {
+  background: transparent;
+  border: 1px solid var(--border-primary);
+  border-radius: 4px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 4px 8px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.2s;
+}
+
+.suggestion-delete-btn:hover {
+  background: var(--accent-error);
+  color: white;
+  border-color: var(--accent-error);
+}
+
+.suggestion-delete-btn .material-icons {
+  font-size: 16px;
+}
+
+.suggestion-content {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.suggestion-text-display {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  border-radius: 4px;
+  padding: 6px;
+}
+
+.suggestion-text-display label {
+  display: block;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+.suggested-text-content {
+  color: var(--text-primary);
+  font-size: 12px;
+  line-height: 1.3;
+  min-height: 24px;
+}
+
+.suggestion-details {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: 11px;
+  color: var(--text-secondary);
+  padding: 4px 0;
+  border-top: 1px solid var(--border-tertiary);
+}
+
+.suggestion-confidence {
+  font-weight: 600;
+  color: var(--accent-success);
+}
+
+.suggestion-reason {
+  font-style: italic;
+}
+
+.suggestion-pitch {
+  color: var(--accent-warning);
+}
+
+.suggestion-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.accept-suggestion-btn,
+.copy-suggestion-btn {
+  flex: 1;
+  padding: 4px 8px;
+  border: 1px solid var(--border-primary);
+  border-radius: 3px;
+  background: var(--btn-bg);
+  color: var(--text-primary);
+  cursor: pointer;
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  transition: all 0.2s;
+}
+
+.accept-suggestion-btn {
+  background: var(--accent-success);
+  border-color: var(--accent-success);
+  color: white;
+}
+
+.accept-suggestion-btn:hover {
+  background: #388e3c;
+}
+
+.copy-suggestion-btn:hover {
+  background: var(--btn-bg-hover);
+}
+
+.accept-suggestion-btn .material-icons,
+.copy-suggestion-btn .material-icons {
+  font-size: 12px;
+}

@@ -38,6 +38,9 @@ class CDGRenderer {
         this.effectsEnabled = true;
         this.overlayOpacity = 0.7; // Default, will be updated from settings
 
+        // State reporting interval
+        this.stateReportInterval = null;
+
         console.log('💿 CDG Renderer initialized');
     }
 
@@ -163,6 +166,12 @@ class CDGRenderer {
         this.startTime = this.audioContext.currentTime - offset;
 
         this.startRendering();
+
+        // Start state reporting
+        this.startStateReporting();
+
+        // Report immediate state change
+        this.reportStateChange();
     }
 
     pause() {
@@ -171,6 +180,12 @@ class CDGRenderer {
 
         // Store current position before stopping
         this.pauseTime = this.getCurrentTime();
+
+        // Stop state reporting
+        this.stopStateReporting();
+
+        // Report paused state
+        this.reportStateChange();
 
         // Stop audio source (and clear onended handler to prevent false song-end events)
         if (this.audioSource) {
@@ -343,6 +358,39 @@ class CDGRenderer {
 
     getDuration() {
         return this.audioBuffer ? this.audioBuffer.duration : 0;
+    }
+
+    reportStateChange() {
+        if (window.kaiAPI?.renderer) {
+            const state = {
+                isPlaying: this.isPlaying,
+                position: this.getCurrentTime(),
+                duration: this.getDuration()
+            };
+            console.log('💿 CDG reporting state:', state);
+            window.kaiAPI.renderer.updatePlaybackState(state);
+        } else {
+            console.warn('⚠️ kaiAPI.renderer not available for CDG reportStateChange');
+        }
+    }
+
+    startStateReporting() {
+        this.stopStateReporting();
+
+        console.log('🎯 CDG startStateReporting() called, setting up interval');
+        // Report state every 100ms (10x/sec)
+        this.stateReportInterval = setInterval(() => {
+            if (this.isPlaying) {
+                this.reportStateChange();
+            }
+        }, 100);
+    }
+
+    stopStateReporting() {
+        if (this.stateReportInterval) {
+            clearInterval(this.stateReportInterval);
+            this.stateReportInterval = null;
+        }
     }
 
     setAudioContext(audioContext, gainNode, analyserNode) {

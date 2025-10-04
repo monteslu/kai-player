@@ -1,3 +1,6 @@
+/* Import shared theme */
+@import '../../shared/styles/theme.css';
+
 @font-face {
     font-family: 'Material Icons';
     font-style: normal;
@@ -747,6 +750,7 @@ body {
     display: none;
     height: 100%;
     overflow: auto;
+    padding: 16px;
 }
 
 .tab-pane.active {
@@ -1975,198 +1979,7 @@ body {
     background: #002200;
 }
 
-/* Library Tab Styles */
-.library-container {
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-}
-
-.library-header {
-    background: #2a2a2a;
-    padding: 12px 16px;
-    border-bottom: 1px solid #444;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 12px;
-}
-
-.library-controls {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-}
-
-.library-btn {
-    background: #007acc;
-    color: white;
-    border: none;
-    padding: 8px 16px;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 13px;
-    font-weight: 500;
-    transition: background-color 0.2s ease;
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-}
-
-.library-btn .material-icons {
-    font-size: 18px;
-}
-
-.library-btn:hover {
-    background: #005a9e;
-}
-
-.library-btn:disabled {
-    background: #555;
-    cursor: not-allowed;
-}
-
-.library-search input {
-    background: #1a1a1a;
-    border: 1px solid #444;
-    color: white;
-    padding: 8px 12px;
-    border-radius: 4px;
-    font-size: 13px;
-    width: 200px;
-}
-
-.library-search input:focus {
-    outline: none;
-    border-color: #007acc;
-}
-
-.library-info {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    font-size: 12px;
-    color: #aaa;
-}
-
-.library-content {
-    flex: 1;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-}
-
-.library-table {
-    flex: 1;
-    overflow-y: auto;
-}
-
-.library-table table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 13px;
-}
-
-.library-table thead {
-    background: #2a2a2a;
-    border-bottom: 2px solid #444;
-    position: sticky;
-    top: 0;
-    z-index: 1;
-}
-
-.library-table th {
-    padding: 12px 8px;
-    text-align: left;
-    font-weight: 600;
-    color: #ccc;
-    border-right: 1px solid #444;
-}
-
-.library-table th:last-child {
-    border-right: none;
-}
-
-.library-table tbody {
-    display: block;
-    height: calc(100% - 45px);
-    overflow-y: auto;
-}
-
-.library-table thead, .library-table tbody tr {
-    display: table;
-    width: 100%;
-    table-layout: fixed;
-}
-
-.library-table tbody tr {
-    border-bottom: 1px solid #333;
-    cursor: pointer;
-    transition: background-color 0.2s ease;
-}
-
-.library-table tbody tr:hover {
-    background: #2a2a2a;
-}
-
-.library-table tbody tr.selected {
-    background: #1e3a5f;
-}
-
-.library-table td {
-    padding: 4px 4px;
-    border-right: 1px solid #333;
-    color: white;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.library-table td:last-child {
-    border-right: none;
-}
-
-/* Column widths */
-.col-title { width: 20%; }
-.col-artist { width: 15%; }
-.col-album { width: 15%; }
-.col-genre { width: 10%; }
-.col-key { width: 6%; }
-.col-duration { width: 7%; }
-.col-year { width: 6%; }
-.col-stems { width: 14%; }
-.col-actions { width: 7%; }
-
-.library-empty {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: 200px;
-    color: #666;
-    text-align: center;
-}
-
-.library-empty-row td {
-    height: 400px;
-}
-
-.empty-icon {
-    font-size: 48px;
-    margin-bottom: 16px;
-}
-
-.empty-message {
-    font-size: 18px;
-    font-weight: 500;
-    margin-bottom: 8px;
-}
-
-.empty-detail {
-    font-size: 14px;
-    opacity: 0.8;
-}
+/* Library Tab Styles - Now using shared React component */
 
 .progress-container {
     margin-top: 20px;

@@ -99,9 +99,15 @@ class KaiWriter {
             // Update song metadata including rejections if present
             if (kaiData.song) {
               updatedSongJson.song = { ...updatedSongJson.song, ...kaiData.song };
-              console.log('KaiWriter: Updated song metadata, rejections:', kaiData.song.lyric_update_rejections?.length || 0);
+              console.log('KaiWriter: Updated song metadata');
             }
-            
+
+            // Update meta object if provided (for AI corrections)
+            if (kaiData.meta) {
+              updatedSongJson.meta = { ...updatedSongJson.meta, ...kaiData.meta };
+              console.log('KaiWriter: Updated meta object, rejections:', kaiData.meta.corrections?.rejected?.length || 0, 'suggestions:', kaiData.meta.corrections?.missing_lines_suggested?.length || 0);
+            }
+
             console.log('KaiWriter: Updated song.json with', kaiData.lyrics.length, 'lyrics lines');
 
             // Create new ZIP file

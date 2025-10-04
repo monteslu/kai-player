@@ -1,0 +1,210 @@
+/* Lyric Line Editor */
+.lyric-line-editor {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  background: var(--bg-secondary);
+  border: 2px solid var(--border-secondary);
+  border-radius: 4px;
+  margin-bottom: 8px;
+  transition: all 0.2s;
+  cursor: pointer;
+}
+
+.lyric-line-editor:hover {
+  background: var(--bg-tertiary);
+  border-color: var(--border-primary);
+}
+
+.lyric-line-editor.selected {
+  border-color: var(--accent-primary);
+  background: var(--bg-hover, rgba(0, 100, 255, 0.1));
+}
+
+.lyric-line-editor.disabled {
+  opacity: 0.5;
+  background: var(--bg-tertiary);
+}
+
+.lyric-line-editor.backup {
+  border-left: 4px solid rgba(255, 200, 0, 0.7);
+}
+
+.line-number {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 36px;
+  height: 36px;
+  background: var(--btn-bg);
+  border: 1px solid var(--border-primary);
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.line-number:hover {
+  background: var(--accent-primary);
+  color: #fff;
+}
+
+.time-inputs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.time-input {
+  width: 70px;
+  padding: 6px 8px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-primary);
+  border-radius: 4px;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-family: monospace;
+  text-align: center;
+}
+
+.time-input:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+}
+
+.time-separator {
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.text-input {
+  flex: 1;
+  padding: 8px 12px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-primary);
+  border-radius: 4px;
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
+.text-input:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+}
+
+.line-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text-secondary);
+  user-select: none;
+}
+
+.checkbox-label input[type="checkbox"] {
+  display: none;
+}
+
+.checkbox-custom {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--border-primary);
+  border-radius: 3px;
+  background: var(--bg-tertiary);
+  transition: all 0.2s;
+}
+
+.checkbox-label input[type="checkbox"]:checked + .checkbox-custom {
+  background: var(--accent-primary);
+  border-color: var(--accent-primary);
+}
+
+.checkbox-label input[type="checkbox"]:checked + .checkbox-custom::after {
+  content: '✓';
+  display: block;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+  line-height: 14px;
+}
+
+.line-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.btn-icon {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--btn-bg);
+  border: 1px solid var(--border-primary);
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 16px;
+  transition: all 0.2s;
+}
+
+.btn-icon:hover:not(:disabled) {
+  background: var(--btn-bg-hover);
+  border-color: var(--accent-primary);
+}
+
+.btn-icon:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.toggle-btn.toggle-enabled {
+  color: var(--accent-success);
+}
+
+.toggle-btn.toggle-disabled {
+  color: var(--accent-error);
+}
+
+.delete-btn:hover {
+  background: var(--accent-error);
+  border-color: var(--accent-error);
+}
+
+.add-after-btn:hover:not(:disabled) {
+  background: var(--accent-success);
+  border-color: var(--accent-success);
+}
+
+/* Lyrics Lines Container */
+.lyrics-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 12px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.no-lyrics-message {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--text-secondary);
+  font-size: 16px;
+}

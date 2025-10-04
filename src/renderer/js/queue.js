@@ -1,4 +1,5 @@
 import { getFormatIcon, formatDuration } from '../../shared/formatUtils.js';
+import { ElectronBridge } from '../adapters/ElectronBridge.js';
 
 class QueueManager {
     constructor() {
@@ -514,30 +515,35 @@ class QueueManager {
     async handleQuickSearch(searchTerm) {
         const resultsContainer = document.getElementById('quickSearchResults');
         if (!resultsContainer) return;
-        
+
         if (!searchTerm.trim()) {
             this.hideSearchDropdown();
             return;
         }
 
-        // Get library data (assuming window.libraryManager exists)
-        if (!window.libraryManager || !window.libraryManager.songs) {
-            resultsContainer.innerHTML = '<div class="no-search-message">Library not loaded</div>';
-            this.showSearchDropdown();
-            return;
-        }
+        // Use bridge to search songs
+        const bridge = ElectronBridge.getInstance();
+        let matches;
 
-        const searchLower = searchTerm.toLowerCase();
-        const matches = window.libraryManager.songs
-            .filter(song =>
-                song.title?.toLowerCase().includes(searchLower) ||
-                song.artist?.toLowerCase().includes(searchLower)
-            )
-            .sort((a, b) => a.title.localeCompare(b.title))
-            .slice(0, 8); // Limit to first 8 results for dropdown
+        try {
+            const result = await bridge.searchSongs(searchTerm);
 
-        if (matches.length === 0) {
-            resultsContainer.innerHTML = '<div class="no-search-message">No matches found</div>';
+            if (!result.success || !result.songs) {
+                resultsContainer.innerHTML = '<div class="no-search-message">Search failed</div>';
+                this.showSearchDropdown();
+                return;
+            }
+
+            matches = result.songs.slice(0, 8); // Limit to first 8 results for dropdown
+
+            if (matches.length === 0) {
+                resultsContainer.innerHTML = '<div class="no-search-message">No matches found</div>';
+                this.showSearchDropdown();
+                return;
+            }
+        } catch (error) {
+            console.error('Quick search error:', error);
+            resultsContainer.innerHTML = '<div class="no-search-message">Search error</div>';
             this.showSearchDropdown();
             return;
         }
@@ -565,7 +571,7 @@ class QueueManager {
             btn.addEventListener('click', async (e) => {
                 e.stopPropagation();
                 const songPath = btn.dataset.songPath;
-                const song = window.libraryManager.songs.find(s => s.path === songPath);
+                const song = matches.find(s => s.path === songPath);
                 if (song) {
                     const wasQueueEmpty = this.queue.length === 0;
                     const queueItem = this.addSong(song);
@@ -602,7 +608,7 @@ class QueueManager {
             btn.addEventListener('click', async (e) => {
                 e.stopPropagation();
                 const songPath = btn.dataset.songPath;
-                const song = window.libraryManager.songs.find(s => s.path === songPath);
+                const song = matches.find(s => s.path === songPath);
                 if (song) {
                     const queueItem = this.addSongToTop(song);
                     const title = song.title || song.name.replace('.kai', '');

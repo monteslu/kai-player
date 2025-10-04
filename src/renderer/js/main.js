@@ -1,8 +1,8 @@
 console.log('🎮 main.js loaded and executing');
 
-import { LyricsEditorController } from './editor.js';
+// import { LyricsEditorController } from './editor.js'; // Replaced by React SongEditor
 import { QueueManager } from './queue.js';
-import { EffectsManager } from './effects.js';
+// import { EffectsManager } from './effects.js'; // Replaced by React EffectsPanelWrapper
 import { setAppInstance } from './appInstance.js';
 
 class KaiPlayerApp {
@@ -45,7 +45,10 @@ class KaiPlayerApp {
         
         // Debounce timer for random effects
         this.randomEffectTimeout = null;
-        
+
+        // Effects data - will be populated by React EffectsPanelWrapper
+        this.effectsData = null;
+
         this.init();
     }
 
@@ -82,19 +85,20 @@ class KaiPlayerApp {
         this.mixer = new MixerController(this.audioEngine);
         this.player = new PlayerController(this.audioEngine);
         this.coaching = new CoachingController();
-        this.editor = new LyricsEditorController();
+        // this.editor = new LyricsEditorController(); // Replaced by React SongEditor
 
         // Initialize queue and effects managers (used to be window globals)
         this.queueManager = new QueueManager();
-        this.effectsManager = new EffectsManager();
+        // this.effectsManager = new EffectsManager(); // Replaced by React EffectsPanelWrapper
 
         // Sync effects manager with renderer after initialization
-        setTimeout(() => {
-            if (this.effectsManager) {
-                this.effectsManager.syncWithRenderer();
-                console.log('🎨 EffectsManager initialized. Disabled effects:', Array.from(this.effectsManager.disabledEffects));
-            }
-        }, 500);
+        // (Now handled by React EffectsPanelWrapper)
+        // setTimeout(() => {
+        //     if (this.effectsManager) {
+        //         this.effectsManager.syncWithRenderer();
+        //         console.log('🎨 EffectsManager initialized. Disabled effects:', Array.from(this.effectsManager.disabledEffects));
+        //     }
+        // }, 500);
 
         // Update mixer UI with loaded state from audioEngine
         if (this.mixer) {
@@ -143,10 +147,10 @@ class KaiPlayerApp {
             // Listen for seek commands from web admin
             window.kaiAPI.events.on('player:seek', (event, positionSec) => {
                 console.log('📥 Received seek command from web admin:', positionSec);
-                if (this.audioEngine && this.audioEngine.seek) {
-                    this.audioEngine.seek(positionSec);
+                if (this.player && this.player.setPosition) {
+                    this.player.setPosition(positionSec);
                 } else {
-                    console.error('❌ AudioEngine not available or seek not supported');
+                    console.error('❌ Player not available or seek not supported');
                 }
             });
         }
@@ -338,29 +342,19 @@ class KaiPlayerApp {
             }
         });
 
-        // Effect control event listeners
-        kaiAPI.effect.onNext(() => {
-            console.log('🎨 Received next effect command from admin');
-            if (this.effectsManager) {
-                this.effectsManager.nextEffect();
-            }
-        });
+        // Effect control event listeners - REMOVED (now handled by React EffectsPanelWrapper)
+        // kaiAPI.effect.onNext(() => { ... });
+        // kaiAPI.effect.onPrevious(() => { ... });
 
-        kaiAPI.effect.onPrevious(() => {
-            console.log('🎨 Received previous effect command from admin');
-            if (this.effectsManager) {
-                this.effectsManager.previousEffect();
-            }
-        });
-
-        // Effects management handlers for admin interface - need to handle as IPC responses
+        // Effects management handlers - read from React EffectsPanelWrapper's exposed data
         kaiAPI.events.on('effects:getList', (event) => {
-            if (this.effectsManager && this.effectsManager.presets) {
-                const effects = this.effectsManager.presets.map(preset => ({
-                    name: preset.name,
-                    displayName: preset.displayName || preset.name,
-                    author: preset.author || 'Unknown',
-                    category: preset.category || 'uncategorized'
+            // Get effects from React component's exposed data
+            if (this.effectsData?.effects) {
+                const effects = this.effectsData.effects.map(effect => ({
+                    name: effect.name,
+                    displayName: effect.displayName || effect.name,
+                    author: effect.author || 'Unknown',
+                    category: effect.category || 'uncategorized'
                 }));
                 event.sender.send('effects:getList-response', effects);
             } else {
@@ -369,42 +363,15 @@ class KaiPlayerApp {
         });
 
         kaiAPI.events.on('effects:getCurrent', (event) => {
-            let currentEffect = null;
-            if (this.player && this.player.karaokeRenderer) {
-                const renderer = this.player.karaokeRenderer;
-                if (renderer.effectType === 'butterchurn' && renderer.currentPreset) {
-                    currentEffect = renderer.currentPreset;
-                }
-            }
+            // Get current effect from React component's exposed data
+            const currentEffect = this.effectsData?.currentEffect || null;
             event.sender.send('effects:getCurrent-response', currentEffect);
         });
 
         kaiAPI.events.on('effects:getDisabled', (event) => {
-            let disabledEffects = [];
-            if (this.effectsManager && this.effectsManager.disabledEffects) {
-                disabledEffects = Array.from(this.effectsManager.disabledEffects);
-            }
+            // Get disabled effects from React component's exposed data
+            const disabledEffects = this.effectsData?.disabledEffects || [];
             event.sender.send('effects:getDisabled-response', disabledEffects);
-        });
-
-        kaiAPI.events.on('effects:select', (event, effectName) => {
-            console.log('🎨 Admin selecting effect:', effectName);
-            if (this.effectsManager) {
-                this.effectsManager.selectEffect(effectName);
-            }
-        });
-
-        kaiAPI.events.on('effects:toggle', (event, data) => {
-            console.log('🎨 Admin toggling effect:', data.effectName, 'enabled:', data.enabled);
-            if (this.effectsManager) {
-                if (data.enabled) {
-                    this.effectsManager.disabledEffects.delete(data.effectName);
-                } else {
-                    this.effectsManager.disabledEffects.add(data.effectName);
-                }
-                this.effectsManager.saveDisabledEffects();
-                this.effectsManager.filterAndDisplayPresets();
-            }
         });
 
         // Admin control event listeners
@@ -464,47 +431,12 @@ class KaiPlayerApp {
             }
         });
 
-        // Effects control event listeners from admin
-        window.kaiAPI.events.on('effects:next', () => {
-            console.log('🎨 Received effects:next from admin');
-            if (this.effectsManager) {
-                this.effectsManager.nextEffect();
-            }
-        });
-
-        window.kaiAPI.events.on('effects:previous', () => {
-            console.log('🎨 Received effects:previous from admin');
-            if (this.effectsManager) {
-                this.effectsManager.previousEffect();
-            }
-        });
-
-        window.kaiAPI.events.on('effects:random', () => {
-            console.log('🎨 Received effects:random from admin');
-            if (this.effectsManager) {
-                this.effectsManager.selectRandomEffect();
-            }
-        });
-
-        window.kaiAPI.events.on('effects:disable', (event, effectName) => {
-            console.log('🎨 Received effects:disable from admin:', effectName);
-            if (this.effectsManager) {
-                if (!this.effectsManager.disabledEffects.has(effectName)) {
-                    this.effectsManager.disabledEffects.add(effectName);
-                    this.effectsManager.displayPresets();
-                }
-            }
-        });
-
-        window.kaiAPI.events.on('effects:enable', (event, effectName) => {
-            console.log('🎨 Received effects:enable from admin:', effectName);
-            if (this.effectsManager) {
-                if (this.effectsManager.disabledEffects.has(effectName)) {
-                    this.effectsManager.disabledEffects.delete(effectName);
-                    this.effectsManager.displayPresets();
-                }
-            }
-        });
+        // Effects control event listeners - REMOVED (now handled by React EffectsPanelWrapper)
+        // window.kaiAPI.events.on('effects:next', () => { ... });
+        // window.kaiAPI.events.on('effects:previous', () => { ... });
+        // window.kaiAPI.events.on('effects:random', () => { ... });
+        // window.kaiAPI.events.on('effects:disable', (event, effectName) => { ... });
+        // window.kaiAPI.events.on('effects:enable', (event, effectName) => { ... });
 
         // Settings update event listeners
         kaiAPI.settings.onUpdate((event, settings) => {
@@ -672,22 +604,8 @@ class KaiPlayerApp {
                             clearTimeout(this.randomEffectTimeout);
                         }
                         
-                        this.randomEffectTimeout = setTimeout(() => {
-                            if (this.effectsManager && typeof this.effectsManager.selectRandomEffect === 'function') {
-                                console.log('🎲 Applying random effect for new song...');
-                                this.effectsManager.selectRandomEffect();
-                            } else {
-                                console.warn('Effects manager not available for random effect');
-                                // Retry once more after a longer delay
-                                setTimeout(() => {
-                                    if (this.effectsManager && typeof this.effectsManager.selectRandomEffect === 'function') {
-                                        console.log('🎲 Retrying random effect selection...');
-                                        this.effectsManager.selectRandomEffect();
-                                    }
-                                }, 1000);
-                            }
-                            this.randomEffectTimeout = null;
-                        }, 500);
+                        // Random effect on song change - now handled by React EffectsPanelWrapper
+                        // this.randomEffectTimeout = setTimeout(() => { ... }, 500);
                     }
                 }
             }
@@ -698,11 +616,12 @@ class KaiPlayerApp {
             if (this.coaching) {
                 this.coaching.onSongLoaded(metadata || {});
             }
-            
-            if (this.editor && this.currentSong) {
-                this.editor.onSongLoaded(this.currentSong);
-            }
-            
+
+            // Editor now handled by React SongEditor component
+            // if (this.editor && this.currentSong) {
+            //     this.editor.onSongLoaded(this.currentSong);
+            // }
+
             if (this.mixer && this.audioEngine) {
                 this.mixer.updateFromAudioEngine();
             }
@@ -1416,8 +1335,7 @@ class KaiPlayerApp {
                     await this.player.pause();
                 }
 
-                // Broadcast playback state to main process
-                this.broadcastPlaybackState();
+                // AudioEngine handles state broadcasting via reportStateChange()
             } else {
                 // Set playing state first
                 this.isPlaying = true;
@@ -1441,8 +1359,7 @@ class KaiPlayerApp {
                 console.log('💿 After play, isPlaying:', this.isPlaying);
             }
 
-            // Broadcast playback state to main process for position broadcasting
-            this.broadcastPlaybackState();
+            // AudioEngine handles state broadcasting via reportStateChange()
         } catch (error) {
             console.error('Playback error:', error);
             this.updateStatus('Playback error');
@@ -1458,12 +1375,14 @@ class KaiPlayerApp {
 
     broadcastPlaybackState() {
         // Send current playback state to main process for position broadcasting
-        const currentTime = this.audioEngine ? this.audioEngine.getCurrentPosition() : 0;
+        const position = this.audioEngine ? this.audioEngine.getCurrentPosition() : 0;
+        const duration = this.audioEngine ? this.audioEngine.getDuration() : 0;
 
         if (typeof kaiAPI !== 'undefined' && kaiAPI.renderer) {
             kaiAPI.renderer.sendPlaybackState({
                 isPlaying: this.isPlaying,
-                currentTime: currentTime
+                position: position,
+                duration: duration
             });
         }
     }
@@ -1481,9 +1400,8 @@ class KaiPlayerApp {
             }
         }
 
-        // Broadcast playback state to main process
-        this.broadcastPlaybackState();
-        
+        // AudioEngine handles state broadcasting via reportStateChange()
+
         // Update status
         this.updateStatus('Song ended');
         
@@ -1564,10 +1482,7 @@ class KaiPlayerApp {
 
                 // Broadcast updated position to main process every 5 updates (~500ms)
                 if (!this.positionUpdateCounter) this.positionUpdateCounter = 0;
-                this.positionUpdateCounter++;
-                if (this.positionUpdateCounter % 5 === 0) {
-                    this.broadcastPlaybackState();
-                }
+                // AudioEngine handles state broadcasting via reportStateChange()
             }
         }, 100);
     }
@@ -1694,10 +1609,10 @@ class KaiPlayerApp {
                 }
             }
             
-            // Reload disabled effects in the effects manager if it's available
-            if (this.effectsManager && typeof this.effectsManager.reloadFromMainPreferences === 'function') {
-                this.effectsManager.reloadFromMainPreferences();
-            }
+            // Reload disabled effects - now handled by React EffectsPanelWrapper
+            // if (this.effectsManager && typeof this.effectsManager.reloadFromMainPreferences === 'function') {
+            //     this.effectsManager.reloadFromMainPreferences();
+            // }
         } catch (error) {
             console.warn('Failed to load waveform preferences:', error);
         }
@@ -1898,10 +1813,10 @@ class KaiPlayerApp {
             effectNameElement.textContent = displayName;
         }
         
-        // Sync the effects manager UI if it's loaded
-        if (this.effectsManager && typeof this.effectsManager.syncWithRenderer === 'function') {
-            this.effectsManager.syncWithRenderer();
-        }
+        // Sync the effects manager UI - now handled by React EffectsPanelWrapper
+        // if (this.effectsManager && typeof this.effectsManager.syncWithRenderer === 'function') {
+        //     this.effectsManager.syncWithRenderer();
+        // }
     }
     
     showLoadingState() {
@@ -2005,6 +1920,9 @@ window.addEventListener('DOMContentLoaded', () => {
 
     // Register app instance for cross-module access via appInstance.js singleton
     setAppInstance(app);
+
+    // Expose on window for React components and IPC handlers
+    window.app = app;
 
     // Also expose on window for debugging in dev tools
     if (process.env.NODE_ENV === 'development') {

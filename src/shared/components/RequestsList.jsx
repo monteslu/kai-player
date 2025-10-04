@@ -1,26 +1,16 @@
 import './RequestsList.css';
 
-export function RequestsList({ requests }) {
+export function RequestsList({ requests, onApprove, onReject }) {
 
   const handleApprove = async (requestId) => {
-    try {
-      await fetch(`/admin/requests/${requestId}/approve`, {
-        method: 'POST',
-        credentials: 'include'
-      });
-    } catch (err) {
-      console.error('Approve failed:', err);
+    if (onApprove) {
+      await onApprove(requestId);
     }
   };
 
   const handleReject = async (requestId) => {
-    try {
-      await fetch(`/admin/requests/${requestId}/reject`, {
-        method: 'POST',
-        credentials: 'include'
-      });
-    } catch (err) {
-      console.error('Reject failed:', err);
+    if (onReject) {
+      await onReject(requestId);
     }
   };
 
@@ -29,8 +19,6 @@ export function RequestsList({ requests }) {
 
   return (
     <div className="requests-panel">
-      <h2>Song Requests</h2>
-
       {pendingRequests.length > 0 && (
         <div className="requests-section">
           <h3>Pending Approval ({pendingRequests.length})</h3>

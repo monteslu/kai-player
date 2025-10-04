@@ -3,9 +3,7 @@
  * Handles song library management operations
  */
 
-import { ipcMain, dialog, app } from 'electron';
-import path from 'path';
-import fsPromises from 'fs/promises';
+import { ipcMain, dialog } from 'electron';
 import { LIBRARY_CHANNELS } from '../../shared/ipcContracts.js';
 import * as libraryService from '../../shared/services/libraryService.js';
 
@@ -47,26 +45,8 @@ export function registerLibraryHandlers(mainApp) {
     });
 
     if (result.success) {
-      // Update web server cache
-      if (mainApp.webServer) {
-        mainApp.webServer.cachedSongs = result.files;
-        mainApp.webServer.songsCacheTime = Date.now();
-        mainApp.webServer.fuse = null; // Reset Fuse.js - will rebuild on next search
-      }
-
-      // Save to disk cache
-      const songsFolder = mainApp.settings.getSongsFolder();
-      const cacheFile = path.join(app.getPath('userData'), 'library-cache.json');
-      try {
-        await fsPromises.writeFile(cacheFile, JSON.stringify({
-          songsFolder,
-          files: result.files,
-          cachedAt: new Date().toISOString()
-        }), 'utf8');
-        console.log('💾 Library cache saved to disk');
-      } catch (err) {
-        console.error('Failed to save library cache:', err);
-      }
+      // Update all caches (mainApp, webServer, disk)
+      await libraryService.updateLibraryCache(mainApp, result.files);
     }
 
     return result;
@@ -79,25 +59,8 @@ export function registerLibraryHandlers(mainApp) {
     });
 
     if (result.success) {
-      // Update web server cache
-      if (mainApp.webServer) {
-        mainApp.webServer.cachedSongs = result.files;
-        mainApp.webServer.songsCacheTime = Date.now();
-        mainApp.webServer.fuse = null;
-      }
-
-      // Save to disk cache
-      const songsFolder = mainApp.settings.getSongsFolder();
-      const cacheFile = path.join(app.getPath('userData'), 'library-cache.json');
-      try {
-        await fsPromises.writeFile(cacheFile, JSON.stringify({
-          songsFolder,
-          files: result.files,
-          cachedAt: new Date().toISOString()
-        }), 'utf8');
-      } catch (err) {
-        console.error('Failed to save library cache:', err);
-      }
+      // Update all caches (mainApp, webServer, disk)
+      await libraryService.updateLibraryCache(mainApp, result.files);
 
       // Return with 'songs' key for renderer compatibility
       return {

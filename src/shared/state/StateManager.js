@@ -22,7 +22,7 @@ class StateManager extends EventEmitter {
       // Playback state
       playback: {
         isPlaying: false,
-        currentTime: 0,
+        position: 0,
         duration: 0,
         volume: 1.0,
         isPaused: false,
@@ -196,7 +196,7 @@ class StateManager extends EventEmitter {
         case 'playback':
           this.state.playback = {
             isPlaying: false,
-            currentTime: 0,
+            position: 0,
             duration: 0,
             volume: 1.0,
             isPaused: false,

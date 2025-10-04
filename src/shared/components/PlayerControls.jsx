@@ -19,7 +19,8 @@ export function PlayerControls({
   onSeek,
   onPreviousEffect,
   onNextEffect,
-  onOpenCanvasWindow
+  onOpenCanvasWindow,
+  className = ''
 }) {
   const { isPlaying, position = 0, duration = 0 } = playback || {};
 
@@ -35,7 +36,7 @@ export function PlayerControls({
   const progress = duration > 0 ? (position / duration) * 100 : 0;
 
   return (
-    <div className="transport-extended">
+    <div className={`transport-extended ${className}`}>
       <div className="play-controls">
         <button
           onClick={onRestart}

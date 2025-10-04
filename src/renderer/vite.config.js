@@ -11,6 +11,7 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     emptyOutDir: true,
+    sourcemap: true,
     rollupOptions: {
       input: path.resolve(__dirname, 'react-entry.jsx'),
       output: {

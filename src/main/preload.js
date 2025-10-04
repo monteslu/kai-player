@@ -39,7 +39,11 @@ const api = {
   player: {
     play: () => ipcRenderer.invoke('player:play'),
     pause: () => ipcRenderer.invoke('player:pause'),
-    seek: (positionSec) => ipcRenderer.invoke('player:seek', positionSec)
+    seek: (positionSec) => ipcRenderer.invoke('player:seek', positionSec),
+    restart: () => ipcRenderer.invoke('player:restart'),
+
+    onPlaybackState: (callback) => ipcRenderer.on('playback:state', callback),
+    removePlaybackListener: (callback) => ipcRenderer.removeListener('playback:state', callback)
   },
   
   autotune: {
@@ -50,12 +54,15 @@ const api = {
   song: {
     onLoaded: (callback) => ipcRenderer.on('song:loaded', callback),
     onData: (callback) => ipcRenderer.on('song:data', callback),
+    onChanged: (callback) => ipcRenderer.on('song:changed', callback),
     removeSongListener: (callback) => ipcRenderer.removeListener('song:loaded', callback),
     removeDataListener: (callback) => ipcRenderer.removeListener('song:data', callback),
+    removeChangedListener: (callback) => ipcRenderer.removeListener('song:changed', callback),
     getCurrentSong: () => ipcRenderer.invoke('song:getCurrentSong')
   },
   
   editor: {
+    loadKai: (filePath) => ipcRenderer.invoke('editor:loadKai', filePath),
     saveKai: (kaiData, originalPath) => ipcRenderer.invoke('editor:saveKai', kaiData, originalPath),
     reloadKai: (filePath) => ipcRenderer.invoke('editor:reloadKai', filePath)
   },
@@ -80,6 +87,7 @@ const api = {
     syncLibrary: () => ipcRenderer.invoke('library:syncLibrary'),
     getCachedSongs: () => ipcRenderer.invoke('library:getCachedSongs'),
     getSongInfo: (filePath) => ipcRenderer.invoke('library:getSongInfo', filePath),
+    search: (query) => ipcRenderer.invoke('library:search', query),
 
     onFolderSet: (callback) => ipcRenderer.on('library:folderSet', callback),
     removeFolderSetListener: (callback) => ipcRenderer.removeListener('library:folderSet', callback)
@@ -109,7 +117,10 @@ const api = {
     addSong: (queueItem) => ipcRenderer.invoke('queue:addSong', queueItem),
     removeSong: (itemId) => ipcRenderer.invoke('queue:removeSong', itemId),
     get: () => ipcRenderer.invoke('queue:get'),
-    clear: () => ipcRenderer.invoke('queue:clear')
+    clear: () => ipcRenderer.invoke('queue:clear'),
+
+    onUpdated: (callback) => ipcRenderer.on('queue:updated', callback),
+    removeUpdatedListener: (callback) => ipcRenderer.removeListener('queue:updated', callback)
   },
 
   effect: {
@@ -117,6 +128,27 @@ const api = {
     onPrevious: (callback) => ipcRenderer.on('effect:previous', callback),
     removeNextListener: (callback) => ipcRenderer.removeListener('effect:next', callback),
     removePreviousListener: (callback) => ipcRenderer.removeListener('effect:previous', callback)
+  },
+
+  effects: {
+    getList: () => ipcRenderer.invoke('effects:getList'),
+    select: (effectName) => ipcRenderer.invoke('effects:select', effectName),
+    toggle: (effectName, enabled) => ipcRenderer.invoke('effects:toggle', effectName, enabled),
+    next: () => ipcRenderer.invoke('effects:next'),
+    previous: () => ipcRenderer.invoke('effects:previous'),
+    random: () => ipcRenderer.invoke('effects:random'),
+
+    onChanged: (callback) => ipcRenderer.on('effects:changed', callback),
+    removeChangedListener: (callback) => ipcRenderer.removeListener('effects:changed', callback)
+  },
+
+  preferences: {
+    setAutoTune: (prefs) => ipcRenderer.invoke('preferences:setAutoTune', prefs),
+    setMicrophone: (prefs) => ipcRenderer.invoke('preferences:setMicrophone', prefs),
+    setEffects: (prefs) => ipcRenderer.invoke('preferences:setEffects', prefs),
+
+    onUpdated: (callback) => ipcRenderer.on('preferences:updated', callback),
+    removeUpdatedListener: (callback) => ipcRenderer.removeListener('preferences:updated', callback)
   },
 
   admin: {

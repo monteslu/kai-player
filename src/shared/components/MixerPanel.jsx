@@ -8,38 +8,43 @@
 import './MixerPanel.css';
 
 export function MixerPanel({
+  mixer = {},         // Support both 'mixer' (web) and 'mixerState' (renderer)
   mixerState = {},
   onSetMasterGain,
-  onToggleMasterMute
+  onToggleMasterMute,
+  onGainChange,      // Alias for web compatibility
+  onMuteToggle,      // Alias for web compatibility
+  className = ''
 }) {
+  // Support both prop names
+  const state = mixer || mixerState || {};
+  const handleGainChange = onSetMasterGain || onGainChange;
+  const handleMuteToggle = onToggleMasterMute || onMuteToggle;
   const buses = [
     { id: 'PA', label: 'PA (Main)', description: 'Music + Mic to audience' },
     { id: 'IEM', label: 'IEM (Monitors)', description: 'Vocals only (mono)' },
     { id: 'mic', label: 'Mic Input', description: 'Microphone gain' }
   ];
 
-  const handleGainChange = (busId, value) => {
-    if (onSetMasterGain) {
-      onSetMasterGain(busId, parseFloat(value));
+  const handleGainChangeLocal = (busId, value) => {
+    if (handleGainChange) {
+      handleGainChange(busId, parseFloat(value));
     }
   };
 
-  const handleMuteToggle = (busId) => {
-    if (onToggleMasterMute) {
-      onToggleMasterMute(busId);
+  const handleMuteToggleLocal = (busId) => {
+    if (handleMuteToggle) {
+      handleMuteToggle(busId);
     }
   };
 
   const handleDoubleClick = (busId, e) => {
     e.target.value = 0;
-    handleGainChange(busId, 0);
+    handleGainChangeLocal(busId, 0);
   };
 
-  // Handle null/undefined mixerState
-  const state = mixerState || {};
-
   return (
-    <div className="mixer-strips">
+    <div className={`mixer-strips ${className}`}>
       {buses.map(bus => {
         const gain = state[bus.id]?.gain ?? 0;
         const muted = state[bus.id]?.muted ?? false;
@@ -59,7 +64,7 @@ export function MixerPanel({
                 max="12"
                 step="0.5"
                 value={gain}
-                onChange={(e) => handleGainChange(bus.id, e.target.value)}
+                onChange={(e) => handleGainChangeLocal(bus.id, e.target.value)}
                 onDoubleClick={(e) => handleDoubleClick(bus.id, e)}
                 data-bus={bus.id}
               />
@@ -68,7 +73,7 @@ export function MixerPanel({
 
             <button
               className={`mute-btn ${muted ? 'active' : ''}`}
-              onClick={() => handleMuteToggle(bus.id)}
+              onClick={() => handleMuteToggleLocal(bus.id)}
               data-bus={bus.id}
             >
               MUTE

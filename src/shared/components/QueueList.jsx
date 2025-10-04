@@ -11,16 +11,25 @@ import './QueueList.css';
 export function QueueList({
   queue = [],
   currentIndex = -1,
+  currentSongId = null,     // Support web's currentSongId prop
   onPlayFromQueue,
   onRemoveFromQueue,
+  onLoad,                   // Alias for web compatibility
+  onRemove,                 // Alias for web compatibility
   onClearQueue,
+  onClear,                  // Alias for web compatibility
   onShuffleQueue,
-  onQuickSearch
+  onQuickSearch,
+  className = ''
 }) {
+  // Support both prop names
+  const handlePlay = onPlayFromQueue || onLoad;
+  const handleRemove = onRemoveFromQueue || onRemove;
+  const handleClear = onClearQueue || onClear;
 
   if (queue.length === 0) {
     return (
-      <div className="player-queue-section">
+      <div className={`player-queue-section ${className}`}>
         {onQuickSearch && (
           <div className="quick-search-controls">
             <input
@@ -38,8 +47,8 @@ export function QueueList({
         <div className="player-queue-header">
           <h4>Queue</h4>
           <div className="queue-actions">
-            {onClearQueue && (
-              <button onClick={onClearQueue} className="queue-action-btn" title="Clear Queue">
+            {handleClear && (
+              <button onClick={handleClear} className="queue-action-btn" title="Clear Queue">
                 <span className="material-icons">delete</span>
               </button>
             )}
@@ -62,7 +71,7 @@ export function QueueList({
   }
 
   return (
-    <div className="player-queue-section">
+    <div className={`player-queue-section ${className}`}>
       {onQuickSearch && (
         <div className="quick-search-controls">
           <input
@@ -80,8 +89,8 @@ export function QueueList({
       <div className="player-queue-header">
         <h4>Queue</h4>
         <div className="queue-actions">
-          {onClearQueue && (
-            <button onClick={onClearQueue} className="queue-action-btn" title="Clear Queue">
+          {handleClear && (
+            <button onClick={handleClear} className="queue-action-btn" title="Clear Queue">
               <span className="material-icons">delete</span>
             </button>
           )}
@@ -95,7 +104,9 @@ export function QueueList({
 
       <div className="player-queue-list">
         {queue.map((item, index) => {
-          const isCurrentSong = index === currentIndex;
+          // Support both currentIndex (renderer) and currentSongId (web)
+          const isCurrentSong = (currentIndex >= 0 && index === currentIndex) ||
+                                (currentSongId && (item.id === currentSongId || item.path === currentSongId));
           const itemClass = isCurrentSong ? 'player-queue-item current' : 'player-queue-item';
           const requesterText = item.requester ? ` • Singer: ${item.requester}` : '';
 
@@ -109,18 +120,18 @@ export function QueueList({
                 </div>
               </div>
               <div className="queue-item-actions">
-                {onPlayFromQueue && (
+                {handlePlay && (
                   <button
-                    onClick={() => onPlayFromQueue(item.id)}
+                    onClick={() => handlePlay(item.id || item.path)}
                     className="queue-item-btn"
                     title="Load Song"
                   >
                     <span className="material-icons">queue_play_next</span>
                   </button>
                 )}
-                {onRemoveFromQueue && (
+                {handleRemove && (
                   <button
-                    onClick={() => onRemoveFromQueue(item.id)}
+                    onClick={() => handleRemove(item.id)}
                     className="queue-item-btn"
                     title="Remove"
                   >

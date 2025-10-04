@@ -171,7 +171,12 @@ class KaiLoader {
         profile: data.audio.profile || 'stereo'
       },
       
-      lyrics: data.lyrics || null,
+      // Sort lyrics by start time to ensure proper playback order
+      lyrics: data.lyrics ? [...data.lyrics].sort((a, b) => {
+        const aStart = a.start || a.time || a.start_time || 0;
+        const bStart = b.start || b.time || b.start_time || 0;
+        return aStart - bStart;
+      }) : null,
       
       features: {
         notesRef: data.features.notes_ref || null,
@@ -186,9 +191,12 @@ class KaiLoader {
         timingTolerance: 0.1,
         stabilityThreshold: 20
       },
-      
+
       // Preserve the complete song object for additional metadata like rejections
-      song: data.song
+      song: data.song,
+
+      // Preserve original song.json for editor access to all metadata
+      originalSongJson: data.songJson
     };
 
     return processedData;
