@@ -152,7 +152,7 @@ export async function playNext(mainApp) {
     const newQueue = mainApp.appState.getQueue();
     if (newQueue.length > 0) {
       const nextSong = newQueue[0];
-      await mainApp.loadKaiFile(nextSong.path);
+      await mainApp.loadKaiFile(nextSong.path, nextSong.id);
 
       return {
         success: true,

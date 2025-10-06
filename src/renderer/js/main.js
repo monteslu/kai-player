@@ -204,27 +204,6 @@ class KaiPlayerApp {
 
 
 
-        //     console.log('💿 Restart button clicked');
-        //     this.restartTrack();
-        // });
-
-        // document.getElementById('nextTrackBtn').addEventListener('click', () => {
-        //     this.nextTrack();
-        // });
-
-
-
-
-        // if (iemDeviceSelect) {
-        //     iemDeviceSelect.addEventListener('change', async (e) => {
-        //     const deviceId = e.target.value;
-        //     kaiAPI.audio.setDevice('IEM', parseInt(deviceId));
-
-        //     // Save device preference
-        //     this.saveDevicePreference('IEM', deviceId);
-
-
-
 
 
 
@@ -407,7 +386,6 @@ class KaiPlayerApp {
             
             if (result && result.success) {
                 this.currentSong = result;
-                this.enableControls();
                 this.updateStatus(`Loaded: ${result.metadata?.title || 'Unknown Song'}`);
             } else if (result) {
                 this.updateStatus(`Error: ${result.error}`);
@@ -441,34 +419,12 @@ class KaiPlayerApp {
 
         // Store metadata for later use when song data arrives
         this._pendingMetadata = metadata;
-        
-        const title = metadata?.title || 'Unknown Song';
-        const artist = metadata?.artist || 'Unknown Artist';
-        
-        // Display as "Artist - Song" format
-        const displayText = `${artist} - ${title}`;
-        const songDisplay = document.querySelector('.song-display');
-        if (songDisplay) {
-            songDisplay.textContent = displayText;
-        }
-        
-        // Enable song info button
+
+        // Song display now handled by React SongInfoBar
     }
 
 
-    formatTime(seconds) {
-        if (!seconds || isNaN(seconds)) return '0:00';
-        const mins = Math.floor(seconds / 60);
-        const secs = Math.floor(seconds % 60);
-        return `${mins}:${secs.toString().padStart(2, '0')}`;
-    }
-
-    // Sidebar toggle now handled by React SongInfoBarWrapper
-
-    enableControls() {
-        // Controls now managed by React TransportControlsWrapper
-        // document.getElementById('playPauseBtn').disabled = false;
-    }
+    // Time formatting now handled by React components
 
     async togglePlayback() {
         if (!this.currentSong) return;
@@ -768,6 +724,21 @@ class KaiPlayerApp {
         // }
     }
     
+    async toggleCanvasFullscreen() {
+        try {
+            const karaokeCanvas = document.getElementById('karaokeCanvas');
+            if (!document.fullscreenElement) {
+                // Enter fullscreen
+                await karaokeCanvas.requestFullscreen();
+            } else {
+                // Exit fullscreen
+                await document.exitFullscreen();
+            }
+        } catch (error) {
+            console.error('❌ Fullscreen toggle error:', error);
+        }
+    }
+
     setupAdminIPCListeners() {
         // Listen for mixer commands from web admin
         if (window.kaiAPI?.mixer) {
