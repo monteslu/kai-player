@@ -24,6 +24,7 @@ import { ServerTab } from './components/ServerTab.jsx';
 import { VisualizationSettings } from '../shared/components/VisualizationSettings.jsx';
 import { verifyButterchurn } from './js/butterchurnVerify.js';
 import { KaiPlayerApp } from './js/main.js';
+import { AppRoot } from './components/AppRoot.jsx';
 
 console.log('🚀 Initializing application...');
 
@@ -61,7 +62,9 @@ function mountReactComponents() {
     const libraryPanelRoot = ReactDOM.createRoot(libraryRoot);
     libraryPanelRoot.render(
       <React.StrictMode>
-        <LibraryPanel bridge={bridge} showSetFolder={true} showFullRefresh={true} />
+        <AppRoot>
+          <LibraryPanel bridge={bridge} showSetFolder={true} showFullRefresh={true} />
+        </AppRoot>
       </React.StrictMode>
     );
     console.log('✅ LibraryPanel mounted in library tab');
