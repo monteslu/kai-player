@@ -1,8 +1,5 @@
 console.log('🎮 main.js loaded and executing');
 
-// import { LyricsEditorController } from './editor.js'; // Replaced by React SongEditor
-// import { QueueManager } from './queue.js'; // Replaced by React QueueTab
-// import { EffectsManager } from './effects.js'; // Replaced by React EffectsPanelWrapper
 import { setAppInstance } from './appInstance.js';
 
 class KaiPlayerApp {

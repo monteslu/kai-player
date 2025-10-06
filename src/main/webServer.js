@@ -99,11 +99,6 @@ class WebServer {
             res.sendFile(path.join(__dirname, '../../static/song-request.html'));
         });
 
-        // Admin page for KJs (old static version)
-        this.app.get('/admin/legacy', (req, res) => {
-            res.sendFile(path.join(__dirname, '../../static/admin.html'));
-        });
-
         // Check if admin password is set
         this.app.get('/admin/check-auth', (req, res) => {
             try {
