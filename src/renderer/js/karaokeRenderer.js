@@ -996,18 +996,14 @@ class KaraokeRenderer {
             const source = this.audioContext.createMediaStreamSource(this.micStream);
             source.connect(this.analyser);
             
-            // Always create mic gain node, but only connect to speakers if enabled
+            // Create gain node for analysis only - NEVER route to speakers
+            // (kaiPlayer handles actual microphone audio routing to PA/IEM outputs)
             this.micGainNode = this.audioContext.createGain();
-            this.micGainNode.gain.setValueAtTime(0.5, this.audioContext.currentTime); // 50% volume
+            this.micGainNode.gain.setValueAtTime(0.5, this.audioContext.currentTime);
             source.connect(this.micGainNode);
-            
-            // Connect to speakers only if mic to speakers is enabled
-            if (this.waveformPreferences.micToSpeakers) {
-                this.micGainNode.connect(this.audioContext.destination);
-                // Mic routed to speakers
-            } else {
-                // Mic not routed to speakers
-            }
+
+            // DO NOT connect to speakers - this audioContext uses default output device
+            // and would bypass PA routing. kaiPlayer handles all mic-to-speaker routing.
             
             this.analyser.fftSize = 256;
             this.micDataArray = new Uint8Array(this.analyser.frequencyBinCount);
@@ -1230,36 +1226,11 @@ class KaraokeRenderer {
     
     setMicToSpeakers(enabled) {
         this.waveformPreferences.micToSpeakers = enabled;
-        
-        // Update audio routing if mic is active
-        if (this.micGainNode && this.audioContext) {
-            if (enabled) {
-                // Connect to speakers if not already connected
-                try {
-                    this.micGainNode.connect(this.audioContext.destination);
-                    // Mic connected to speakers
-                } catch (e) {
-                    // Mic already connected
-                }
-            } else {
-                // Disconnect from speakers
-                try {
-                    this.micGainNode.disconnect(this.audioContext.destination);
-                    // Mic disconnected from speakers
-                } catch (e) {
-                    // Mic was not connected
-                }
-            }
-        }
-        
-        // If mic is currently active, restart it with new routing
-        if (this.micStream && this.analyser) {
-            // Restarting mic with new routing
-            this.stopMicrophoneCapture();
-            setTimeout(() => {
-                this.startMicrophoneCapture();
-            }, 100);
-        }
+
+        // karaokeRenderer mic is ONLY for waveform visualization, NOT audio routing
+        // kaiPlayer handles all microphone-to-speaker routing to PA/IEM outputs
+        // This setting is stored for preferences sync but not used by karaokeRenderer
+        console.log('🎤 KaraokeRenderer: micToSpeakers preference updated to', enabled, '(kaiPlayer handles actual routing)');
     }
     
     setMicEnabled(enabled) {
