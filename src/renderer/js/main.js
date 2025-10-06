@@ -173,7 +173,55 @@ class KaiPlayerApp {
                 }
             });
 
-            // player:seek removed - web admin now calls window.app.player.setPosition() directly via executeJavaScript
+            // Listen for player commands from main process (web admin/REST API)
+            window.kaiAPI.events.on('player:togglePlayback', () => {
+                this.togglePlayback();
+            });
+
+            window.kaiAPI.events.on('player:restart', () => {
+                this.restartTrack();
+            });
+
+            window.kaiAPI.events.on('player:setPosition', (event, positionSec) => {
+                this.player?.setPosition(positionSec);
+            });
+
+            // Listen for WebRTC commands from main process
+            window.kaiAPI.events.on('webrtc:setupSender', async () => {
+                const result = await window.webrtcManager.setupSender();
+                const { ipcRenderer } = require('electron');
+                ipcRenderer.send('webrtc:setupSender-response', result);
+            });
+
+            window.kaiAPI.events.on('webrtc:createOffer', async () => {
+                const result = await window.webrtcManager.createOffer();
+                const { ipcRenderer } = require('electron');
+                ipcRenderer.send('webrtc:createOffer-response', result);
+            });
+
+            window.kaiAPI.events.on('webrtc:setAnswer', async (event, answer) => {
+                const result = await window.webrtcManager.setAnswer(answer);
+                const { ipcRenderer } = require('electron');
+                ipcRenderer.send('webrtc:setAnswer-response', result);
+            });
+
+            window.kaiAPI.events.on('webrtc:stopPainting', () => {
+                window.webrtcManager.stopPainting();
+            });
+
+            window.kaiAPI.events.on('webrtc:getSenderStatus', () => {
+                const status = window.webrtcManager.getSenderStatus();
+                const { ipcRenderer } = require('electron');
+                ipcRenderer.send('webrtc:getSenderStatus-response', status);
+            });
+
+            window.kaiAPI.events.on('webrtc:addICECandidate', async (event, candidate) => {
+                await window.webrtcManager.addICECandidate(candidate);
+            });
+
+            window.kaiAPI.events.on('webrtc:cleanupSender', async () => {
+                await window.webrtcManager.cleanupSender();
+            });
         }
 
 

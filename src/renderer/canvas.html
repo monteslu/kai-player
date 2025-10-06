@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Canvas Window</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        #video {
+            max-width: 100%;
+            max-height: 100%;
+            width: auto;
+            height: auto;
+            background: #111;
+            border: 1px solid #333;
+            cursor: pointer;
+        }
+
+        /* Native browser fullscreen styles */
+        #video:fullscreen {
+            width: 100vw;
+            height: 100vh;
+            object-fit: contain; /* Maintain aspect ratio */
+            background: #000;
+            border: none;
+            cursor: pointer;
+        }
+
+        #video:-webkit-full-screen {
+            width: 100vw;
+            height: 100vh;
+            object-fit: contain;
+            background: #000;
+            border: none;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <video id="video" autoplay muted playsinline></video>
+
+    <!-- Load webrtcManager for receiver methods -->
+    <script type="module" src="js/webrtcManager.js"></script>
+
+    <script>
+        const video = document.getElementById('video');
+        let isReceivingStream = false;
+
+        function maintainAspectRatio() {
+            const windowWidth = window.innerWidth;
+            const windowHeight = window.innerHeight;
+            const aspectRatio = 16 / 9;
+
+            let newWidth, newHeight;
+
+            if (windowWidth / windowHeight > aspectRatio) {
+                // Window is too wide
+                newHeight = windowHeight;
+                newWidth = windowHeight * aspectRatio;
+            } else {
+                // Window is too tall
+                newWidth = windowWidth;
+                newHeight = windowWidth / aspectRatio;
+            }
+
+            video.style.width = newWidth + 'px';
+            video.style.height = newHeight + 'px';
+        }
+
+        // Initial sizing
+        maintainAspectRatio();
+
+        // Listen for window resize
+        window.addEventListener('resize', maintainAspectRatio);
+
+        // Listen for load event to ensure proper sizing
+        window.addEventListener('load', maintainAspectRatio);
+
+        // Set up IPC to communicate with main process
+        const { ipcRenderer } = require('electron');
+
+        // WebRTC IPC handlers - call webrtcManager receiver methods
+        ipcRenderer.on('webrtc:setupReceiver', async () => {
+            const result = await window.webrtcManager.setupReceiver();
+            ipcRenderer.send('webrtc:setupReceiver-response', result);
+        });
+
+        ipcRenderer.on('webrtc:setOfferAndCreateAnswer', async (event, offer) => {
+            const result = await window.webrtcManager.setOfferAndCreateAnswer(offer);
+            ipcRenderer.send('webrtc:setOfferAndCreateAnswer-response', result);
+        });
+
+        ipcRenderer.on('webrtc:addReceiverICECandidate', async (event, candidate) => {
+            await window.webrtcManager.addReceiverICECandidate(candidate);
+        });
+
+        ipcRenderer.on('webrtc:getReceiverStatus', () => {
+            const status = window.webrtcManager.getReceiverStatus();
+            ipcRenderer.send('webrtc:getReceiverStatus-response', status);
+        });
+
+        ipcRenderer.on('webrtc:checkReceiverReady', () => {
+            const status = window.webrtcManager.checkReceiverReady();
+            ipcRenderer.send('webrtc:checkReceiverReady-response', status);
+        });
+
+        ipcRenderer.on('webrtc:cleanupReceiver', async () => {
+            await window.webrtcManager.cleanupReceiver();
+        });
+
+        // Fullscreen functionality
+        let isFullscreen = false;
+
+        const toggleFullscreen = async () => {
+            console.log('Toggling fullscreen, current state:', !!document.fullscreenElement);
+
+            try {
+                if (!document.fullscreenElement) {
+                    // Enter fullscreen - use the browser's native Fullscreen API
+                    await video.requestFullscreen();
+                    isFullscreen = true;
+                    console.log('✅ Entered fullscreen mode');
+                } else {
+                    // Exit fullscreen
+                    await document.exitFullscreen();
+                    isFullscreen = false;
+                    console.log('✅ Exited fullscreen mode');
+                }
+            } catch (error) {
+                console.error('❌ Fullscreen toggle failed:', error);
+            }
+        };
+
+        // Click handler for video
+        video.addEventListener('click', toggleFullscreen);
+
+        // Keyboard handlers
+        document.addEventListener('keydown', (e) => {
+            // Allow copy/paste and other system shortcuts to work normally
+            if (e.ctrlKey || e.metaKey) {
+                console.log('Allowing system shortcut:', e.key);
+                return; // Don't prevent default for system shortcuts
+            }
+
+            // Fullscreen toggle keys
+            if (e.key === 'f' || e.key === 'F') {
+                e.preventDefault();
+                toggleFullscreen();
+            } else if (e.key === 'Escape') {
+                e.preventDefault();
+                if (isFullscreen) {
+                    toggleFullscreen();
+                }
+            }
+        });
+
+        // Make sure video doesn't capture focus inappropriately but allow clicks
+        video.style.outline = 'none';
+        video.tabIndex = -1; // Remove from tab order
+        video.style.cursor = 'pointer'; // Show it's clickable
+
+        // Handle visibility changes
+        document.addEventListener('visibilitychange', () => {
+            console.log('👁️ Visibility changed:', document.hidden ? 'hidden' : 'visible');
+        });
+
+        // Handle fullscreen changes
+        document.addEventListener('fullscreenchange', () => {
+            isFullscreen = !!document.fullscreenElement;
+            console.log('🖥️ Fullscreen changed:', isFullscreen ? 'ENTERED' : 'EXITED');
+
+            // Log stream status to help debug freezing
+            if (video.srcObject) {
+                const stream = video.srcObject;
+                const tracks = stream.getVideoTracks();
+                console.log('📺 Stream tracks after fullscreen change:', tracks.length);
+                tracks.forEach((track, i) => {
+                    console.log('Track ' + i + ' enabled: ' + track.enabled + ' readyState: ' + track.readyState);
+                });
+            }
+        });
+
+        document.addEventListener('fullscreenerror', (error) => {
+            console.error('❌ Fullscreen error:', error);
+        });
+
+        // Handle window focus/blur
+        window.addEventListener('focus', () => {
+            console.log('🎯 Window focused');
+        });
+
+        window.addEventListener('blur', () => {
+            console.log('😴 Window blurred');
+        });
+
+        // Video event handlers to debug stream issues
+        video.addEventListener('loadedmetadata', () => {
+            console.log('🎬 Stream video metadata loaded:', video.videoWidth, 'x', video.videoHeight);
+
+            // Check what the actual stream track settings are
+            if (video.srcObject) {
+                const stream = video.srcObject;
+                const tracks = stream.getVideoTracks();
+                if (tracks.length > 0) {
+                    const settings = tracks[0].getSettings();
+                    console.log('🔍 RECEIVED track settings:', settings.width, 'x', settings.height);
+
+                    if (settings.width !== 1920 || settings.height !== 1080) {
+                        console.error('❌ RECEIVED TRACK NOT 1080p! Got:', settings.width, 'x', settings.height);
+                    }
+                }
+            }
+
+            maintainAspectRatio();
+
+            if (!isReceivingStream) {
+                isReceivingStream = true;
+                console.log('📺 Started receiving WebRTC stream');
+            }
+        });
+
+        video.addEventListener('playing', () => {
+            console.log('▶️ Video started playing');
+        });
+
+        video.addEventListener('pause', () => {
+            console.log('⏸️ Video paused');
+        });
+
+        video.addEventListener('ended', () => {
+            console.log('⏹️ Video ended');
+        });
+
+        video.addEventListener('error', (e) => {
+            console.error('❌ Video error:', e, video.error);
+        });
+
+        // Signal to main process that child window is ready for streaming
+        window.addEventListener('load', () => {
+            console.log('Child window fully loaded, signaling ready for streaming');
+            ipcRenderer.send('canvas:childReady');
+        });
+
+        console.log('📺 Child window WebRTC receiver script loaded');
+    </script>
+</body>
+</html>
