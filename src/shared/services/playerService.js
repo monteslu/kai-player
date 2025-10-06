@@ -12,8 +12,8 @@
  */
 export function play(mainApp) {
   if (mainApp.mainWindow && !mainApp.mainWindow.isDestroyed()) {
-    // Call renderer method directly - no IPC event needed
-    mainApp.mainWindow.webContents.executeJavaScript('window.app?.togglePlayback()');
+    // Send IPC event to renderer
+    mainApp.mainWindow.webContents.send('player:togglePlayback');
     return { success: true, message: 'Play command sent' };
   }
 
@@ -30,8 +30,8 @@ export function play(mainApp) {
  */
 export function pause(mainApp) {
   if (mainApp.mainWindow && !mainApp.mainWindow.isDestroyed()) {
-    // Call renderer method directly - no IPC event needed
-    mainApp.mainWindow.webContents.executeJavaScript('window.app?.togglePlayback()');
+    // Send IPC event to renderer
+    mainApp.mainWindow.webContents.send('player:togglePlayback');
     return { success: true, message: 'Pause command sent' };
   }
 
@@ -48,8 +48,8 @@ export function pause(mainApp) {
  */
 export function restart(mainApp) {
   if (mainApp.mainWindow && !mainApp.mainWindow.isDestroyed()) {
-    // Call renderer method directly - no IPC event needed
-    mainApp.mainWindow.webContents.executeJavaScript('window.app?.restartTrack()');
+    // Send IPC event to renderer
+    mainApp.mainWindow.webContents.send('player:restart');
     return { success: true, message: 'Restart command sent' };
   }
 
@@ -74,8 +74,8 @@ export function seek(mainApp, positionSec) {
   }
 
   if (mainApp.mainWindow && !mainApp.mainWindow.isDestroyed()) {
-    // Call renderer method directly - no IPC event needed
-    mainApp.mainWindow.webContents.executeJavaScript(`window.app?.player?.setPosition(${positionSec})`);
+    // Send IPC event to renderer with position parameter
+    mainApp.mainWindow.webContents.send('player:setPosition', positionSec);
     return { success: true, message: 'Seek command sent', position: positionSec };
   }
 
