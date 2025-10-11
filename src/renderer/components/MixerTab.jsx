@@ -140,23 +140,41 @@ export function MixerTab({ bridge }) {
       setSelectedDevices((prev) => ({ ...prev, [type]: deviceId }));
 
       // Save device preference
-      const deviceList =
-        type === 'input' ? audioDevices.input : type === 'iem' ? audioDevices.iem : audioDevices.pa;
-      const device = deviceList.find((d) => d.deviceId === deviceId);
+      const preferences = (await bridge.getDevicePreferences?.()) || {};
 
-      if (device) {
-        const preferences = (await bridge.getDevicePreferences?.()) || {};
+      if (!deviceId || deviceId === '') {
+        // User selected "Default" - save empty preference
         preferences[deviceType] = {
-          id: deviceId,
-          name: device.label || device.name,
-          deviceKind: device.deviceKind,
+          id: '',
+          name: 'Default',
+          deviceKind: 'default',
         };
-        console.log(`💾 Saving device preference for ${deviceType}:`, preferences[deviceType]);
-        await bridge.saveDevicePreferences?.(preferences);
-        console.log(`✅ Device preferences saved successfully`);
+        console.log(`💾 Saving default device preference for ${deviceType}`);
       } else {
-        console.warn(`⚠️ Device not found in list for ${type}:`, deviceId);
+        // Look up the specific device
+        const deviceList =
+          type === 'input'
+            ? audioDevices.input
+            : type === 'iem'
+              ? audioDevices.iem
+              : audioDevices.pa;
+        const device = deviceList.find((d) => d.deviceId === deviceId);
+
+        if (device) {
+          preferences[deviceType] = {
+            id: deviceId,
+            name: device.label || device.name,
+            deviceKind: device.deviceKind,
+          };
+          console.log(`💾 Saving device preference for ${deviceType}:`, preferences[deviceType]);
+        } else {
+          console.warn(`⚠️ Device not found in list for ${type}:`, deviceId);
+          return; // Don't save if device not found
+        }
       }
+
+      await bridge.saveDevicePreferences?.(preferences);
+      console.log(`✅ Device preferences saved successfully`);
     } catch (error) {
       console.error('Failed to change device:', error);
     }
