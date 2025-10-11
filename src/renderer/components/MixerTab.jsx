@@ -140,7 +140,8 @@ export function MixerTab({ bridge }) {
       setSelectedDevices((prev) => ({ ...prev, [type]: deviceId }));
 
       // Save device preference
-      const deviceList = type === 'input' ? audioDevices.input : audioDevices.pa;
+      const deviceList =
+        type === 'input' ? audioDevices.input : type === 'iem' ? audioDevices.iem : audioDevices.pa;
       const device = deviceList.find((d) => d.deviceId === deviceId);
 
       if (device) {
@@ -150,7 +151,11 @@ export function MixerTab({ bridge }) {
           name: device.label || device.name,
           deviceKind: device.deviceKind,
         };
+        console.log(`💾 Saving device preference for ${deviceType}:`, preferences[deviceType]);
         await bridge.saveDevicePreferences?.(preferences);
+        console.log(`✅ Device preferences saved successfully`);
+      } else {
+        console.warn(`⚠️ Device not found in list for ${type}:`, deviceId);
       }
     } catch (error) {
       console.error('Failed to change device:', error);
