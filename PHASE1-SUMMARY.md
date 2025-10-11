@@ -28,7 +28,7 @@
 
 | Package | Before | After | Status |
 |---------|--------|-------|--------|
-| **Express** | 4.21.2 | **5.1.0** | ✅ No breaking changes encountered |
+| **Express** | 4.21.2 | **5.1.0** | ✅ Fixed wildcard route syntax |
 
 ### Postponed (Requires Major Rewrite)
 
@@ -106,6 +106,14 @@ found 0 vulnerabilities
 ### electron-builder 26
 ✅ **No config changes needed** - Existing package.json config works
 
+### Express 5
+✅ **Fixed wildcard route syntax** - Breaking change in path-to-regexp
+- **Error:** `PathError [TypeError]: Missing parameter name at index 8: /admin/*`
+- **Root Cause:** Express 5 uses updated path-to-regexp library that doesn't support `*` wildcard syntax
+- **Fix:** Changed wildcard patterns `/admin/*` to regex patterns `/^\/admin\/.*/`
+- **Files Modified:** `src/main/webServer.js:178, 1547`
+- **Reference:** https://git.new/pathToRegexpError
+
 ---
 
 ## New Features Available
@@ -123,6 +131,13 @@ found 0 vulnerabilities
 - ⚡ Better dependency pre-bundling
 - ⚡ Enhanced plugin API
 - ⚡ Faster production builds
+
+### Express 5
+- 🚀 Better performance and faster routing
+- 🔒 Improved security features
+- 📦 Updated dependencies (path-to-regexp v8)
+- 🛠️ Better error handling
+- ✨ Async/await support throughout
 
 ---
 
@@ -171,6 +186,7 @@ npm run dev
 
 - `package.json` - Updated dependency versions
 - `package-lock.json` - Locked new versions
+- `src/main/webServer.js` - Fixed Express 5 wildcard route syntax (lines 178, 1547)
 - `outdated-20251011.txt` - Baseline documentation
 
 ---

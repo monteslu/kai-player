@@ -175,7 +175,8 @@ class WebServer {
     };
 
     // Apply auth middleware to all /admin/* routes except login/logout/check-auth
-    this.app.use('/admin/*', (req, res, next) => {
+    // Express 5: Use regex pattern instead of wildcard
+    this.app.use(/^\/admin\/.*/, (req, res, next) => {
       const openRoutes = ['/admin/login', '/admin/logout', '/admin/check-auth'];
       if (openRoutes.includes(req.path)) {
         next(); // Allow these routes without auth
@@ -1543,7 +1544,8 @@ class WebServer {
     });
 
     // SPA fallback for React Router - serve index.html for all /admin/* routes not handled above
-    this.app.get('/admin/*', (req, res) => {
+    // Express 5: Use regex pattern instead of wildcard
+    this.app.get(/^\/admin\/.*/, (req, res) => {
       const webDistPath = path.join(__dirname, '../web/dist');
       const indexPath = path.join(webDistPath, 'index.html');
       if (fs.existsSync(indexPath)) {
