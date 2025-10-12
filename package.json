@@ -1,6 +1,6 @@
 {
   "name": "loukai",
-  "version": "0.1.16",
+  "version": "0.1.17",
   "type": "module",
   "description": "Loukai - Real-time karaoke player with stem control and coaching",
   "main": "src/main/main.js",
@@ -137,6 +137,12 @@
       "sdk": "org.freedesktop.Sdk",
       "base": "org.electronjs.Electron2.BaseApp",
       "baseVersion": "24.08",
+      "files": [
+        [
+          "com.loukai.app.metainfo.xml",
+          "/app/share/metainfo/com.loukai.app.metainfo.xml"
+        ]
+      ],
       "finishArgs": [
         "--socket=wayland",
         "--socket=x11",
