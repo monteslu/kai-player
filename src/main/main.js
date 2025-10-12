@@ -164,6 +164,7 @@ class KaiPlayerApp {
       height: 800,
       minWidth: 800,
       minHeight: 600,
+      autoHideMenuBar: true, // Hide menu bar for cleaner, modern UI
       icon: path.join(process.cwd(), 'static', 'images', 'logo.png'),
       webPreferences: {
         nodeIntegration: true,
