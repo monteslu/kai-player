@@ -13,9 +13,15 @@ class StatePersistence {
     this.isDirty = false;
 
     // Mark state as dirty when it changes (don't track playback/queue - those are ephemeral)
-    this.appState.on('mixerChanged', () => { this.isDirty = true; });
-    this.appState.on('effectsChanged', () => { this.isDirty = true; });
-    this.appState.on('preferencesChanged', () => { this.isDirty = true; });
+    this.appState.on('mixerChanged', () => {
+      this.isDirty = true;
+    });
+    this.appState.on('effectsChanged', () => {
+      this.isDirty = true;
+    });
+    this.appState.on('preferencesChanged', () => {
+      this.isDirty = true;
+    });
   }
 
   /**
@@ -43,7 +49,10 @@ class StatePersistence {
 
       // Restore preferences if available
       if (savedState.preferences) {
-        this.appState.state.preferences = { ...this.appState.state.preferences, ...savedState.preferences };
+        this.appState.state.preferences = {
+          ...this.appState.state.preferences,
+          ...savedState.preferences,
+        };
         console.log('📂 Loaded preferences');
       }
 
@@ -74,7 +83,10 @@ class StatePersistence {
         }
 
         if (savedState.preferences) {
-          this.appState.state.preferences = { ...this.appState.state.preferences, ...savedState.preferences };
+          this.appState.state.preferences = {
+            ...this.appState.state.preferences,
+            ...savedState.preferences,
+          };
           console.log('📂 Loaded preferences from backup');
         }
 
@@ -108,7 +120,7 @@ class StatePersistence {
         mixer: snapshot.mixer,
         effects: snapshot.effects,
         preferences: snapshot.preferences,
-        savedAt: new Date().toISOString()
+        savedAt: new Date().toISOString(),
       };
 
       // Validate that state can be serialized to JSON

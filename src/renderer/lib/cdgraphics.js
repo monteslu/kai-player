@@ -21,37 +21,70 @@ class p {
     this.init();
   }
   init() {
-    this.hOffset = 0, this.vOffset = 0, this.keyColor = null, this.bgColor = null, this.borderColor = null, this.clut = new Array(16).fill([0, 0, 0]), this.pixels = new Uint8ClampedArray(this.WIDTH * this.HEIGHT).fill(0), this.buffer = new Uint8ClampedArray(this.WIDTH * this.HEIGHT).fill(0), this.imageData = new ImageData(this.WIDTH, this.HEIGHT), this.backgroundRGBA = [0, 0, 0, 0], this.contentBounds = [0, 0, 0, 0];
+    ((this.hOffset = 0),
+      (this.vOffset = 0),
+      (this.keyColor = null),
+      (this.bgColor = null),
+      (this.borderColor = null),
+      (this.clut = new Array(16).fill([0, 0, 0])),
+      (this.pixels = new Uint8ClampedArray(this.WIDTH * this.HEIGHT).fill(0)),
+      (this.buffer = new Uint8ClampedArray(this.WIDTH * this.HEIGHT).fill(0)),
+      (this.imageData = new ImageData(this.WIDTH, this.HEIGHT)),
+      (this.backgroundRGBA = [0, 0, 0, 0]),
+      (this.contentBounds = [0, 0, 0, 0]));
   }
   setCLUTEntry(t, s, o, i) {
     this.clut[t] = [s * 17, o * 17, i * 17];
   }
   renderFrame({ forceKey: t = !1 } = {}) {
     const [s, o, i, e] = [0, 0, this.WIDTH, this.HEIGHT];
-    let [n, l, h, a] = [this.WIDTH, this.HEIGHT, 0, 0], _ = !1;
+    let [n, l, h, a] = [this.WIDTH, this.HEIGHT, 0, 0],
+      _ = !1;
     for (let c = o; c < e; c++)
       for (let D = s; D < i; D++) {
         let C;
-        if (this.borderColor !== null && (D < this.DISPLAY_BOUNDS[0] || c < this.DISPLAY_BOUNDS[1] || D >= this.DISPLAY_BOUNDS[2] || c >= this.DISPLAY_BOUNDS[3]))
+        if (
+          this.borderColor !== null &&
+          (D < this.DISPLAY_BOUNDS[0] ||
+            c < this.DISPLAY_BOUNDS[1] ||
+            D >= this.DISPLAY_BOUNDS[2] ||
+            c >= this.DISPLAY_BOUNDS[3])
+        )
           C = this.borderColor;
         else {
-          const E = D + this.hOffset, O = c + this.vOffset, d = E + O * this.WIDTH;
+          const E = D + this.hOffset,
+            O = c + this.vOffset,
+            d = E + O * this.WIDTH;
           C = this.pixels[d];
         }
-        const [L, A, H] = this.clut[C], u = C === this.keyColor || t && (C === this.bgColor || this.bgColor == null), T = 4 * (D + c * this.WIDTH);
-        this.imageData.data[T] = L, this.imageData.data[T + 1] = A, this.imageData.data[T + 2] = H, this.imageData.data[T + 3] = u ? 0 : 255, u || (_ = !0, n > D && (n = D), l > c && (l = c), h < D && (h = D), a < c && (a = c));
+        const [L, A, H] = this.clut[C],
+          u = C === this.keyColor || (t && (C === this.bgColor || this.bgColor == null)),
+          T = 4 * (D + c * this.WIDTH);
+        ((this.imageData.data[T] = L),
+          (this.imageData.data[T + 1] = A),
+          (this.imageData.data[T + 2] = H),
+          (this.imageData.data[T + 3] = u ? 0 : 255),
+          u || ((_ = !0), n > D && (n = D), l > c && (l = c), h < D && (h = D), a < c && (a = c)));
       }
-    this.contentBounds = _ || !t ? [n, l, h + 1, a + 1] : [0, 0, 0, 0], this.backgroundRGBA = this.bgColor === null ? [0, 0, 0, t ? 0 : 1] : [...this.clut[this.bgColor], this.bgColor === this.keyColor || t ? 0 : 1];
+    ((this.contentBounds = _ || !t ? [n, l, h + 1, a + 1] : [0, 0, 0, 0]),
+      (this.backgroundRGBA =
+        this.bgColor === null
+          ? [0, 0, 0, t ? 0 : 1]
+          : [...this.clut[this.bgColor], this.bgColor === this.keyColor || t ? 0 : 1]));
   }
 }
 class S {
   color;
   repeat;
   constructor(t) {
-    this.color = t[4] & 15, this.repeat = t[5] & 15;
+    ((this.color = t[4] & 15), (this.repeat = t[5] & 15));
   }
   execute(t) {
-    t.pixels.fill(this.color), t.bgColor = this.color, t.borderColor = null, t.hOffset = 0, t.vOffset = 0;
+    (t.pixels.fill(this.color),
+      (t.bgColor = this.color),
+      (t.borderColor = null),
+      (t.hOffset = 0),
+      (t.vOffset = 0));
   }
 }
 class g {
@@ -70,11 +103,15 @@ class f {
   column;
   pixels;
   constructor(t) {
-    this.colors = [t[4] & 15, t[5] & 15], this.row = t[6] & 31, this.column = t[7] & 63, this.pixels = t.slice(8, 20);
+    ((this.colors = [t[4] & 15, t[5] & 15]),
+      (this.row = t[6] & 31),
+      (this.column = t[7] & 63),
+      (this.pixels = t.slice(8, 20)));
   }
   /* blit a tile */
   execute(t) {
-    const s = this.column * t.TILE_WIDTH, o = this.row * t.TILE_HEIGHT;
+    const s = this.column * t.TILE_WIDTH,
+      o = this.row * t.TILE_HEIGHT;
     if (s + 6 > t.WIDTH || o + 12 > t.HEIGHT) {
       console.log(`TileBlock out of bounds (${this.row},${this.column})`);
       return;
@@ -82,7 +119,8 @@ class f {
     for (let i = 0; i < 12; i++) {
       const e = this.pixels[i];
       for (let n = 0; n < 6; n++) {
-        const l = this.colors[e >> 5 - n & 1], h = s + n + (o + i) * t.WIDTH;
+        const l = this.colors[(e >> (5 - n)) & 1],
+          h = s + n + (o + i) * t.WIDTH;
         this.op(t, h, l);
       }
     }
@@ -105,23 +143,26 @@ class I {
   constructor(t) {
     this.color = t[4] & 15;
     const s = t[5] & 63;
-    this.hCmd = (s & 48) >> 4, this.hOffset = s & 7;
+    ((this.hCmd = (s & 48) >> 4), (this.hOffset = s & 7));
     const o = t[6] & 63;
-    this.vCmd = (o & 48) >> 4, this.vOffset = o & 15;
+    ((this.vCmd = (o & 48) >> 4), (this.vOffset = o & 15));
   }
   execute(t) {
-    t.hOffset = Math.min(this.hOffset, 5), t.vOffset = Math.min(this.vOffset, 11);
+    ((t.hOffset = Math.min(this.hOffset, 5)), (t.vOffset = Math.min(this.vOffset, 11)));
     let s = 0;
-    this.hCmd === 2 ? s = t.TILE_WIDTH : this.hCmd === 1 && (s = -t.TILE_WIDTH);
+    this.hCmd === 2 ? (s = t.TILE_WIDTH) : this.hCmd === 1 && (s = -t.TILE_WIDTH);
     let o = 0;
-    if (this.vCmd === 2 ? o = t.TILE_HEIGHT : this.vCmd === 1 && (o = -t.TILE_HEIGHT), s === 0 && o === 0)
+    if (
+      (this.vCmd === 2 ? (o = t.TILE_HEIGHT) : this.vCmd === 1 && (o = -t.TILE_HEIGHT),
+      s === 0 && o === 0)
+    )
       return;
     let i, e;
     for (let l = 0; l < t.WIDTH; l++)
       for (let h = 0; h < t.HEIGHT; h++)
-        i = l + s, e = h + o, t.buffer[l + h * t.WIDTH] = this.getPixel(t, i, e);
+        ((i = l + s), (e = h + o), (t.buffer[l + h * t.WIDTH] = this.getPixel(t, i, e)));
     const n = t.pixels;
-    t.pixels = t.buffer, t.buffer = n;
+    ((t.pixels = t.buffer), (t.buffer = n));
   }
   getPixel(t, s, o) {
     return s > 0 && s < t.WIDTH && o > 0 && o < t.HEIGHT ? t.pixels[s + o * t.WIDTH] : this.color;
@@ -129,7 +170,11 @@ class I {
 }
 class m extends I {
   getPixel(t, s, o) {
-    return s = (s + t.WIDTH) % t.WIDTH, o = (o + t.HEIGHT) % t.HEIGHT, t.pixels[s + o * t.WIDTH];
+    return (
+      (s = (s + t.WIDTH) % t.WIDTH),
+      (o = (o + t.HEIGHT) % t.HEIGHT),
+      t.pixels[s + o * t.WIDTH]
+    );
   }
 }
 class P {
@@ -154,7 +199,7 @@ class G {
         // red
         (i & 240) >> 4,
         // green
-        i & 15
+        i & 15,
         // blue
       ];
       this.colors[s] = e;
@@ -162,12 +207,7 @@ class G {
   }
   execute(t) {
     for (let s = 0; s < 8; s++)
-      t.setCLUTEntry(
-        s + this.clutOffset,
-        this.colors[s][0],
-        this.colors[s][1],
-        this.colors[s][2]
-      );
+      t.setCLUTEntry(s + this.clutOffset, this.colors[s][0], this.colors[s][1], this.colors[s][2]);
   }
   get clutOffset() {
     return 0;
@@ -190,29 +230,38 @@ class W {
     28: P,
     30: G,
     31: B,
-    38: R
+    38: R,
   };
   bytes;
   numPackets;
   pc;
   constructor(t) {
-    this.bytes = new Uint8Array(t), this.numPackets = t.byteLength / 24, this.pc = -1;
+    ((this.bytes = new Uint8Array(t)), (this.numPackets = t.byteLength / 24), (this.pc = -1));
   }
   // determine packet we should be at, based on spec
   // of 4 packets per sector @ 75 sectors per second
   parseThrough(t) {
-    const s = Math.floor(300 * t), o = [];
-    for (this.pc > s && (this.pc = -1, o.isRestarting = !0); this.pc < s && this.pc < this.numPackets; ) {
+    const s = Math.floor(300 * t),
+      o = [];
+    for (
+      this.pc > s && ((this.pc = -1), (o.isRestarting = !0));
+      this.pc < s && this.pc < this.numPackets;
+
+    ) {
       this.pc++;
-      const i = this.pc * 24, e = this.parse(this.bytes.slice(i, i + 24));
+      const i = this.pc * 24,
+        e = this.parse(this.bytes.slice(i, i + 24));
       e && o.push(e);
     }
     return o;
   }
   parse(t) {
     if ((t[0] & this.COMMAND_MASK) === this.CDG_COMMAND) {
-      const s = t[1] & this.COMMAND_MASK, o = this.BY_TYPE[s];
-      return typeof o < "u" ? new o(t) : (console.log(`Unknown CDG instruction (instruction = ${s})`), !1);
+      const s = t[1] & this.COMMAND_MASK,
+        o = this.BY_TYPE[s];
+      return typeof o < 'u'
+        ? new o(t)
+        : (console.log(`Unknown CDG instruction (instruction = ${s})`), !1);
     }
     return !1;
   }
@@ -226,24 +275,25 @@ class b {
   forceKey;
   /** Instantiates a new renderer with the given CD+G file data. The data must be an `ArrayBuffer`, which can be had via the `Response` of a `fetch()`. */
   constructor(t) {
-    if (!(t instanceof ArrayBuffer)) throw new Error("buffer must be an ArrayBuffer");
-    this.ctx = new p(), this.parser = new W(t);
+    if (!(t instanceof ArrayBuffer)) throw new Error('buffer must be an ArrayBuffer');
+    ((this.ctx = new p()), (this.parser = new W(t)));
   }
   /** Renders the frame at the given time index. */
   render(t, s = {}) {
     if (isNaN(t) || t < 0) throw new Error(`Invalid time: ${t}`);
-    const o = this.parser.parseThrough(t), i = !!o.length || !!o.isRestarting || s.forceKey !== this.forceKey;
-    this.forceKey = s.forceKey, o.isRestarting && this.ctx.init();
-    for (const e of o)
-      e.execute(this.ctx);
-    return i && this.ctx.renderFrame(s), {
-      imageData: this.ctx.imageData,
-      isChanged: i,
-      backgroundRGBA: this.ctx.backgroundRGBA,
-      contentBounds: this.ctx.contentBounds
-    };
+    const o = this.parser.parseThrough(t),
+      i = !!o.length || !!o.isRestarting || s.forceKey !== this.forceKey;
+    ((this.forceKey = s.forceKey), o.isRestarting && this.ctx.init());
+    for (const e of o) e.execute(this.ctx);
+    return (
+      i && this.ctx.renderFrame(s),
+      {
+        imageData: this.ctx.imageData,
+        isChanged: i,
+        backgroundRGBA: this.ctx.backgroundRGBA,
+        contentBounds: this.ctx.contentBounds,
+      }
+    );
   }
 }
-export {
-  b as default
-};
+export { b as default };

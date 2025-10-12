@@ -18,7 +18,7 @@
 
 export const APP_CHANNELS = {
   GET_VERSION: 'app:getVersion',
-  GET_STATE: 'app:getState'
+  GET_STATE: 'app:getState',
 };
 
 // ============================================================================
@@ -27,7 +27,7 @@ export const APP_CHANNELS = {
 
 export const FILE_CHANNELS = {
   OPEN_KAI: 'file:openKai',
-  LOAD_KAI_FROM_PATH: 'file:loadKaiFromPath'
+  LOAD_KAI_FROM_PATH: 'file:loadKaiFromPath',
 };
 
 // ============================================================================
@@ -41,7 +41,7 @@ export const AUDIO_CHANNELS = {
 
   // Events (main → renderer)
   XRUN: 'audio:xrun',
-  LATENCY: 'audio:latency'
+  LATENCY: 'audio:latency',
 };
 
 // ============================================================================
@@ -54,7 +54,7 @@ export const MIXER_CHANNELS = {
 
   // Events (main → renderer)
   STATE_CHANGE: 'mixer:state',
-  SET_MASTER_MUTE: 'mixer:setMasterMute'
+  SET_MASTER_MUTE: 'mixer:setMasterMute',
 };
 
 // ============================================================================
@@ -66,7 +66,7 @@ export const PLAYER_CHANNELS = {
   PAUSE: 'player:pause',
   SEEK: 'player:seek',
   RESTART: 'player:restart',
-  NEXT: 'player:next'
+  NEXT: 'player:next',
 };
 
 // ============================================================================
@@ -75,7 +75,7 @@ export const PLAYER_CHANNELS = {
 
 export const AUTOTUNE_CHANNELS = {
   SET_ENABLED: 'autotune:setEnabled',
-  SET_SETTINGS: 'autotune:setSettings'
+  SET_SETTINGS: 'autotune:setSettings',
 };
 
 // ============================================================================
@@ -87,7 +87,7 @@ export const SONG_CHANNELS = {
 
   // Events (main → renderer)
   LOADED: 'song:loaded',
-  DATA: 'song:data'
+  DATA: 'song:data',
 };
 
 // ============================================================================
@@ -96,7 +96,7 @@ export const SONG_CHANNELS = {
 
 export const EDITOR_CHANNELS = {
   SAVE_KAI: 'editor:saveKai',
-  RELOAD_KAI: 'editor:reloadKai'
+  RELOAD_KAI: 'editor:reloadKai',
 };
 
 // ============================================================================
@@ -104,7 +104,7 @@ export const EDITOR_CHANNELS = {
 // ============================================================================
 
 export const WINDOW_CHANNELS = {
-  OPEN_CANVAS: 'window:openCanvas'
+  OPEN_CANVAS: 'window:openCanvas',
 };
 
 // ============================================================================
@@ -117,7 +117,7 @@ export const CANVAS_CHANNELS = {
   SEND_IMAGE_DATA: 'canvas:sendImageData',
   SEND_ICE_CANDIDATE: 'canvas:sendICECandidate',
   TOGGLE_FULLSCREEN: 'canvas:toggleFullscreen',
-  SEND_FRAME: 'canvas:sendFrame'
+  SEND_FRAME: 'canvas:sendFrame',
 };
 
 // ============================================================================
@@ -133,7 +133,7 @@ export const LIBRARY_CHANNELS = {
   GET_SONG_INFO: 'library:getSongInfo',
 
   // Events (main → renderer)
-  FOLDER_SET: 'library:folderSet'
+  FOLDER_SET: 'library:folderSet',
 };
 
 // ============================================================================
@@ -148,7 +148,7 @@ export const WEB_SERVER_CHANNELS = {
   GET_SONG_REQUESTS: 'webServer:getSongRequests',
   APPROVE_REQUEST: 'webServer:approveRequest',
   REJECT_REQUEST: 'webServer:rejectRequest',
-  REFRESH_CACHE: 'webServer:refreshCache'
+  REFRESH_CACHE: 'webServer:refreshCache',
 };
 
 // ============================================================================
@@ -162,7 +162,7 @@ export const SETTINGS_CHANNELS = {
   UPDATE_BATCH: 'settings:updateBatch',
 
   // Events (main → renderer)
-  UPDATE: 'settings:update'
+  UPDATE: 'settings:update',
 };
 
 // ============================================================================
@@ -173,7 +173,7 @@ export const QUEUE_CHANNELS = {
   ADD_SONG: 'queue:addSong',
   REMOVE_SONG: 'queue:removeSong',
   GET: 'queue:get',
-  CLEAR: 'queue:clear'
+  CLEAR: 'queue:clear',
 };
 
 // ============================================================================
@@ -183,7 +183,7 @@ export const QUEUE_CHANNELS = {
 export const EFFECT_CHANNELS = {
   // Events (main → renderer)
   NEXT: 'effect:next',
-  PREVIOUS: 'effect:previous'
+  PREVIOUS: 'effect:previous',
 };
 
 // ============================================================================
@@ -193,7 +193,7 @@ export const EFFECT_CHANNELS = {
 export const ADMIN_CHANNELS = {
   PLAY: 'admin:play',
   NEXT: 'admin:next',
-  RESTART: 'admin:restart'
+  RESTART: 'admin:restart',
 };
 
 // ============================================================================
@@ -205,7 +205,7 @@ export const RENDERER_CHANNELS = {
   UPDATE_PLAYBACK_STATE: 'renderer:updatePlaybackState',
   SONG_LOADED: 'renderer:songLoaded',
   UPDATE_MIXER_STATE: 'renderer:updateMixerState',
-  UPDATE_EFFECTS_STATE: 'renderer:updateEffectsState'
+  UPDATE_EFFECTS_STATE: 'renderer:updateEffectsState',
 };
 
 // ============================================================================
@@ -213,7 +213,7 @@ export const RENDERER_CHANNELS = {
 // ============================================================================
 
 export const SHELL_CHANNELS = {
-  OPEN_EXTERNAL: 'shell:openExternal'
+  OPEN_EXTERNAL: 'shell:openExternal',
 };
 
 // ============================================================================
@@ -238,7 +238,7 @@ export const ALL_CHANNELS = {
   ...EFFECT_CHANNELS,
   ...ADMIN_CHANNELS,
   ...RENDERER_CHANNELS,
-  ...SHELL_CHANNELS
+  ...SHELL_CHANNELS,
 };
 
 // ============================================================================
@@ -263,5 +263,5 @@ export const CHANNEL_GROUPS = {
   EFFECT: Object.values(EFFECT_CHANNELS),
   ADMIN: Object.values(ADMIN_CHANNELS),
   RENDERER: Object.values(RENDERER_CHANNELS),
-  SHELL: Object.values(SHELL_CHANNELS)
+  SHELL: Object.values(SHELL_CHANNELS),
 };

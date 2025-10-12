@@ -4,15 +4,15 @@
  */
 
 export function getFormatIcon(format) {
-    switch (format) {
-        case 'kai':
-            return '⚡';
-        case 'cdg-archive':
-        case 'cdg-pair':
-            return '💿';
-        default:
-            return '⚡'; // Default to KAI icon
-    }
+  switch (format) {
+    case 'kai':
+      return '⚡';
+    case 'cdg-archive':
+    case 'cdg-pair':
+      return '💿';
+    default:
+      return '⚡'; // Default to KAI icon
+  }
 }
 
 /**
@@ -21,12 +21,12 @@ export function getFormatIcon(format) {
  * @returns {string} Formatted duration (e.g., "3:45")
  */
 export function formatDuration(seconds) {
-    if (!seconds || seconds <= 0) return '-';
+  if (!seconds || seconds <= 0) return '-';
 
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = Math.floor(seconds % 60);
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = Math.floor(seconds % 60);
 
-    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+  return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
 }
 
 /**
@@ -35,12 +35,12 @@ export function formatDuration(seconds) {
  * @returns {string} Formatted time (e.g., "3:45.7")
  */
 export function formatTime(seconds) {
-    if (!seconds || isNaN(seconds)) return '0:00.0';
+  if (!seconds || isNaN(seconds)) return '0:00.0';
 
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    const tenths = Math.floor((seconds % 1) * 10);
-    return `${mins}:${secs.toString().padStart(2, '0')}.${tenths}`;
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.floor(seconds % 60);
+  const tenths = Math.floor((seconds % 1) * 10);
+  return `${mins}:${secs.toString().padStart(2, '0')}.${tenths}`;
 }
 
 /**
@@ -49,11 +49,11 @@ export function formatTime(seconds) {
  * @returns {string} Formatted size (e.g., "1.2 MB")
  */
 export function formatFileSize(bytes) {
-    if (bytes === 0) return '0 B';
+  if (bytes === 0) return '0 B';
 
-    const k = 1024;
-    const sizes = ['B', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
 
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
 }

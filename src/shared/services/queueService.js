@@ -21,7 +21,7 @@ export function addSongToQueue(appState, queueItem) {
   if (!queueItem || !queueItem.path) {
     return {
       success: false,
-      error: 'Invalid queue item: path is required'
+      error: 'Invalid queue item: path is required',
     };
   }
 
@@ -35,7 +35,7 @@ export function addSongToQueue(appState, queueItem) {
     success: true,
     queueItem: newQueueItem,
     queue: appState.getQueue(),
-    wasEmpty  // Caller can use this to trigger auto-play
+    wasEmpty, // Caller can use this to trigger auto-play
   };
 }
 
@@ -52,13 +52,13 @@ export function removeSongFromQueue(appState, itemId) {
     return {
       success: true,
       removed,
-      queue: appState.getQueue()
+      queue: appState.getQueue(),
     };
   }
 
   return {
     success: false,
-    error: 'Song not found in queue'
+    error: 'Song not found in queue',
   };
 }
 
@@ -72,7 +72,7 @@ export function clearQueue(appState) {
 
   return {
     success: true,
-    queue: []
+    queue: [],
   };
 }
 
@@ -84,7 +84,7 @@ export function clearQueue(appState) {
 export function getQueue(appState) {
   return {
     success: true,
-    queue: appState.getQueue()
+    queue: appState.getQueue(),
   };
 }
 
@@ -105,18 +105,20 @@ export function getQueueInfo(appState) {
     artist: item.artist,
     duration: item.duration,
     requester: item.requester,
-    addedAt: item.addedAt
+    addedAt: item.addedAt,
   }));
 
   return {
     success: true,
     queue: queueInfo,
-    currentSong: currentSong ? {
-      title: currentSong.title,
-      artist: currentSong.artist,
-      requester: currentSong.requester
-    } : null,
-    total: queue.length
+    currentSong: currentSong
+      ? {
+          title: currentSong.title,
+          artist: currentSong.artist,
+          requester: currentSong.requester,
+        }
+      : null,
+    total: queue.length,
   };
 }
 
@@ -131,19 +133,19 @@ export function reorderQueue(appState, songId, newIndex) {
   const queue = appState.state.queue;
 
   // Find the song by ID
-  const fromIndex = queue.findIndex(item => item.id === songId);
+  const fromIndex = queue.findIndex((item) => item.id === songId);
 
   if (fromIndex === -1) {
     return {
       success: false,
-      error: 'Song not found in queue'
+      error: 'Song not found in queue',
     };
   }
 
   if (newIndex < 0 || newIndex >= queue.length) {
     return {
       success: false,
-      error: 'Invalid target index'
+      error: 'Invalid target index',
     };
   }
 
@@ -156,7 +158,7 @@ export function reorderQueue(appState, songId, newIndex) {
 
   return {
     success: true,
-    queue: appState.getQueue()
+    queue: appState.getQueue(),
   };
 }
 
@@ -170,13 +172,16 @@ export async function loadFromQueue(mainApp, itemId) {
   const queue = mainApp.appState.getQueue();
 
   console.log('🎵 loadFromQueue called with itemId:', itemId, 'type:', typeof itemId);
-  console.log('📋 Current queue:', queue.map(q => ({ id: q.id, path: q.path, title: q.title })));
+  console.log(
+    '📋 Current queue:',
+    queue.map((q) => ({ id: q.id, path: q.path, title: q.title }))
+  );
 
   // Convert itemId to number for comparison
   const numericId = typeof itemId === 'number' ? itemId : parseFloat(itemId);
   console.log('🔢 Numeric ID:', numericId);
 
-  const item = queue.find(q => {
+  const item = queue.find((q) => {
     const match = q.id === numericId;
     console.log(`  Comparing queue item ${q.id} === ${numericId}? ${match}`);
     return match;
@@ -186,7 +191,7 @@ export async function loadFromQueue(mainApp, itemId) {
     console.error('❌ Song not found in queue for itemId:', itemId);
     return {
       success: false,
-      error: 'Song not found in queue'
+      error: 'Song not found in queue',
     };
   }
 
@@ -209,13 +214,13 @@ export async function loadFromQueue(mainApp, itemId) {
 
     return {
       success: true,
-      song: item
+      song: item,
     };
   } catch (error) {
     console.error('❌ Error loading song from queue:', error);
     return {
       success: false,
-      error: error.message
+      error: error.message,
     };
   }
 }

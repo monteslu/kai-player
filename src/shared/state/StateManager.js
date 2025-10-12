@@ -26,7 +26,7 @@ class StateManager extends EventEmitter {
         duration: 0,
         volume: 1.0,
         isPaused: false,
-        isLoading: false
+        isLoading: false,
       },
 
       // Current song
@@ -44,7 +44,7 @@ class StateManager extends EventEmitter {
         iemVolume: 1.0,
         micSolo: false,
         vocalSolo: false,
-        musicSolo: false
+        musicSolo: false,
       },
 
       // Effects
@@ -55,7 +55,7 @@ class StateManager extends EventEmitter {
         reverbEnabled: false,
         reverbAmount: 0.3,
         delayEnabled: false,
-        delayAmount: 0.3
+        delayAmount: 0.3,
       },
 
       // User preferences
@@ -63,7 +63,7 @@ class StateManager extends EventEmitter {
         theme: 'dark',
         visualizer: 'milkdrop',
         defaultOutputDevice: null,
-        defaultInputDevice: null
+        defaultInputDevice: null,
       },
 
       // Web server state
@@ -71,18 +71,18 @@ class StateManager extends EventEmitter {
         enabled: false,
         port: 3000,
         requestsEnabled: true,
-        adminPassword: null
+        adminPassword: null,
       },
 
       // Library metadata
       library: {
         totalSongs: 0,
         lastScan: null,
-        scanInProgress: false
+        scanInProgress: false,
       },
 
       // Override with any initial state
-      ...initialState
+      ...initialState,
     };
 
     // Track last update timestamp for each domain
@@ -94,7 +94,7 @@ class StateManager extends EventEmitter {
       effects: Date.now(),
       preferences: Date.now(),
       webServer: Date.now(),
-      library: Date.now()
+      library: Date.now(),
     };
   }
 
@@ -131,14 +131,12 @@ class StateManager extends EventEmitter {
     }
 
     // Handle function-based updates
-    const actualUpdates = typeof updates === 'function'
-      ? updates(this.state[domain])
-      : updates;
+    const actualUpdates = typeof updates === 'function' ? updates(this.state[domain]) : updates;
 
     // Apply updates
     this.state[domain] = {
       ...this.state[domain],
-      ...actualUpdates
+      ...actualUpdates,
     };
 
     // Update timestamp
@@ -152,7 +150,7 @@ class StateManager extends EventEmitter {
       this.emit('stateChanged', {
         domain,
         state: this.state[domain],
-        timestamp: this.lastUpdate[domain]
+        timestamp: this.lastUpdate[domain],
       });
     }
 
@@ -190,7 +188,7 @@ class StateManager extends EventEmitter {
   reset(silent = false) {
     const domains = Object.keys(this.state);
 
-    domains.forEach(domain => {
+    domains.forEach((domain) => {
       // Reset to default values based on domain
       switch (domain) {
         case 'playback':
@@ -200,7 +198,7 @@ class StateManager extends EventEmitter {
             duration: 0,
             volume: 1.0,
             isPaused: false,
-            isLoading: false
+            isLoading: false,
           };
           break;
         case 'currentSong':
@@ -225,7 +223,7 @@ class StateManager extends EventEmitter {
       this.emit('stateChanged', {
         domain: 'all',
         state: this.state,
-        timestamp: Date.now()
+        timestamp: Date.now(),
       });
     }
   }
@@ -239,7 +237,7 @@ class StateManager extends EventEmitter {
     this.state = JSON.parse(JSON.stringify(snapshot));
 
     const now = Date.now();
-    Object.keys(this.lastUpdate).forEach(domain => {
+    Object.keys(this.lastUpdate).forEach((domain) => {
       this.lastUpdate[domain] = now;
     });
 
@@ -247,7 +245,7 @@ class StateManager extends EventEmitter {
       this.emit('stateChanged', {
         domain: 'all',
         state: this.state,
-        timestamp: now
+        timestamp: now,
       });
     }
   }

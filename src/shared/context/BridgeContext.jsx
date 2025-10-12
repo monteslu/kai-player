@@ -18,11 +18,7 @@ export function BridgeProvider({ bridge, children }) {
     throw new Error('BridgeProvider requires a bridge instance');
   }
 
-  return (
-    <BridgeContext.Provider value={bridge}>
-      {children}
-    </BridgeContext.Provider>
-  );
+  return <BridgeContext.Provider value={bridge}>{children}</BridgeContext.Provider>;
 }
 
 export function useBridge() {

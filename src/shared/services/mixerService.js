@@ -15,13 +15,13 @@ export function getMixerState(appState) {
     const state = appState.getSnapshot();
     return {
       success: true,
-      mixer: state.mixer
+      mixer: state.mixer,
     };
   } catch (error) {
     console.error('Error getting mixer state:', error);
     return {
       success: false,
-      error: error.message
+      error: error.message,
     };
   }
 }
@@ -38,7 +38,7 @@ export function setMasterGain(mainApp, bus, gainDb) {
     if (!bus || typeof gainDb !== 'number') {
       return {
         success: false,
-        error: 'bus (PA/IEM/mic) and gainDb required'
+        error: 'bus (PA/IEM/mic) and gainDb required',
       };
     }
 
@@ -50,8 +50,8 @@ export function setMasterGain(mainApp, bus, gainDb) {
         ...currentMixer,
         [bus]: {
           ...currentMixer[bus],
-          gain: gainDb
-        }
+          gain: gainDb,
+        },
       };
       mainApp.appState.updateMixerState(updatedMixer);
     }
@@ -62,13 +62,13 @@ export function setMasterGain(mainApp, bus, gainDb) {
     return {
       success: true,
       bus,
-      gainDb
+      gainDb,
     };
   } catch (error) {
     console.error('Error setting master gain:', error);
     return {
       success: false,
-      error: error.message
+      error: error.message,
     };
   }
 }
@@ -84,7 +84,7 @@ export function toggleMasterMute(mainApp, bus) {
     if (!bus) {
       return {
         success: false,
-        error: 'bus (PA/IEM/mic) required'
+        error: 'bus (PA/IEM/mic) required',
       };
     }
 
@@ -101,8 +101,8 @@ export function toggleMasterMute(mainApp, bus) {
         ...currentMixer,
         [bus]: {
           ...currentMixer[bus],
-          muted: newMuted
-        }
+          muted: newMuted,
+        },
       };
       mainApp.appState.updateMixerState(updatedMixer);
     }
@@ -113,13 +113,13 @@ export function toggleMasterMute(mainApp, bus) {
     return {
       success: true,
       bus,
-      muted: newMuted
+      muted: newMuted,
     };
   } catch (error) {
     console.error('Error toggling master mute:', error);
     return {
       success: false,
-      error: error.message
+      error: error.message,
     };
   }
 }
@@ -136,7 +136,7 @@ export function setMasterMute(mainApp, bus, muted) {
     if (!bus || typeof muted !== 'boolean') {
       return {
         success: false,
-        error: 'bus (PA/IEM/mic) and muted status required'
+        error: 'bus (PA/IEM/mic) and muted status required',
       };
     }
 
@@ -148,8 +148,8 @@ export function setMasterMute(mainApp, bus, muted) {
         ...currentMixer,
         [bus]: {
           ...currentMixer[bus],
-          muted
-        }
+          muted,
+        },
       };
       mainApp.appState.updateMixerState(updatedMixer);
     }
@@ -160,13 +160,13 @@ export function setMasterMute(mainApp, bus, muted) {
     return {
       success: true,
       bus,
-      muted
+      muted,
     };
   } catch (error) {
     console.error('Error setting master mute:', error);
     return {
       success: false,
-      error: error.message
+      error: error.message,
     };
   }
 }

@@ -26,7 +26,7 @@ export async function loadSong(path) {
     kaiData.originalFilePath = path;
     return {
       format: 'kai',
-      kaiData: kaiData
+      kaiData: kaiData,
     };
   } else {
     // CDG format - not yet implemented
@@ -72,7 +72,7 @@ export async function saveSong(path, updates) {
   // Prepare data to save
   const dataToSave = {
     song: updatedSong,
-    lyrics: updatedLyrics
+    lyrics: updatedLyrics,
   };
 
   // Handle AI corrections metadata (rejections/suggestions)
@@ -84,25 +84,25 @@ export async function saveSong(path, updates) {
     }
 
     if (metadata.rejections !== undefined) {
-      updatedMeta.corrections.rejected = metadata.rejections.map(r => ({
+      updatedMeta.corrections.rejected = metadata.rejections.map((r) => ({
         line: r.line_num,
         start: r.start_time,
         end: r.end_time,
         old: r.old_text,
         new: r.new_text,
         reason: r.reason,
-        word_retention: r.retention_rate
+        word_retention: r.retention_rate,
       }));
     }
 
     if (metadata.suggestions !== undefined) {
-      updatedMeta.corrections.missing_lines_suggested = metadata.suggestions.map(s => ({
+      updatedMeta.corrections.missing_lines_suggested = metadata.suggestions.map((s) => ({
         suggested_text: s.suggested_text,
         start: s.start_time,
         end: s.end_time,
         confidence: s.confidence,
         reason: s.reason,
-        pitch_activity: s.pitch_activity
+        pitch_activity: s.pitch_activity,
       }));
     }
 

@@ -13,7 +13,7 @@
 export async function getEffects(mainApp) {
   try {
     // Get effects list from renderer
-    const effects = await mainApp.getEffectsList?.() || [];
+    const effects = (await mainApp.getEffectsList?.()) || [];
 
     // Get current effect from AppState
     const state = mainApp.appState.getSnapshot();
@@ -27,7 +27,7 @@ export async function getEffects(mainApp) {
       success: true,
       effects,
       currentEffect,
-      disabledEffects
+      disabledEffects,
     };
   } catch (error) {
     console.error('Error getting effects:', error);
@@ -36,7 +36,7 @@ export async function getEffects(mainApp) {
       error: error.message,
       effects: [],
       currentEffect: null,
-      disabledEffects: []
+      disabledEffects: [],
     };
   }
 }
@@ -52,7 +52,7 @@ export async function setEffect(mainApp, effectName) {
     if (!effectName) {
       return {
         success: false,
-        error: 'Effect name is required'
+        error: 'Effect name is required',
       };
     }
 
@@ -64,13 +64,13 @@ export async function setEffect(mainApp, effectName) {
 
     return {
       success: true,
-      effectName
+      effectName,
     };
   } catch (error) {
     console.error('Error setting effect:', error);
     return {
       success: false,
-      error: error.message
+      error: error.message,
     };
   }
 }
@@ -86,7 +86,7 @@ export async function selectEffect(mainApp, effectName) {
     if (!effectName) {
       return {
         success: false,
-        error: 'Effect name is required'
+        error: 'Effect name is required',
       };
     }
 
@@ -94,13 +94,13 @@ export async function selectEffect(mainApp, effectName) {
 
     return {
       success: true,
-      message: `Selected effect: ${effectName}`
+      message: `Selected effect: ${effectName}`,
     };
   } catch (error) {
     console.error('Error selecting effect:', error);
     return {
       success: false,
-      error: error.message
+      error: error.message,
     };
   }
 }
@@ -117,7 +117,7 @@ export async function toggleEffect(mainApp, effectName, enabled) {
     if (!effectName || typeof enabled !== 'boolean') {
       return {
         success: false,
-        error: 'Effect name and enabled status required'
+        error: 'Effect name and enabled status required',
       };
     }
 
@@ -125,13 +125,13 @@ export async function toggleEffect(mainApp, effectName, enabled) {
 
     return {
       success: true,
-      message: `Effect ${effectName} ${enabled ? 'enabled' : 'disabled'}`
+      message: `Effect ${effectName} ${enabled ? 'enabled' : 'disabled'}`,
     };
   } catch (error) {
     console.error('Error toggling effect:', error);
     return {
       success: false,
-      error: error.message
+      error: error.message,
     };
   }
 }
@@ -149,7 +149,7 @@ export function nextEffect(mainApp) {
     console.error('Error changing to next effect:', error);
     return {
       success: false,
-      error: error.message
+      error: error.message,
     };
   }
 }
@@ -167,7 +167,7 @@ export function previousEffect(mainApp) {
     console.error('Error changing to previous effect:', error);
     return {
       success: false,
-      error: error.message
+      error: error.message,
     };
   }
 }
@@ -185,7 +185,7 @@ export function randomEffect(mainApp) {
     console.error('Error selecting random effect:', error);
     return {
       success: false,
-      error: error.message
+      error: error.message,
     };
   }
 }
@@ -201,7 +201,7 @@ export async function disableEffect(mainApp, effectName) {
     if (!effectName) {
       return {
         success: false,
-        error: 'Effect name is required'
+        error: 'Effect name is required',
       };
     }
 
@@ -221,13 +221,13 @@ export async function disableEffect(mainApp, effectName) {
 
     return {
       success: true,
-      disabled
+      disabled,
     };
   } catch (error) {
     console.error('Error disabling effect:', error);
     return {
       success: false,
-      error: error.message
+      error: error.message,
     };
   }
 }
@@ -243,13 +243,13 @@ export async function enableEffect(mainApp, effectName) {
     if (!effectName) {
       return {
         success: false,
-        error: 'Effect name is required'
+        error: 'Effect name is required',
       };
     }
 
     // Get current waveformPreferences from settings
     const waveformPrefs = mainApp.settings.get('waveformPreferences', {});
-    const disabled = (waveformPrefs.disabledEffects || []).filter(e => e !== effectName);
+    const disabled = (waveformPrefs.disabledEffects || []).filter((e) => e !== effectName);
     waveformPrefs.disabledEffects = disabled;
     mainApp.settings.set('waveformPreferences', waveformPrefs);
     await mainApp.settings.save();
@@ -259,13 +259,13 @@ export async function enableEffect(mainApp, effectName) {
 
     return {
       success: true,
-      disabled
+      disabled,
     };
   } catch (error) {
     console.error('Error enabling effect:', error);
     return {
       success: false,
-      error: error.message
+      error: error.message,
     };
   }
 }

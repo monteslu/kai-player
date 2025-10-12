@@ -40,7 +40,7 @@ export function registerSettingsHandlers(mainApp) {
         // If disabled effects changed, also emit effects update
         if (value.disabledEffects !== undefined) {
           mainApp.webServer.io.emit('effects-update', {
-            disabled: value.disabledEffects
+            disabled: value.disabledEffects,
           });
         }
       }

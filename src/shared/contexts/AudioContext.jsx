@@ -25,11 +25,7 @@ export function AudioProvider({ children }) {
     setDevices,
   };
 
-  return (
-    <AudioContext.Provider value={value}>
-      {children}
-    </AudioContext.Provider>
-  );
+  return <AudioContext.Provider value={value}>{children}</AudioContext.Provider>;
 }
 
 export function useAudio() {

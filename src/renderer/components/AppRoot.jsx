@@ -29,9 +29,7 @@ export function AppRoot({ children }) {
     <SettingsProvider>
       <AudioProvider>
         <PlayerProvider>
-          <AppInitializer>
-            {children}
-          </AppInitializer>
+          <AppInitializer>{children}</AppInitializer>
         </PlayerProvider>
       </AudioProvider>
     </SettingsProvider>

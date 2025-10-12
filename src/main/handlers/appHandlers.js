@@ -27,7 +27,7 @@ export function registerAppHandlers(mainApp) {
       return {
         path: mainApp.currentSong.metadata.path || mainApp.currentSong.filePath,
         title: mainApp.currentSong.metadata.title,
-        artist: mainApp.currentSong.metadata.artist
+        artist: mainApp.currentSong.metadata.artist,
       };
     }
     return null;

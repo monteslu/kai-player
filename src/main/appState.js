@@ -16,14 +16,14 @@ class AppState extends StateManager {
       // Playback state (updated frequently from renderer)
       playback: {
         isPlaying: false,
-        position: 0,           // seconds
-        duration: 0,           // seconds
+        position: 0, // seconds
+        duration: 0, // seconds
         songPath: null,
-        lastUpdate: Date.now()
+        lastUpdate: Date.now(),
       },
 
       // Current song metadata
-      currentSong: null,  // { path, title, artist, duration, requester }
+      currentSong: null, // { path, title, artist, duration, requester }
 
       // Queue
       queue: [],
@@ -31,19 +31,19 @@ class AppState extends StateManager {
       // Mixer state (synced from renderer)
       mixer: {
         PA: {
-          gain: 0,        // dB
-          muted: false
+          gain: 0, // dB
+          muted: false,
         },
         IEM: {
-          gain: 0,        // dB
+          gain: 0, // dB
           muted: false,
-          mono: true      // Always mono for single-ear monitoring
+          mono: true, // Always mono for single-ear monitoring
         },
         mic: {
-          gain: 0,        // dB
-          muted: false
+          gain: 0, // dB
+          muted: false,
         },
-        stems: []         // For reference only: [{ id, name, gain, index }]
+        stems: [], // For reference only: [{ id, name, gain, index }]
       },
 
       // Effects state (synced from renderer)
@@ -54,7 +54,7 @@ class AppState extends StateManager {
         enableEffects: true,
         randomEffectOnSong: false,
         overlayOpacity: 0.7,
-        showUpcomingLyrics: true
+        showUpcomingLyrics: true,
       },
 
       // User preferences (broadcasted to all clients)
@@ -62,22 +62,22 @@ class AppState extends StateManager {
         autoTune: {
           enabled: false,
           strength: 50,
-          speed: 20
+          speed: 20,
         },
         microphone: {
           enabled: false,
           gain: 1.0,
-          toSpeakers: true
+          toSpeakers: true,
         },
         iemMonoVocals: true,
         audio: {
           devices: {
             PA: { id: 'default', name: 'Default Output' },
             IEM: { id: 'default', name: 'Default Output' },
-            input: { id: 'default', name: 'Default Input' }
-          }
-        }
-      }
+            input: { id: 'default', name: 'Default Input' },
+          },
+        },
+      },
     });
 
     // Set up event forwarding for backward compatibility
@@ -97,7 +97,7 @@ class AppState extends StateManager {
     // Use StateManager's update method
     const updatesWithTimestamp = {
       ...updates,
-      lastUpdate: Date.now()
+      lastUpdate: Date.now(),
     };
 
     this.update('playback', updatesWithTimestamp);
@@ -107,31 +107,35 @@ class AppState extends StateManager {
    * Set current song (called when song is loaded)
    */
   setCurrentSong(songData) {
-    const newSong = songData ? {
-      path: songData.path || songData.filePath,
-      title: songData.title,
-      artist: songData.artist,
-      duration: songData.duration || 0,
-      requester: songData.requester || 'KJ',
-      isLoading: songData.isLoading || false,  // Preserve loading state
-      format: songData.format,  // Preserve format (kai/cdg)
-      queueItemId: songData.queueItemId || null  // Track which queue item is loaded (for duplicate songs)
-    } : null;
+    const newSong = songData
+      ? {
+          path: songData.path || songData.filePath,
+          title: songData.title,
+          artist: songData.artist,
+          duration: songData.duration || 0,
+          requester: songData.requester || 'KJ',
+          isLoading: songData.isLoading || false, // Preserve loading state
+          format: songData.format, // Preserve format (kai/cdg)
+          queueItemId: songData.queueItemId || null, // Track which queue item is loaded (for duplicate songs)
+        }
+      : null;
 
     // Update currentSong domain
     this.state.currentSong = newSong;
     this.emit('currentSongChanged', newSong);
 
     // Update playback state with new song
-    const playbackUpdates = songData ? {
-      songPath: songData.path || songData.filePath,
-      duration: songData.duration || 0,
-      position: 0
-    } : {
-      songPath: null,
-      duration: 0,
-      position: 0
-    };
+    const playbackUpdates = songData
+      ? {
+          songPath: songData.path || songData.filePath,
+          duration: songData.duration || 0,
+          position: 0,
+        }
+      : {
+          songPath: null,
+          duration: 0,
+          position: 0,
+        };
 
     this.update('playback', playbackUpdates);
   }
@@ -141,14 +145,14 @@ class AppState extends StateManager {
    */
   addToQueue(item) {
     const queueItem = {
-      id: item.id || (Date.now() + Math.random()),
+      id: item.id || Date.now() + Math.random(),
       path: item.path,
       title: item.title,
       artist: item.artist,
       duration: item.duration || 0,
       requester: item.requester || 'KJ',
       addedVia: item.addedVia || 'unknown',
-      addedAt: item.addedAt || new Date()
+      addedAt: item.addedAt || new Date(),
     };
 
     this.state.queue.push(queueItem);
@@ -158,7 +162,7 @@ class AppState extends StateManager {
   }
 
   removeFromQueue(id) {
-    const index = this.state.queue.findIndex(item => item.id === id);
+    const index = this.state.queue.findIndex((item) => item.id === id);
     if (index !== -1) {
       const removed = this.state.queue.splice(index, 1)[0];
       this.emit('queueChanged', this.state.queue);
@@ -200,14 +204,14 @@ class AppState extends StateManager {
   setAutoTunePreferences(autoTunePrefs) {
     this.update('preferences', (current) => ({
       ...current,
-      autoTune: { ...current.autoTune, ...autoTunePrefs }
+      autoTune: { ...current.autoTune, ...autoTunePrefs },
     }));
   }
 
   setMicrophonePreferences(micPrefs) {
     this.update('preferences', (current) => ({
       ...current,
-      microphone: { ...current.microphone, ...micPrefs }
+      microphone: { ...current.microphone, ...micPrefs },
     }));
   }
 
@@ -216,8 +220,8 @@ class AppState extends StateManager {
       ...current,
       audio: {
         ...current.audio,
-        devices: { ...current.audio.devices, ...devices }
-      }
+        devices: { ...current.audio.devices, ...devices },
+      },
     }));
   }
 
@@ -234,7 +238,7 @@ class AppState extends StateManager {
   getCurrentPosition() {
     if (this.state.playback.isPlaying && this.state.playback.lastUpdate) {
       const elapsedMs = Date.now() - this.state.playback.lastUpdate;
-      const estimatedPosition = this.state.playback.position + (elapsedMs / 1000);
+      const estimatedPosition = this.state.playback.position + elapsedMs / 1000;
 
       // Don't exceed duration
       if (this.state.playback.duration > 0) {
@@ -251,7 +255,7 @@ class AppState extends StateManager {
    * Check if a song is currently in queue by path
    */
   findSongInQueue(songPath) {
-    return this.state.queue.find(item => item.path === songPath);
+    return this.state.queue.find((item) => item.path === songPath);
   }
 
   /**
@@ -262,7 +266,7 @@ class AppState extends StateManager {
     return {
       count: this.state.queue.length,
       totalDuration,
-      currentSongPath: this.state.playback.songPath
+      currentSongPath: this.state.playback.songPath,
     };
   }
 }

@@ -54,11 +54,7 @@ export function PlayerProvider({ children }) {
     setDuration,
   };
 
-  return (
-    <PlayerContext.Provider value={value}>
-      {children}
-    </PlayerContext.Provider>
-  );
+  return <PlayerContext.Provider value={value}>{children}</PlayerContext.Provider>;
 }
 
 export function usePlayerState() {

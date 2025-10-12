@@ -14,13 +14,13 @@ export function getServerSettings(webServer) {
   try {
     return {
       success: true,
-      settings: webServer.settings
+      settings: webServer.settings,
     };
   } catch (error) {
     console.error('Error getting server settings:', error);
     return {
       success: false,
-      error: error.message
+      error: error.message,
     };
   }
 }
@@ -44,13 +44,13 @@ export function updateServerSettings(webServer, newSettings) {
 
     return {
       success: true,
-      settings: webServer.settings
+      settings: webServer.settings,
     };
   } catch (error) {
     console.error('Error updating server settings:', error);
     return {
       success: false,
-      error: error.message
+      error: error.message,
     };
   }
 }
@@ -65,10 +65,22 @@ export function loadSettings(webServer) {
     const savedSettings = {};
 
     if (webServer.mainApp && webServer.mainApp.settings) {
-      savedSettings.serverName = webServer.mainApp.settings.get('server.serverName', webServer.defaultSettings.serverName);
-      savedSettings.allowSongRequests = webServer.mainApp.settings.get('server.allowSongRequests', webServer.defaultSettings.allowSongRequests);
-      savedSettings.requireKJApproval = webServer.mainApp.settings.get('server.requireKJApproval', webServer.defaultSettings.requireKJApproval);
-      savedSettings.maxRequestsPerIP = webServer.mainApp.settings.get('server.maxRequestsPerIP', webServer.defaultSettings.maxRequestsPerIP);
+      savedSettings.serverName = webServer.mainApp.settings.get(
+        'server.serverName',
+        webServer.defaultSettings.serverName
+      );
+      savedSettings.allowSongRequests = webServer.mainApp.settings.get(
+        'server.allowSongRequests',
+        webServer.defaultSettings.allowSongRequests
+      );
+      savedSettings.requireKJApproval = webServer.mainApp.settings.get(
+        'server.requireKJApproval',
+        webServer.defaultSettings.requireKJApproval
+      );
+      savedSettings.maxRequestsPerIP = webServer.mainApp.settings.get(
+        'server.maxRequestsPerIP',
+        webServer.defaultSettings.maxRequestsPerIP
+      );
     }
 
     const finalSettings = { ...webServer.defaultSettings, ...savedSettings };
@@ -90,9 +102,18 @@ export function saveSettings(webServer) {
     if (webServer.mainApp && webServer.mainApp.settings) {
       console.log('🔧 Saving server settings:', webServer.settings);
       webServer.mainApp.settings.set('server.serverName', webServer.settings.serverName);
-      webServer.mainApp.settings.set('server.allowSongRequests', webServer.settings.allowSongRequests);
-      webServer.mainApp.settings.set('server.requireKJApproval', webServer.settings.requireKJApproval);
-      webServer.mainApp.settings.set('server.maxRequestsPerIP', webServer.settings.maxRequestsPerIP);
+      webServer.mainApp.settings.set(
+        'server.allowSongRequests',
+        webServer.settings.allowSongRequests
+      );
+      webServer.mainApp.settings.set(
+        'server.requireKJApproval',
+        webServer.settings.requireKJApproval
+      );
+      webServer.mainApp.settings.set(
+        'server.maxRequestsPerIP',
+        webServer.settings.maxRequestsPerIP
+      );
       console.log('🔧 Server settings saved to persistent storage');
       return true;
     } else {

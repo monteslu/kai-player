@@ -40,14 +40,14 @@ export function registerRendererHandlers(mainApp) {
     const updatedSongData = {
       ...songData,
       queueItemId: existingQueueItemId || songData.queueItemId || null,
-      format: existingFormat || songData.format || 'kai'
+      format: existingFormat || songData.format || 'kai',
     };
 
     mainApp.appState.setCurrentSong(updatedSongData);
     // Also update legacy currentSong for compatibility
     mainApp.currentSong = {
       metadata: songData,
-      filePath: songData.path
+      filePath: songData.path,
     };
   });
 

@@ -31,7 +31,12 @@ export function registerCanvasHandlers(mainApp) {
   // Send image data to canvas window
   ipcMain.handle('canvas:sendImageData', (event, imageDataArray, width, height) => {
     if (mainApp.canvasWindow && !mainApp.canvasWindow.isDestroyed()) {
-      mainApp.canvasWindow.webContents.send('canvas:receiveImageData', imageDataArray, width, height);
+      mainApp.canvasWindow.webContents.send(
+        'canvas:receiveImageData',
+        imageDataArray,
+        width,
+        height
+      );
     }
   });
 

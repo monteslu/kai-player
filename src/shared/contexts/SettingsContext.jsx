@@ -12,7 +12,7 @@ export function SettingsProvider({ children }) {
   const [devicePreferences, setDevicePreferences] = useState({
     PA: null,
     IEM: null,
-    input: null
+    input: null,
   });
 
   const [waveformPreferences, setWaveformPreferences] = useState({
@@ -23,13 +23,13 @@ export function SettingsProvider({ children }) {
     randomEffectOnSong: false,
     disabledEffects: [],
     overlayOpacity: 0.7,
-    showUpcomingLyrics: true
+    showUpcomingLyrics: true,
   });
 
   const [autoTunePreferences, setAutoTunePreferences] = useState({
     enabled: false,
     strength: 50,
-    speed: 20
+    speed: 20,
   });
 
   const value = {
@@ -44,11 +44,7 @@ export function SettingsProvider({ children }) {
     setAutoTunePreferences,
   };
 
-  return (
-    <SettingsContext.Provider value={value}>
-      {children}
-    </SettingsContext.Provider>
-  );
+  return <SettingsContext.Provider value={value}>{children}</SettingsContext.Provider>;
 }
 
 export function useSettings() {

@@ -15,12 +15,12 @@ export function getSongsFolder(mainApp) {
     const folder = mainApp.settings?.getSongsFolder?.();
     return {
       success: true,
-      folder: folder || null
+      folder: folder || null,
     };
   } catch (error) {
     return {
       success: false,
-      error: error.message
+      error: error.message,
     };
   }
 }
@@ -35,14 +35,14 @@ export function getCachedSongs(mainApp) {
     return {
       success: true,
       files: mainApp.cachedLibrary,
-      cached: true
+      cached: true,
     };
   }
 
   return {
     success: true,
     files: [],
-    cached: false
+    cached: false,
   };
 }
 
@@ -58,7 +58,7 @@ export async function getLibrarySongs(mainApp) {
       return {
         success: true,
         songs: mainApp.cachedLibrary,
-        fromCache: true
+        fromCache: true,
       };
     }
 
@@ -68,7 +68,7 @@ export async function getLibrarySongs(mainApp) {
       return {
         success: false,
         error: 'Songs folder not set',
-        songs: []
+        songs: [],
       };
     }
 
@@ -77,14 +77,14 @@ export async function getLibrarySongs(mainApp) {
     return {
       success: true,
       songs: files,
-      fromCache: false
+      fromCache: false,
     };
   } catch (error) {
     console.error('Error getting library songs:', error);
     return {
       success: false,
       error: error.message,
-      songs: []
+      songs: [],
     };
   }
 }
@@ -101,12 +101,12 @@ export async function scanLibrary(mainApp, progressCallback) {
     if (!songsFolder) {
       return {
         success: false,
-        error: 'Songs folder not set'
+        error: 'Songs folder not set',
       };
     }
 
     // Get total file count for progress
-    const allFiles = await mainApp.findAllKaiFiles?.(songsFolder) || [];
+    const allFiles = (await mainApp.findAllKaiFiles?.(songsFolder)) || [];
     const totalFiles = allFiles.length;
 
     if (progressCallback) {
@@ -114,7 +114,9 @@ export async function scanLibrary(mainApp, progressCallback) {
     }
 
     // Scan with progress
-    const files = await mainApp.scanForKaiFilesWithProgress?.(songsFolder, totalFiles, progressCallback) || [];
+    const files =
+      (await mainApp.scanForKaiFilesWithProgress?.(songsFolder, totalFiles, progressCallback)) ||
+      [];
 
     // Cache the results
     mainApp.cachedLibrary = files;
@@ -127,13 +129,13 @@ export async function scanLibrary(mainApp, progressCallback) {
       success: true,
       files,
       count: files.length,
-      cached: true
+      cached: true,
     };
   } catch (error) {
     console.error('❌ Failed to scan library:', error);
     return {
       success: false,
-      error: error.message
+      error: error.message,
     };
   }
 }
@@ -150,7 +152,7 @@ export async function syncLibrary(mainApp, progressCallback) {
     if (!songsFolder) {
       return {
         success: false,
-        error: 'Songs folder not set'
+        error: 'Songs folder not set',
       };
     }
 
@@ -162,7 +164,7 @@ export async function syncLibrary(mainApp, progressCallback) {
 
     // Step 2: Quick filesystem scan to find all valid files (no metadata parsing)
     console.log('🔍 Scanning filesystem...');
-    const filesystemScan = await mainApp.scanFilesystemForSync?.(songsFolder) || [];
+    const filesystemScan = (await mainApp.scanFilesystemForSync?.(songsFolder)) || [];
     const totalFiles = filesystemScan.length;
 
     if (progressCallback) {
@@ -196,14 +198,17 @@ export async function syncLibrary(mainApp, progressCallback) {
     // Step 4: Remaining items in currentFilesMap are NEW files that need metadata parsing
     const newFiles = Array.from(currentFilesMap.values());
 
-    console.log(`🔄 Sync: ${newFiles.length} new, ${removedPaths.length} removed, ${totalFiles} total`);
+    console.log(
+      `🔄 Sync: ${newFiles.length} new, ${removedPaths.length} removed, ${totalFiles} total`
+    );
 
     // Start with files that are still valid (already have metadata)
     let updatedFiles = stillValid;
 
     // Step 5: Process new files (10-100% progress)
     if (newFiles.length > 0) {
-      const newFilesData = await mainApp.parseMetadataWithProgress?.(newFiles, totalFiles, 0.1) || [];
+      const newFilesData =
+        (await mainApp.parseMetadataWithProgress?.(newFiles, totalFiles, 0.1)) || [];
       updatedFiles = updatedFiles.concat(newFilesData);
     } else {
       // No new files, go straight to 100%
@@ -221,13 +226,13 @@ export async function syncLibrary(mainApp, progressCallback) {
       count: updatedFiles.length,
       added: newFiles.length,
       removed: removedPaths.length,
-      removedPaths
+      removedPaths,
     };
   } catch (error) {
     console.error('❌ Failed to sync library:', error);
     return {
       success: false,
-      error: error.message
+      error: error.message,
     };
   }
 }
@@ -243,7 +248,7 @@ export function searchSongs(mainApp, query) {
     if (!query || !query.trim()) {
       return {
         success: true,
-        songs: []
+        songs: [],
       };
     }
 
@@ -251,16 +256,17 @@ export function searchSongs(mainApp, query) {
     if (cachedSongs.length === 0) {
       return {
         success: true,
-        songs: []
+        songs: [],
       };
     }
 
     const searchLower = query.toLowerCase().trim();
     const matches = cachedSongs
-      .filter(song =>
-        song.title?.toLowerCase().includes(searchLower) ||
-        song.artist?.toLowerCase().includes(searchLower) ||
-        song.album?.toLowerCase().includes(searchLower)
+      .filter(
+        (song) =>
+          song.title?.toLowerCase().includes(searchLower) ||
+          song.artist?.toLowerCase().includes(searchLower) ||
+          song.album?.toLowerCase().includes(searchLower)
       )
       .sort((a, b) => {
         // Prioritize title matches over artist/album matches
@@ -275,13 +281,13 @@ export function searchSongs(mainApp, query) {
 
     return {
       success: true,
-      songs: matches
+      songs: matches,
     };
   } catch (error) {
     return {
       success: false,
       error: error.message,
-      songs: []
+      songs: [],
     };
   }
 }
@@ -297,26 +303,28 @@ export async function getSongInfo(mainApp, filePath) {
     if (!filePath) {
       return {
         success: false,
-        error: 'File path is required'
+        error: 'File path is required',
       };
     }
 
     // Check cache first
     const cachedResult = getCachedSongs(mainApp);
-    const cachedSong = cachedResult.files?.find(f => f.path === filePath);
+    const cachedSong = cachedResult.files?.find((f) => f.path === filePath);
 
     if (cachedSong) {
       return {
         success: true,
         song: cachedSong,
-        fromCache: true
+        fromCache: true,
       };
     }
 
     // Not in cache, extract metadata directly
-    const format = filePath.toLowerCase().endsWith('.kai') ? 'kai' :
-                   filePath.toLowerCase().endsWith('.kar') || filePath.toLowerCase().endsWith('.zip') ? 'cdg-archive' :
-                   'cdg-pair';
+    const format = filePath.toLowerCase().endsWith('.kai')
+      ? 'kai'
+      : filePath.toLowerCase().endsWith('.kar') || filePath.toLowerCase().endsWith('.zip')
+        ? 'cdg-archive'
+        : 'cdg-pair';
 
     let metadata;
     if (format === 'kai') {
@@ -327,7 +335,7 @@ export async function getSongInfo(mainApp, filePath) {
       // For CDG pairs, we'd need the CDG path too
       return {
         success: false,
-        error: 'CDG pair requires both MP3 and CDG paths'
+        error: 'CDG pair requires both MP3 and CDG paths',
       };
     }
 
@@ -336,15 +344,15 @@ export async function getSongInfo(mainApp, filePath) {
       song: {
         path: filePath,
         format,
-        ...metadata
+        ...metadata,
       },
-      fromCache: false
+      fromCache: false,
     };
   } catch (error) {
     console.error('Error getting song info:', error);
     return {
       success: false,
-      error: error.message
+      error: error.message,
     };
   }
 }
@@ -358,7 +366,7 @@ export function clearLibraryCache(mainApp) {
   mainApp.cachedLibrary = null;
   return {
     success: true,
-    message: 'Library cache cleared'
+    message: 'Library cache cleared',
   };
 }
 
@@ -384,7 +392,7 @@ export async function updateLibraryCache(mainApp, files) {
       if (mainApp.webServer.io) {
         mainApp.webServer.io.emit('library-refreshed', {
           count: files.length,
-          timestamp: Date.now()
+          timestamp: Date.now(),
         });
       }
     }
@@ -399,11 +407,15 @@ export async function updateLibraryCache(mainApp, files) {
       const cacheFile = path.default.join(app.getPath('userData'), 'library-cache.json');
 
       try {
-        await fsPromises.default.writeFile(cacheFile, JSON.stringify({
-          songsFolder,
-          files,
-          cachedAt: new Date().toISOString()
-        }), 'utf8');
+        await fsPromises.default.writeFile(
+          cacheFile,
+          JSON.stringify({
+            songsFolder,
+            files,
+            cachedAt: new Date().toISOString(),
+          }),
+          'utf8'
+        );
         console.log('💾 Library cache saved to disk');
       } catch (err) {
         console.error('Failed to save library cache to disk:', err);
@@ -412,13 +424,13 @@ export async function updateLibraryCache(mainApp, files) {
 
     return {
       success: true,
-      count: files.length
+      count: files.length,
     };
   } catch (error) {
     console.error('Failed to update library cache:', error);
     return {
       success: false,
-      error: error.message
+      error: error.message,
     };
   }
 }

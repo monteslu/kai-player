@@ -19,7 +19,7 @@ export function play(mainApp) {
 
   return {
     success: false,
-    error: 'Main window not available'
+    error: 'Main window not available',
   };
 }
 
@@ -37,7 +37,7 @@ export function pause(mainApp) {
 
   return {
     success: false,
-    error: 'Main window not available'
+    error: 'Main window not available',
   };
 }
 
@@ -55,7 +55,7 @@ export function restart(mainApp) {
 
   return {
     success: false,
-    error: 'Main window not available'
+    error: 'Main window not available',
   };
 }
 
@@ -69,7 +69,7 @@ export function seek(mainApp, positionSec) {
   if (typeof positionSec !== 'number') {
     return {
       success: false,
-      error: 'Position must be a number'
+      error: 'Position must be a number',
     };
   }
 
@@ -81,7 +81,7 @@ export function seek(mainApp, positionSec) {
 
   return {
     success: false,
-    error: 'Main window not available'
+    error: 'Main window not available',
   };
 }
 
@@ -96,7 +96,7 @@ export async function loadSong(mainApp, filePath) {
     if (!filePath) {
       return {
         success: false,
-        error: 'File path is required'
+        error: 'File path is required',
       };
     }
 
@@ -106,19 +106,19 @@ export async function loadSong(mainApp, filePath) {
       return {
         success: true,
         song: result.song || result,
-        message: 'Song loaded successfully'
+        message: 'Song loaded successfully',
       };
     }
 
     return {
       success: false,
-      error: 'Failed to load song'
+      error: 'Failed to load song',
     };
   } catch (error) {
     console.error('Error loading song:', error);
     return {
       success: false,
-      error: error.message
+      error: error.message,
     };
   }
 }
@@ -135,7 +135,7 @@ export async function playNext(mainApp) {
     if (queue.length === 0) {
       return {
         success: false,
-        error: 'Queue is empty'
+        error: 'Queue is empty',
       };
     }
 
@@ -157,20 +157,20 @@ export async function playNext(mainApp) {
       return {
         success: true,
         song: nextSong,
-        message: 'Playing next song'
+        message: 'Playing next song',
       };
     }
 
     return {
       success: true,
       song: null,
-      message: 'No more songs in queue'
+      message: 'No more songs in queue',
     };
   } catch (error) {
     console.error('Error playing next song:', error);
     return {
       success: false,
-      error: error.message
+      error: error.message,
     };
   }
 }
@@ -190,9 +190,9 @@ export function getPlaybackState(mainApp) {
       position: state.playback.position,
       duration: state.playback.duration,
       songPath: state.playback.songPath,
-      lastUpdate: state.playback.lastUpdate
+      lastUpdate: state.playback.lastUpdate,
     },
-    currentSong: state.currentSong
+    currentSong: state.currentSong,
   };
 }
 
@@ -209,13 +209,13 @@ export function getCurrentSong(mainApp) {
         path: mainApp.currentSong.metadata.path || mainApp.currentSong.filePath,
         title: mainApp.currentSong.metadata.title,
         artist: mainApp.currentSong.metadata.artist,
-        requester: mainApp.currentSong.requester || 'KJ'
-      }
+        requester: mainApp.currentSong.requester || 'KJ',
+      },
     };
   }
 
   return {
     success: true,
-    song: null
+    song: null,
   };
 }

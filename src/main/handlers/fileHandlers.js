@@ -13,10 +13,8 @@ export function registerFileHandlers(mainApp) {
   // Open file dialog to select KAI file
   ipcMain.handle('file:openKai', async () => {
     const result = await dialog.showOpenDialog(mainApp.mainWindow, {
-      filters: [
-        { name: 'KAI Files', extensions: ['kai'] }
-      ],
-      properties: ['openFile']
+      filters: [{ name: 'KAI Files', extensions: ['kai'] }],
+      properties: ['openFile'],
     });
 
     if (!result.canceled && result.filePaths.length > 0) {

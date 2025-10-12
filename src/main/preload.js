@@ -3,26 +3,27 @@ const { ipcRenderer } = require('electron');
 const api = {
   app: {
     getVersion: () => ipcRenderer.invoke('app:getVersion'),
-    getState: () => ipcRenderer.invoke('app:getState')
+    getState: () => ipcRenderer.invoke('app:getState'),
   },
-  
+
   file: {
     openKai: () => ipcRenderer.invoke('file:openKai'),
-    loadKaiFromPath: (filePath) => ipcRenderer.invoke('file:loadKaiFromPath', filePath)
+    loadKaiFromPath: (filePath) => ipcRenderer.invoke('file:loadKaiFromPath', filePath),
   },
-  
+
   audio: {
     getDevices: () => ipcRenderer.invoke('audio:getDevices'),
     enumerateDevices: () => ipcRenderer.invoke('audio:enumerateDevices'),
-    setDevice: (deviceType, deviceId) => ipcRenderer.invoke('audio:setDevice', deviceType, deviceId),
-    
+    setDevice: (deviceType, deviceId) =>
+      ipcRenderer.invoke('audio:setDevice', deviceType, deviceId),
+
     onXRun: (callback) => ipcRenderer.on('audio:xrun', callback),
     onLatencyUpdate: (callback) => ipcRenderer.on('audio:latency', callback),
-    
+
     removeXRunListener: (callback) => ipcRenderer.removeListener('audio:xrun', callback),
-    removeLatencyListener: (callback) => ipcRenderer.removeListener('audio:latency', callback)
+    removeLatencyListener: (callback) => ipcRenderer.removeListener('audio:latency', callback),
   },
-  
+
   mixer: {
     setMasterGain: (bus, gainDb) => ipcRenderer.invoke('mixer:setMasterGain', bus, gainDb),
     toggleMasterMute: (bus) => ipcRenderer.invoke('mixer:toggleMasterMute', bus),
@@ -34,9 +35,9 @@ const api = {
     // Listen for commands from main process (for web admin)
     onSetMasterGain: (callback) => ipcRenderer.on('mixer:setMasterGain', callback),
     onToggleMasterMute: (callback) => ipcRenderer.on('mixer:toggleMasterMute', callback),
-    onSetMasterMute: (callback) => ipcRenderer.on('mixer:setMasterMute', callback)
+    onSetMasterMute: (callback) => ipcRenderer.on('mixer:setMasterMute', callback),
   },
-  
+
   player: {
     play: () => ipcRenderer.invoke('player:play'),
     pause: () => ipcRenderer.invoke('player:pause'),
@@ -51,16 +52,18 @@ const api = {
     onTogglePlayback: (callback) => ipcRenderer.on('player:togglePlayback', callback),
     onRestart: (callback) => ipcRenderer.on('player:restart', callback),
     onSetPosition: (callback) => ipcRenderer.on('player:setPosition', callback),
-    removeTogglePlaybackListener: (callback) => ipcRenderer.removeListener('player:togglePlayback', callback),
+    removeTogglePlaybackListener: (callback) =>
+      ipcRenderer.removeListener('player:togglePlayback', callback),
     removeRestartListener: (callback) => ipcRenderer.removeListener('player:restart', callback),
-    removeSetPositionListener: (callback) => ipcRenderer.removeListener('player:setPosition', callback)
+    removeSetPositionListener: (callback) =>
+      ipcRenderer.removeListener('player:setPosition', callback),
   },
-  
+
   autotune: {
     setEnabled: (enabled) => ipcRenderer.invoke('autotune:setEnabled', enabled),
-    setSettings: (settings) => ipcRenderer.invoke('autotune:setSettings', settings)
+    setSettings: (settings) => ipcRenderer.invoke('autotune:setSettings', settings),
   },
-  
+
   song: {
     onLoaded: (callback) => ipcRenderer.on('song:loaded', callback),
     onData: (callback) => ipcRenderer.on('song:data', callback),
@@ -68,28 +71,31 @@ const api = {
     removeSongListener: (callback) => ipcRenderer.removeListener('song:loaded', callback),
     removeDataListener: (callback) => ipcRenderer.removeListener('song:data', callback),
     removeChangedListener: (callback) => ipcRenderer.removeListener('song:changed', callback),
-    getCurrentSong: () => ipcRenderer.invoke('song:getCurrentSong')
+    getCurrentSong: () => ipcRenderer.invoke('song:getCurrentSong'),
   },
-  
+
   editor: {
     loadKai: (filePath) => ipcRenderer.invoke('editor:loadKai', filePath),
     saveKai: (kaiData, originalPath) => ipcRenderer.invoke('editor:saveKai', kaiData, originalPath),
-    reloadKai: (filePath) => ipcRenderer.invoke('editor:reloadKai', filePath)
+    reloadKai: (filePath) => ipcRenderer.invoke('editor:reloadKai', filePath),
   },
-  
+
   window: {
-    openCanvas: () => ipcRenderer.invoke('window:openCanvas')
+    openCanvas: () => ipcRenderer.invoke('window:openCanvas'),
   },
-  
+
   canvas: {
     startStreaming: () => ipcRenderer.invoke('canvas:startStreaming'),
     stopStreaming: () => ipcRenderer.invoke('canvas:stopStreaming'),
-    sendImageData: (imageDataArray, width, height) => ipcRenderer.invoke('canvas:sendImageData', imageDataArray, width, height),
-    sendICECandidate: (source, candidate) => ipcRenderer.invoke('canvas:sendICECandidate', source, candidate),
-    toggleFullscreen: (shouldBeFullscreen) => ipcRenderer.invoke('canvas:toggleFullscreen', shouldBeFullscreen),
-    sendFrame: (dataUrl) => ipcRenderer.invoke('canvas:sendFrame', dataUrl)
+    sendImageData: (imageDataArray, width, height) =>
+      ipcRenderer.invoke('canvas:sendImageData', imageDataArray, width, height),
+    sendICECandidate: (source, candidate) =>
+      ipcRenderer.invoke('canvas:sendICECandidate', source, candidate),
+    toggleFullscreen: (shouldBeFullscreen) =>
+      ipcRenderer.invoke('canvas:toggleFullscreen', shouldBeFullscreen),
+    sendFrame: (dataUrl) => ipcRenderer.invoke('canvas:sendFrame', dataUrl),
   },
-  
+
   library: {
     getSongsFolder: () => ipcRenderer.invoke('library:getSongsFolder'),
     setSongsFolder: () => ipcRenderer.invoke('library:setSongsFolder'),
@@ -100,7 +106,8 @@ const api = {
     search: (query) => ipcRenderer.invoke('library:search', query),
 
     onFolderSet: (callback) => ipcRenderer.on('library:folderSet', callback),
-    removeFolderSetListener: (callback) => ipcRenderer.removeListener('library:folderSet', callback)
+    removeFolderSetListener: (callback) =>
+      ipcRenderer.removeListener('library:folderSet', callback),
   },
 
   webServer: {
@@ -113,7 +120,7 @@ const api = {
     rejectRequest: (requestId) => ipcRenderer.invoke('webServer:rejectRequest', requestId),
     refreshCache: () => ipcRenderer.invoke('webServer:refreshCache'),
     setAdminPassword: (password) => ipcRenderer.invoke('webServer:setAdminPassword', password),
-    clearAllRequests: () => ipcRenderer.invoke('webServer:clearAllRequests')
+    clearAllRequests: () => ipcRenderer.invoke('webServer:clearAllRequests'),
   },
 
   settings: {
@@ -122,7 +129,7 @@ const api = {
     getAll: () => ipcRenderer.invoke('settings:getAll'),
     updateBatch: (updates) => ipcRenderer.invoke('settings:updateBatch', updates),
     onUpdate: (callback) => ipcRenderer.on('settings:update', callback),
-    removeUpdateListener: (callback) => ipcRenderer.removeListener('settings:update', callback)
+    removeUpdateListener: (callback) => ipcRenderer.removeListener('settings:update', callback),
   },
 
   queue: {
@@ -134,14 +141,14 @@ const api = {
     reorderQueue: (songId, newIndex) => ipcRenderer.invoke('queue:reorderQueue', songId, newIndex),
 
     onUpdated: (callback) => ipcRenderer.on('queue:updated', callback),
-    removeUpdatedListener: (callback) => ipcRenderer.removeListener('queue:updated', callback)
+    removeUpdatedListener: (callback) => ipcRenderer.removeListener('queue:updated', callback),
   },
 
   effect: {
     onNext: (callback) => ipcRenderer.on('effect:next', callback),
     onPrevious: (callback) => ipcRenderer.on('effect:previous', callback),
     removeNextListener: (callback) => ipcRenderer.removeListener('effect:next', callback),
-    removePreviousListener: (callback) => ipcRenderer.removeListener('effect:previous', callback)
+    removePreviousListener: (callback) => ipcRenderer.removeListener('effect:previous', callback),
   },
 
   effects: {
@@ -153,7 +160,7 @@ const api = {
     random: () => ipcRenderer.invoke('effects:random'),
 
     onChanged: (callback) => ipcRenderer.on('effects:changed', callback),
-    removeChangedListener: (callback) => ipcRenderer.removeListener('effects:changed', callback)
+    removeChangedListener: (callback) => ipcRenderer.removeListener('effects:changed', callback),
   },
 
   preferences: {
@@ -162,7 +169,8 @@ const api = {
     setEffects: (prefs) => ipcRenderer.invoke('preferences:setEffects', prefs),
 
     onUpdated: (callback) => ipcRenderer.on('preferences:updated', callback),
-    removeUpdatedListener: (callback) => ipcRenderer.removeListener('preferences:updated', callback)
+    removeUpdatedListener: (callback) =>
+      ipcRenderer.removeListener('preferences:updated', callback),
   },
 
   // admin.onPlay/onNext/onRestart removed - web admin calls window.app methods directly via executeJavaScript
@@ -172,21 +180,22 @@ const api = {
     updatePlaybackState: (updates) => ipcRenderer.send('renderer:updatePlaybackState', updates),
     songLoaded: (songData) => ipcRenderer.send('renderer:songLoaded', songData),
     updateMixerState: (mixerState) => ipcRenderer.send('renderer:updateMixerState', mixerState),
-    updateEffectsState: (effectsState) => ipcRenderer.send('renderer:updateEffectsState', effectsState),
+    updateEffectsState: (effectsState) =>
+      ipcRenderer.send('renderer:updateEffectsState', effectsState),
     sendEffectsList: (effects) => ipcRenderer.send('effects:getList-response', effects),
     sendCurrentEffect: (effectName) => ipcRenderer.send('effects:getCurrent-response', effectName),
     sendDisabledEffects: (disabled) => ipcRenderer.send('effects:getDisabled-response', disabled),
-    sendWebRTCResponse: (command, result) => ipcRenderer.send(`webrtc:${command}-response`, result)
+    sendWebRTCResponse: (command, result) => ipcRenderer.send(`webrtc:${command}-response`, result),
   },
 
   events: {
     on: (channel, callback) => ipcRenderer.on(channel, callback),
-    removeListener: (channel, callback) => ipcRenderer.removeListener(channel, callback)
+    removeListener: (channel, callback) => ipcRenderer.removeListener(channel, callback),
   },
 
   shell: {
-    openExternal: (url) => ipcRenderer.invoke('shell:openExternal', url)
-  }
+    openExternal: (url) => ipcRenderer.invoke('shell:openExternal', url),
+  },
 };
 
 // Since contextIsolation is disabled, directly assign to window

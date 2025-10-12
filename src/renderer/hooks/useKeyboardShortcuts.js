@@ -23,13 +23,17 @@ export function useKeyboardShortcuts(options = {}) {
     onToggleVocalsGlobal,
     onToggleVocalsPA,
     onToggleStemMute,
-    onToggleStemSolo
+    onToggleStemSolo,
   } = options;
 
   useEffect(() => {
     const handleKeyDown = async (e) => {
       // Ignore keyboard shortcuts when typing in input fields
-      if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA') {
+      if (
+        e.target.tagName === 'INPUT' ||
+        e.target.tagName === 'SELECT' ||
+        e.target.tagName === 'TEXTAREA'
+      ) {
         return;
       }
 
@@ -116,7 +120,13 @@ export function useKeyboardShortcuts(options = {}) {
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
     };
-  }, [onTogglePlayback, onToggleVocalsGlobal, onToggleVocalsPA, onToggleStemMute, onToggleStemSolo]);
+  }, [
+    onTogglePlayback,
+    onToggleVocalsGlobal,
+    onToggleVocalsPA,
+    onToggleStemMute,
+    onToggleStemSolo,
+  ]);
 }
 
 /**

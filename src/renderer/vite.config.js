@@ -18,14 +18,14 @@ export default defineConfig({
       output: {
         entryFileNames: 'renderer.js',
         assetFileNames: 'renderer.[ext]',
-        chunkFileNames: 'assets/[name]-[hash].js'
-      }
-    }
+        chunkFileNames: 'assets/[name]-[hash].js',
+      },
+    },
   },
   resolve: {
     alias: {
       '@shared': path.resolve(__dirname, '../shared'),
-      '@renderer': path.resolve(__dirname, '.')
-    }
-  }
+      '@renderer': path.resolve(__dirname, '.'),
+    },
+  },
 });
