@@ -32,19 +32,26 @@ jobs:
           sudo apt-get install -y flatpak-builder flatpak
           flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
 
-      - name: Install Flatpak runtimes
+      # Cache Flatpak runtimes to avoid 2-3 GB download on every build
+      - name: Cache Flatpak runtimes
+        uses: actions/cache@v4
+        id: flatpak-cache
+        with:
+          path: |
+            ~/.local/share/flatpak
+          key: flatpak-runtime-24.08-v2
+          restore-keys: |
+            flatpak-runtime-24.08-
+
+      - name: Install Flatpak runtimes (x64 only)
+        if: steps.flatpak-cache.outputs.cache-hit != 'true'
         run: |
           flatpak install --user -y flathub org.electronjs.Electron2.BaseApp/x86_64/24.08 org.freedesktop.Platform/x86_64/24.08 org.freedesktop.Sdk/x86_64/24.08
-          flatpak install --user -y flathub org.electronjs.Electron2.BaseApp/aarch64/24.08 org.freedesktop.Platform/aarch64/24.08 org.freedesktop.Sdk/aarch64/24.08
 
       - name: Build web UI
         run: npm run build:web
 
-      - name: Install QEMU for arm64
-        run: |
-          sudo apt-get install -y qemu-user-static
-
-      - name: Build Linux (x64 + arm64)
+      - name: Build Linux (x64 only)
         run: npm run build:linux
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

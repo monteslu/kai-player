@@ -47,7 +47,7 @@
   <content_rating type="oars-1.1" />
 
   <releases>
-    <release version="0.1.13" date="2025-10-12">
+    <release version="0.1.14" date="2025-10-12">
       <description>
         <p>Early development release with core karaoke features</p>
         <ul>
