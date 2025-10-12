@@ -103,7 +103,12 @@ jobs:
           ls -lh src/web/dist/
 
           # Verify critical files exist
-          test -f src/renderer/dist/index.html || exit 1
+          # Renderer: index.html stays in src/renderer/, built files go to dist/
+          test -f src/renderer/index.html || exit 1
+          test -f src/renderer/dist/renderer.js || exit 1
+          test -f src/renderer/dist/renderer.css || exit 1
+
+          # Web: standard Vite build, everything in dist/
           test -f src/web/dist/index.html || exit 1
 
           echo "✅ Build artifacts verified"
