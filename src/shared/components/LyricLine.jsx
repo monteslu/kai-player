@@ -56,31 +56,28 @@ export function LyricLine({
     onPlaySection(startTime, endTime); // And play it
   };
 
-  // Build container classes
-  const containerClasses = [
-    'flex items-center gap-2.5 mb-2.5 p-2 border-2 rounded transition-all cursor-pointer',
-    // Base state
-    'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600',
-    // Hover state
-    'hover:bg-gray-50 dark:hover:bg-gray-750 hover:border-gray-400 dark:hover:border-gray-500',
-  ];
+  // Build container classes with proper precedence
+  let containerClasses =
+    'lyric-line-editor flex items-center gap-2.5 mb-2.5 p-2 border-2 rounded transition-all cursor-pointer';
 
-  // Conditional states
-  if (disabled) {
-    containerClasses.push('opacity-50 bg-gray-100 dark:bg-gray-900');
-  }
-  if (backup) {
-    containerClasses.push(
-      'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-400 dark:border-yellow-600'
-    );
-  }
+  // Conditional states (most specific first)
   if (isSelected) {
-    containerClasses.push('border-blue-500 dark:border-blue-400 bg-blue-50 dark:bg-blue-900/20');
+    containerClasses += ' border-blue-500 bg-blue-100 dark:border-blue-400 dark:bg-blue-900/40';
+  } else if (backup) {
+    containerClasses +=
+      ' bg-yellow-50 dark:bg-yellow-900/20 border-yellow-400 dark:border-yellow-600';
+  } else if (disabled) {
+    containerClasses +=
+      ' opacity-50 bg-gray-100 dark:bg-gray-900 border-gray-300 dark:border-gray-600';
+  } else {
+    // Default state
+    containerClasses +=
+      ' bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-750 hover:border-gray-400 dark:hover:border-gray-500';
   }
 
   return (
     <div
-      className={containerClasses.join(' ')}
+      className={containerClasses}
       data-index={index}
       data-start-time={startTime}
       data-end-time={endTime}
@@ -117,11 +114,15 @@ export function LyricLine({
 
       <input
         type="text"
-        className="flex-1 px-3 py-2 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-gray-900 dark:text-white text-sm focus:outline-none focus:border-blue-500 dark:focus:border-blue-400"
+        className="flex-1 px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:focus:ring-blue-400 dark:focus:border-blue-400"
         value={text}
         onChange={handleTextChange}
         placeholder="Enter lyrics..."
-        onClick={(e) => e.stopPropagation()}
+        onClick={(e) => {
+          e.stopPropagation();
+          onSelect(index);
+        }}
+        disabled={disabled}
       />
 
       <div className="flex items-center gap-3 flex-shrink-0">
