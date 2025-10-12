@@ -1,6 +1,6 @@
 {
   "name": "loukai",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "type": "module",
   "description": "Loukai - Real-time karaoke player with stem control and coaching",
   "main": "src/main/main.js",
@@ -119,7 +119,8 @@
         }
       ],
       "icon": "static/images/logo.png",
-      "category": "AudioVideo"
+      "category": "AudioVideo",
+      "artifactName": "${productName}-${version}-${arch}.${ext}"
     },
     "flatpak": {
       "runtime": "org.freedesktop.Platform",
@@ -140,7 +141,8 @@
     },
     "win": {
       "target": "nsis",
-      "icon": "static/images/logo.png"
+      "icon": "static/images/logo.png",
+      "artifactName": "${productName}-Setup-${version}-${arch}.${ext}"
     },
     "mac": {
       "target": [
@@ -152,7 +154,8 @@
           ]
         }
       ],
-      "icon": "static/images/logo.png"
+      "icon": "static/images/logo.png",
+      "artifactName": "${productName}-${version}-${arch}.${ext}"
     }
   },
   "lint-staged": {
