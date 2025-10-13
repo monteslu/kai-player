@@ -1,6 +1,6 @@
 {
   "name": "loukai",
-  "version": "0.1.22",
+  "version": "0.1.23",
   "type": "module",
   "description": "Loukai - Real-time karaoke player with stem control and coaching",
   "main": "src/main/main.js",
