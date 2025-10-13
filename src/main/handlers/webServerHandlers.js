@@ -13,6 +13,8 @@ import * as requestsService from '../../shared/services/requestsService.js';
  * @param {Object} mainApp - Main application instance
  */
 export function registerWebServerHandlers(mainApp) {
+  console.log('📡 Registering web server handlers...');
+
   // Get web server port
   ipcMain.handle('webServer:getPort', () => {
     return mainApp.getWebServerPort();
@@ -20,6 +22,7 @@ export function registerWebServerHandlers(mainApp) {
 
   // Get web server URL
   ipcMain.handle('webServer:getUrl', () => {
+    console.log('🔍 webServer:getUrl called', { hasWebServer: Boolean(mainApp.webServer) });
     return mainApp.webServer?.getServerUrl() || null;
   });
 

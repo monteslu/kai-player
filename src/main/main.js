@@ -136,6 +136,13 @@ class KaiPlayerApp {
   async initialize() {
     await app.whenReady();
 
+    console.log('🚀 App starting...', {
+      isPackaged: app.isPackaged,
+      __dirname,
+      resourcesPath: process.resourcesPath,
+      cwd: process.cwd(),
+    });
+
     // Disable Electron's default error dialogs
     app.commandLine.appendSwitch('disable-dev-shm-usage');
     app.commandLine.appendSwitch('no-sandbox');
@@ -159,13 +166,20 @@ class KaiPlayerApp {
   }
 
   createMainWindow() {
+    // In production, resources are in app.asar or Resources folder
+    const resourcesPath = app.isPackaged ? process.resourcesPath : path.join(__dirname, '../..');
+
+    const iconPath = app.isPackaged
+      ? path.join(resourcesPath, 'static', 'images', 'logo.png')
+      : path.join(process.cwd(), 'static', 'images', 'logo.png');
+
     this.mainWindow = new BrowserWindow({
       width: 1200,
       height: 800,
       minWidth: 800,
       minHeight: 600,
       autoHideMenuBar: true, // Hide menu bar for cleaner, modern UI
-      icon: path.join(process.cwd(), 'static', 'images', 'logo.png'),
+      icon: iconPath,
       webPreferences: {
         nodeIntegration: true,
         contextIsolation: false,
@@ -179,7 +193,6 @@ class KaiPlayerApp {
 
     // Set dock icon on macOS
     if (process.platform === 'darwin') {
-      const iconPath = path.join(process.cwd(), 'static', 'images', 'logo.png');
       app.dock?.setIcon(iconPath);
     }
 

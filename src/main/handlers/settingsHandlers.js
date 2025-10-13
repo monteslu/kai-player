@@ -11,8 +11,11 @@ import { SETTINGS_CHANNELS } from '../../shared/ipcContracts.js';
  * @param {Object} mainApp - Main application instance
  */
 export function registerSettingsHandlers(mainApp) {
+  console.log('📡 Registering settings handlers...');
+
   // Get setting
   ipcMain.handle(SETTINGS_CHANNELS.GET, (event, key, defaultValue) => {
+    console.log(`🔍 settings:get called for key: ${key}`);
     const value = mainApp.settings.get(key, defaultValue);
     return value;
   });
