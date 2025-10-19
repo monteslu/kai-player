@@ -202,6 +202,23 @@ class KaiPlayerApp {
     const rendererPath = path.join(__dirname, '../renderer/index.html');
     this.mainWindow.loadFile(rendererPath);
 
+    // Open DevTools to debug renderer issues
+    this.mainWindow.webContents.openDevTools();
+
+    // Log all console messages from renderer
+    this.mainWindow.webContents.on('console-message', (event, level, message, line, sourceId) => {
+      console.log(`[Renderer ${level}] ${message} (${sourceId}:${line})`);
+    });
+
+    // Log renderer loading events
+    this.mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
+      console.error('❌ Renderer failed to load:', errorCode, errorDescription);
+    });
+
+    this.mainWindow.webContents.on('did-finish-load', () => {
+      console.log('✅ Renderer finished loading');
+    });
+
     // Set dock icon on macOS
     if (process.platform === 'darwin' && fs.existsSync(iconPath)) {
       app.dock?.setIcon(iconPath);
