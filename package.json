@@ -90,6 +90,10 @@
   "build": {
     "appId": "com.loukai.app",
     "productName": "Loukai",
+    "publish": {
+      "provider": "github",
+      "releaseType": "release"
+    },
     "directories": {
       "output": "dist"
     },
