@@ -136,13 +136,32 @@ class M4ALoader {
         };
       }
 
+      // Extract musical key from iTunes metadata
+      let musicalKey = 'C'; // Default key if not specified
+      if (mmData.native && mmData.native.iTunes) {
+        const keyAtom = mmData.native.iTunes.find(
+          (tag) => tag.id === '----:com.apple.iTunes:initialkey'
+        );
+        if (keyAtom && keyAtom.value) {
+          // Value is typically a Buffer, convert to string
+          const keyString =
+            typeof keyAtom.value === 'string'
+              ? keyAtom.value
+              : Buffer.isBuffer(keyAtom.value)
+                ? keyAtom.value.toString('utf-8')
+                : String(keyAtom.value);
+          musicalKey = keyString.trim();
+          console.log(`🎹 Detected musical key: ${musicalKey}`);
+        }
+      }
+
       // Extract standard metadata
       const metadata = {
         title: mmData.common?.title || path.basename(m4aPath, path.extname(m4aPath)),
         artist: mmData.common?.artist || '',
         album: mmData.common?.album || '',
         duration: mmData.format?.duration || 0,
-        key: 'C', // Default key if not specified
+        key: musicalKey,
         tempo: kaidData.meter?.bpm || 120,
         genre: mmData.common?.genre ? mmData.common.genre[0] : '',
         year: mmData.common?.year || null,
