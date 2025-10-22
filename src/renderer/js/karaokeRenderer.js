@@ -75,11 +75,7 @@ export class KaraokeRenderer {
     this.currentPreset = null;
     this.presetList = [];
     this.effectType = 'butterchurn';
-    this.butterchurnSourceNode = null;
-    this.butterchurnAudioBuffer = null;
-    this.butterchurnStartTime = 0; // Track when butterchurn source started (in context time)
-    this.butterchurnStartOffset = 0; // Track what offset we started from
-    this.originalAudioArrayBuffer = null; // Store original for multiple AudioContext decoding
+    // Note: Butterchurn now uses PA analyser from kaiPlayer, no separate context needed
 
     // AudioWorklet for efficient analysis
     this.musicWorkletNode = null;
@@ -182,12 +178,15 @@ export class KaraokeRenderer {
             throw new Error('Butterchurn API not compatible');
           }
 
-          // Create audio context for Butterchurn (it needs AudioContext, not WebGL context)
-          this.butterchurnAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+          // Create waveform audio context if needed (used as dummy for butterchurn)
+          if (!this.waveformAudioContext) {
+            this.waveformAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+          }
 
           // Initialize Butterchurn with the correct API: createVisualizer(audioContext, canvas, options)
+          // Note: Audio comes from PA analyser via setVisualizationAnalyser(), not from this context
           this.butterchurn = butterchurnAPI.createVisualizer(
-            this.butterchurnAudioContext,
+            this.waveformAudioContext,
             this.effectsCanvas,
             {
               width: 1920,
@@ -196,13 +195,6 @@ export class KaraokeRenderer {
               mesh_height: 72, // Lower for performance
               fps: 30, // Match our target framerate
             }
-          );
-
-          // Create analyser for debugging audio levels
-          this.butterchurnAnalyser = this.butterchurnAudioContext.createAnalyser();
-          this.butterchurnAnalyser.fftSize = 256;
-          this.butterchurnFrequencyData = new Uint8Array(
-            this.butterchurnAnalyser.frequencyBinCount
           );
 
           // If we already have music loaded, decode it for Butterchurn
@@ -451,65 +443,74 @@ export class KaraokeRenderer {
     return Math.min(interpolated, this.songDuration || Infinity);
   }
 
-  async setMusicAudio(audioData) {
-    // Set up music analysis for WebGL effects
+  /**
+   * Set the analyser node for butterchurn visualization
+   * This is provided by the PA audio context from kaiPlayer
+   * @param {AnalyserNode} analyserNode - The PA analyser node
+   */
+  setVisualizationAnalyser(analyserNode) {
+    if (!analyserNode) return;
+
     try {
-      // Create contexts only if they don't exist (don't recreate constantly)
-      if (!this.waveformAudioContext) {
-        this.waveformAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+      console.log('🎨 Connecting butterchurn to PA analyser');
+
+      // Check if butterchurn was created with a different context
+      // If so, recreate it with the PA context from the analyser
+      const paContext = analyserNode.context;
+
+      if (this.butterchurn && this.butterchurn.audioContext !== paContext) {
+        console.log('⚠️  Butterchurn context mismatch - recreating with PA context');
+
+        // Destroy old butterchurn
+        if (this.butterchurn.destroy) {
+          this.butterchurn.destroy();
+        }
+
+        // Get butterchurn API
+        let butterchurnAPI = null;
+        if (typeof window.butterchurn.createVisualizer === 'function') {
+          butterchurnAPI = window.butterchurn;
+        } else if (
+          window.butterchurn.default &&
+          typeof window.butterchurn.default.createVisualizer === 'function'
+        ) {
+          butterchurnAPI = window.butterchurn.default;
+        }
+
+        if (butterchurnAPI) {
+          // Recreate with PA context
+          this.butterchurn = butterchurnAPI.createVisualizer(paContext, this.effectsCanvas, {
+            width: 1920,
+            height: 1080,
+            mesh_width: 128,
+            mesh_height: 72,
+            fps: 30,
+          });
+
+          // Reload current preset if available
+          if (this.currentPreset && window.butterchurnPresets) {
+            const presets = window.butterchurnPresets.getPresets();
+            if (presets[this.currentPreset]) {
+              this.butterchurn.loadPreset(presets[this.currentPreset], 0.0);
+            }
+          }
+        }
       }
 
-      if (!this.butterchurnAudioContext) {
-        this.butterchurnAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+      // Connect analyser to butterchurn
+      if (this.butterchurn) {
+        this.butterchurn.connectAudio(analyserNode);
+        console.log('✅ Butterchurn connected to PA analyser successfully');
       }
-
-      // Reset buffer references for fresh decoding
-      this.butterchurnAudioBuffer = null;
-      this.originalAudioArrayBuffer = null;
-
-      let arrayBuffer;
-      if (audioData instanceof ArrayBuffer) {
-        arrayBuffer = audioData;
-      } else if (audioData && audioData.buffer instanceof ArrayBuffer) {
-        arrayBuffer = audioData.buffer.slice(
-          audioData.byteOffset,
-          audioData.byteOffset + audioData.byteLength
-        );
-      } else if (audioData instanceof Uint8Array) {
-        arrayBuffer = audioData.buffer.slice(
-          audioData.byteOffset,
-          audioData.byteOffset + audioData.byteLength
-        );
-      } else {
-        return; // Unexpected audio data type
-      }
-
-      // Store the original ArrayBuffer for Butterchurn decoding
-      this.originalAudioArrayBuffer = arrayBuffer.slice(0);
-
-      // Decode audio for waveform visualization using fresh context
-      const waveformBuffer = await this.waveformAudioContext.decodeAudioData(arrayBuffer.slice(0));
-
-      // ALWAYS decode fresh audio for Butterchurn context
-      if (this.butterchurn && this.butterchurnAudioContext) {
-        this.butterchurnAudioBuffer = await this.butterchurnAudioContext.decodeAudioData(
-          arrayBuffer.slice(0)
-        );
-      }
-
-      // Create debug analyser if we don't have one
-      if (this.butterchurnAudioContext && !this.butterchurnAnalyser) {
-        this.butterchurnAnalyser = this.butterchurnAudioContext.createAnalyser();
-        this.butterchurnAnalyser.fftSize = 256;
-        this.butterchurnFrequencyData = new Uint8Array(this.butterchurnAnalyser.frequencyBinCount);
-      }
-
-      // Setup analysis using the fresh Butterchurn context
-      this.setupMusicAnalysis(waveformBuffer, arrayBuffer);
     } catch (error) {
-      console.warn('Failed to load music audio for analysis:', error);
+      console.error('❌ Failed to connect butterchurn to analyser:', error);
+      console.error('   Error type:', error.name);
+      console.error('   Error message:', error.message);
     }
   }
+
+  // setMusicAudio() removed - butterchurn now uses PA analyser from kaiPlayer
+  // Connected via setVisualizationAnalyser() during song load
 
   reinitializeButterchurn() {
     try {
@@ -539,9 +540,14 @@ export class KaraokeRenderer {
         return;
       }
 
-      // Create fresh Butterchurn instance with the fresh AudioContext
+      // Create fresh Butterchurn instance (uses waveformAudioContext as dummy)
+      // Note: Audio comes from PA analyser via setVisualizationAnalyser(), not from this context
+      if (!this.waveformAudioContext) {
+        this.waveformAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+      }
+
       this.butterchurn = butterchurnAPI.createVisualizer(
-        this.butterchurnAudioContext,
+        this.waveformAudioContext,
         this.effectsCanvas,
         {
           width: 1920,

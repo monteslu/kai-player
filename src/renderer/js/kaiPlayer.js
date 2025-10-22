@@ -28,6 +28,7 @@ export class KAIPlayer extends PlayerInterface {
         sourceNodes: new Map(),
         gainNodes: new Map(),
         masterGain: null,
+        analyser: null, // For butterchurn visualization
       },
       IEM: {
         sourceNodes: new Map(),
@@ -97,6 +98,11 @@ export class KAIPlayer extends PlayerInterface {
       // Apply saved PA gain (considering mute state)
       const paGain = this.mixerState.PA.muted ? 0 : this.dbToLinear(this.mixerState.PA.gain);
       this.outputNodes.PA.masterGain.gain.value = paGain;
+
+      // Create analyser for butterchurn visualization (before gain affects signal)
+      this.outputNodes.PA.analyser = this.audioContexts.PA.createAnalyser();
+      this.outputNodes.PA.analyser.fftSize = 2048;
+      this.outputNodes.PA.analyser.smoothingTimeConstant = 0.8;
 
       // Initialize IEM audio context with saved device
       const iemContextOptions = {};
@@ -228,6 +234,13 @@ export class KAIPlayer extends PlayerInterface {
       );
       this.outputNodes[busType].masterGain = this.audioContexts[busType].createGain();
       this.outputNodes[busType].masterGain.connect(this.audioContexts[busType].destination);
+
+      // Create analyser for PA (for butterchurn visualization)
+      if (busType === 'PA') {
+        this.outputNodes.PA.analyser = this.audioContexts.PA.createAnalyser();
+        this.outputNodes.PA.analyser.fftSize = 2048;
+        this.outputNodes.PA.analyser.smoothingTimeConstant = 0.8;
+      }
 
       // Clear old audio nodes
       this.outputNodes[busType].sourceNodes.clear();
@@ -602,6 +615,11 @@ export class KAIPlayer extends PlayerInterface {
             const paSource = this.audioContexts.PA.createBufferSource();
             paSource.buffer = audioBuffer;
             paSource.connect(paGainNode);
+
+            // Connect to analyser for butterchurn visualization (before gain affects signal)
+            if (this.outputNodes.PA.analyser) {
+              paSource.connect(this.outputNodes.PA.analyser);
+            }
 
             // If this is a melodic stem, connect to microphone engine for pitch detection
             if (this.isMelodicStem(stem.name) && this.micEngine) {

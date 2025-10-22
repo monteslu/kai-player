@@ -180,6 +180,11 @@ export async function loadKAISong(app, songData, metadata) {
       app.player.karaokeRenderer.setShowUpcomingLyrics(waveformPrefs.showUpcomingLyrics);
       app.player.karaokeRenderer.waveformPreferences.overlayOpacity = waveformPrefs.overlayOpacity;
 
+      // Connect butterchurn to PA analyser for visualization (KAI format)
+      if (app.kaiPlayer?.outputNodes?.PA?.analyser) {
+        app.player.karaokeRenderer.setVisualizationAnalyser(app.kaiPlayer.outputNodes.PA.analyser);
+      }
+
       // Restart microphone capture if waveforms are enabled
       if (waveformPrefs.enableWaveforms) {
         setTimeout(() => {
@@ -212,8 +217,10 @@ async function setupButterchurnForCDG(app, songData, waveformPrefs) {
       app.player.karaokeRenderer.butterchurn
     );
 
-    // Feed CDG MP3 audio to Butterchurn for visualization
-    await app.player.karaokeRenderer.setMusicAudio(songData.audio.mp3);
+    // Connect butterchurn to CDG's PA analyser (already connected to CDG audio source)
+    if (app.player.cdgPlayer.analyserNode) {
+      app.player.karaokeRenderer.setVisualizationAnalyser(app.player.cdgPlayer.analyserNode);
+    }
 
     // Apply random effect if enabled
     await applyRandomEffectIfEnabled(app, waveformPrefs);
@@ -288,6 +295,11 @@ export async function loadM4ASong(app, songData, metadata) {
       app.player.karaokeRenderer.setEffectsEnabled(waveformPrefs.enableEffects);
       app.player.karaokeRenderer.setShowUpcomingLyrics(waveformPrefs.showUpcomingLyrics);
       app.player.karaokeRenderer.waveformPreferences.overlayOpacity = waveformPrefs.overlayOpacity;
+
+      // Connect butterchurn to PA analyser for visualization (M4A format)
+      if (app.kaiPlayer?.outputNodes?.PA?.analyser) {
+        app.player.karaokeRenderer.setVisualizationAnalyser(app.kaiPlayer.outputNodes.PA.analyser);
+      }
 
       // Restart microphone capture if waveforms are enabled
       if (waveformPrefs.enableWaveforms) {

@@ -94,36 +94,11 @@ export class PlayerController {
         // No vocals track available - waveform disabled
       }
 
-      // Load music audio data for background effects analysis
-      // For M4A stems, use 'mixdown' (full mix) for best visualization
-      // Note: This is only decoded for visualization, NOT played through PA speakers
-      const musicSource = metadata.audio.sources.find(
-        (source) =>
-          source.name === 'mixdown' || // M4A stems full mix (vocals included, but only for visualization)
-          source.name === 'mix' ||
-          source.name === 'other' || // Fallback to melodic instruments
-          source.name === 'music' ||
-          source.name === 'instrumental' ||
-          source.name === 'backing' ||
-          source.filename?.includes('mixdown') ||
-          source.filename?.includes('music') ||
-          source.filename?.includes('instrumental')
-      );
-
-      if (musicSource && musicSource.audioData) {
-        this.karaokeRenderer.setMusicAudio(musicSource.audioData);
-      } else {
-        // Fallback to any available non-vocal source
-        const fallbackSource = metadata.audio.sources.find(
-          (source) =>
-            source.name !== 'vocals' && !source.filename?.includes('vocals') && source.audioData
-        );
-        if (fallbackSource && fallbackSource.audioData) {
-          this.karaokeRenderer.setMusicAudio(fallbackSource.audioData);
-        }
-      }
+      // Note: Butterchurn visualization now uses PA analyser from kaiPlayer
+      // Connected in songLoaders.js during song load
+      // No need to decode mixdown buffer separately
     } else {
-      // No audio sources available - effects disabled
+      // No audio sources available - waveforms disabled
     }
 
     // Display updates handled by React PlayerControls via IPC state
