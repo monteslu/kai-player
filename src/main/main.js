@@ -1273,12 +1273,23 @@ class KaiPlayerApp {
       return this.loadM4AFile(filePath, queueItemId);
     }
 
+    // Get requester from queue if queueItemId is provided
+    let requester = 'KJ';
+    if (queueItemId) {
+      const queueItem = this.appState.getQueue().find((item) => item.id === queueItemId);
+      if (queueItem) {
+        requester = queueItem.requester || queueItem.singer || 'KJ';
+      }
+    }
+
     // Default: KAI format
     try {
       const kaiData = await KaiLoader.load(filePath);
 
       // Add original file path to the song data
       kaiData.originalFilePath = filePath;
+      // Add requester to kaiData so it's available in renderer
+      kaiData.requester = requester;
 
       if (this.audioEngine) {
         await this.audioEngine.loadSong(kaiData);
@@ -1293,7 +1304,7 @@ class KaiPlayerApp {
         title: kaiData.metadata?.title || 'Unknown',
         artist: kaiData.metadata?.artist || 'Unknown',
         duration: kaiData.metadata?.duration || 0,
-        requester: kaiData.requester || 'KJ',
+        requester: requester,
         isLoading: true, // Song is being loaded
         format: 'kai', // Format for display icon
         queueItemId: queueItemId, // Track which queue item (for duplicate songs)
@@ -1369,10 +1380,22 @@ class KaiPlayerApp {
   async loadCDGFile(mp3Path, cdgPath, format, queueItemId = null) {
     try {
       console.log('💿 Loading CDG file:', { mp3Path, cdgPath, format, queueItemId });
+
+      // Get requester from queue if queueItemId is provided
+      let requester = 'KJ';
+      if (queueItemId) {
+        const queueItem = this.appState.getQueue().find((item) => item.id === queueItemId);
+        if (queueItem) {
+          requester = queueItem.requester || queueItem.singer || 'KJ';
+        }
+      }
+
       const cdgData = await CDGLoader.load(mp3Path, cdgPath, format);
 
       // TODO: Load CDG into audio engine (different path than KAI)
       // For now, just set current song and notify renderer
+      // Add requester to cdgData so it's available in renderer
+      cdgData.requester = requester;
 
       this.currentSong = cdgData;
 
@@ -1383,7 +1406,7 @@ class KaiPlayerApp {
         title: cdgData.metadata?.title || 'Unknown',
         artist: cdgData.metadata?.artist || 'Unknown',
         duration: cdgData.metadata?.duration || 0,
-        requester: cdgData.requester || 'KJ',
+        requester: requester,
         isLoading: true, // Song is being loaded
         format: format, // Format for display icon (cdg-pair, cdg-archive, etc)
         queueItemId: queueItemId, // Track which queue item (for duplicate songs)
@@ -1421,10 +1444,22 @@ class KaiPlayerApp {
   async loadM4AFile(m4aPath, queueItemId = null) {
     try {
       console.log('🎵 Loading M4A file:', { m4aPath, queueItemId });
+
+      // Get requester from queue if queueItemId is provided
+      let requester = 'KJ';
+      if (queueItemId) {
+        const queueItem = this.appState.getQueue().find((item) => item.id === queueItemId);
+        if (queueItem) {
+          requester = queueItem.requester || queueItem.singer || 'KJ';
+        }
+      }
+
       const m4aData = await M4ALoader.load(m4aPath);
 
       // Add original file path to the song data
       m4aData.originalFilePath = m4aPath;
+      // Add requester to m4aData so it's available in renderer
+      m4aData.requester = requester;
 
       // Load into audio engine (uses same path as KAI format)
       if (this.audioEngine) {
@@ -1440,7 +1475,7 @@ class KaiPlayerApp {
         title: m4aData.metadata?.title || 'Unknown',
         artist: m4aData.metadata?.artist || 'Unknown',
         duration: m4aData.metadata?.duration || 0,
-        requester: m4aData.requester || 'KJ',
+        requester: requester,
         isLoading: true, // Song is being loaded
         format: 'm4a-stems', // Format for display icon
         queueItemId: queueItemId, // Track which queue item (for duplicate songs)

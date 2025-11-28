@@ -81,6 +81,14 @@ export function loadSettings(webServer) {
         'server.maxRequestsPerIP',
         webServer.defaultSettings.maxRequestsPerIP
       );
+      savedSettings.showQrCode = webServer.mainApp.settings.get(
+        'server.showQrCode',
+        webServer.defaultSettings.showQrCode
+      );
+      savedSettings.displayQueue = webServer.mainApp.settings.get(
+        'server.displayQueue',
+        webServer.defaultSettings.displayQueue
+      );
     }
 
     const finalSettings = { ...webServer.defaultSettings, ...savedSettings };
@@ -114,6 +122,8 @@ export function saveSettings(webServer) {
         'server.maxRequestsPerIP',
         webServer.settings.maxRequestsPerIP
       );
+      webServer.mainApp.settings.set('server.showQrCode', webServer.settings.showQrCode);
+      webServer.mainApp.settings.set('server.displayQueue', webServer.settings.displayQueue);
       console.log('🔧 Server settings saved to persistent storage');
       return true;
     } else {

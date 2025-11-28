@@ -3,6 +3,7 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { generateQRCode } from '../utils/qrCodeGenerator.js';
 
 export function ServerTab({ bridge }) {
   const [serverUrl, setServerUrl] = useState(null);
@@ -13,12 +14,15 @@ export function ServerTab({ bridge }) {
     allowSongRequests: true,
     requireKJApproval: true,
     streamVocalsToClients: false,
+    showQrCode: true,
+    displayQueue: true,
   });
   const [adminPassword, setAdminPassword] = useState('');
   const [hasPassword, setHasPassword] = useState(false);
   const [pendingRequests, setPendingRequests] = useState(0);
   const [totalRequests, setTotalRequests] = useState(0);
   const [message, setMessage] = useState(null);
+  const [qrCodeDataUrl, setQrCodeDataUrl] = useState(null);
 
   // Wrap in useCallback to stabilize reference
   const updateRequestsStats = useCallback(async () => {
@@ -56,6 +60,8 @@ export function ServerTab({ bridge }) {
             allowSongRequests: serverSettings.allowSongRequests !== false,
             requireKJApproval: serverSettings.requireKJApproval !== false,
             streamVocalsToClients: serverSettings.streamVocalsToClients === true,
+            showQrCode: serverSettings.showQrCode !== false,
+            displayQueue: serverSettings.displayQueue !== false,
           });
         }
 
@@ -84,6 +90,8 @@ export function ServerTab({ bridge }) {
             if (url) {
               const port = new URL(url).port;
               setServerPort(port);
+              // Generate QR code when URL is available
+              generateQRCode(url, { width: 300 }).then(setQrCodeDataUrl).catch(console.error);
             }
           })
           .catch(console.error);
@@ -318,6 +326,32 @@ export function ServerTab({ bridge }) {
               </label>
             </div>
 
+            <div className="flex items-center">
+              <label className="flex items-center cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  id="showQrCode"
+                  className="w-4 h-4 mr-2 cursor-pointer"
+                  checked={settings.showQrCode}
+                  onChange={(e) => handleSettingChange('showQrCode', e.target.checked)}
+                />
+                <span className="text-gray-900 dark:text-gray-100">Show QR code</span>
+              </label>
+            </div>
+
+            <div className="flex items-center">
+              <label className="flex items-center cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  id="displayQueue"
+                  className="w-4 h-4 mr-2 cursor-pointer"
+                  checked={settings.displayQueue}
+                  onChange={(e) => handleSettingChange('displayQueue', e.target.checked)}
+                />
+                <span className="text-gray-900 dark:text-gray-100">Display queue</span>
+              </label>
+            </div>
+
             <button
               className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors"
               onClick={handleSaveSettings}
@@ -409,6 +443,29 @@ export function ServerTab({ bridge }) {
             </div>
           </div>
         </div>
+
+        {/* QR Code */}
+        {qrCodeDataUrl && (
+          <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-6">
+            <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">
+              Quick Access QR Code
+            </h3>
+            <div className="flex flex-col items-center gap-4">
+              <img
+                src={qrCodeDataUrl}
+                alt="Server URL QR Code"
+                className="border-4 border-white rounded-lg shadow-lg"
+                style={{ width: '300px', height: '300px' }}
+              />
+              <p className="text-sm text-gray-600 dark:text-gray-400 text-center">
+                Scan this QR code to access the song request page
+              </p>
+              <p className="text-xs text-gray-500 dark:text-gray-500 text-center font-mono">
+                {serverUrl}
+              </p>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

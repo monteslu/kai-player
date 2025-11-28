@@ -38,6 +38,8 @@ class WebServer {
       serverName: 'Loukai Karaoke',
       port: 3069,
       maxRequestsPerIP: 10,
+      showQrCode: true,
+      displayQueue: true,
     };
 
     // Settings will be loaded after initialization in start() method

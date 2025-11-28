@@ -16,7 +16,7 @@ Loukai is a cross-platform karaoke application built with Electron that supports
 ## Features
 
 ### Audio & Playback
-- **Multi-Format Support**: KAI files, CDG/MP3 pairs, and CDG archives (.kar, .zip)
+- **Multi-Format Support**: M4A Stems (recommended), KAI files, CDG/MP3 pairs, and CDG archives (.kar, .zip)
 - **Real-Time Stem Control**: Individual volume, mute, and solo controls for vocals, drums, bass, and other stems
 - **Dual Output Routing**: Independent PA and IEM (in-ear monitor) outputs with per-stem routing
 - **High-Quality Audio**: Web Audio API with real-time processing and pitch correction
@@ -33,9 +33,13 @@ Loukai is a cross-platform karaoke application built with Electron that supports
 - **CDG Graphics**: Classic karaoke graphics rendering with full format support
 - **Canvas Window**: Dedicated fullscreen window for visuals with multi-monitor support
 - **Lyric Display**: Real-time synchronized lyrics with customizable styling
+- **QR Code Display**: Scannable QR code on canvas for easy mobile device connection (configurable)
+- **Queue Display**: "Next up" overlay showing upcoming 1-3 songs with singer names (configurable)
+- **Singer Identification**: Color-coded singer names (yellow for guests, white for KJ)
 
 ### Library & Search
 - **Fast Library Scanning**: Automatic metadata extraction from thousands of songs
+- **Multi-Format Support**: M4A Stems, KAI, CDG/MP3 pairs, and CDG archives
 - **Smart Search**: Fuzzy search across titles, artists, and albums
 - **Alphabet Navigation**: Quick filtering by first letter
 - **Pagination**: Efficient handling of large libraries (tested with 23K+ songs)
@@ -44,6 +48,7 @@ Loukai is a cross-platform karaoke application built with Electron that supports
 - **Remote Control**: Full player control from any device on the network
 - **Song Requests**: Allow singers to browse and request songs remotely
 - **Request Management**: Approve/reject song requests with real-time notifications
+- **QR Code Access**: Scan QR code from canvas for instant mobile connection
 - **WebRTC Streaming**: Stream audio and video to remote devices (optional)
 - **Multi-Device Sync**: Real-time state synchronization via Socket.IO
 
@@ -233,13 +238,25 @@ Loukai is built with a multi-process architecture:
 
 ## File Formats
 
-### KAI Format (v1.0)
+### M4A Stems Format (Recommended)
+Industry-standard multi-track M4A files with embedded karaoke data:
+- **Multi-track audio**: Separate tracks for mixdown, vocals, drums, bass, other
+- **Embedded lyrics**: WebVTT format with word-level timing
+- **Custom atoms**: `kaid` atom contains karaoke metadata
+- **DJ software compatible**: Works with Traktor, Serato, and other DJ tools
+- **File extension**: `.stem.m4a`
+
+Create M4A files using [kai-converter](https://github.com/monteslu/kai-converter) (default output format).
+
+### KAI Format (Legacy)
 ZIP containers with audio stems and synchronized lyrics:
 - `song.json` - Metadata, timing, lyrics
 - Audio stems: `vocals.mp3`, `drums.mp3`, `bass.mp3`, `other.mp3`
 - Optional: `features/` directory with analysis data
 
 **Spec:** [docs/KAI-Play-Spec-v1.0.md](./docs/KAI-Play-Spec-v1.0.md)
+
+Use `--format kai` in kai-converter to create legacy KAI files.
 
 ### CDG Format
 Classic karaoke format with graphics:
@@ -258,10 +275,13 @@ Configure audio devices in the Mixer tab:
 
 ### Web Server Settings
 Access in the Server tab:
-- **Port**: Default 3000
+- **Port**: Default 3069
+- **Server Name**: Custom server name for identification
 - **Authentication**: Enable/disable login
 - **Requests**: Allow remote song requests
 - **Max Requests**: Limit requests per user
+- **Show QR Code**: Display QR code on canvas for easy mobile access (on by default)
+- **Display Queue**: Show upcoming songs on canvas (on by default)
 
 ### Settings Persistence
 All settings are automatically saved to:
@@ -291,7 +311,22 @@ All settings are automatically saved to:
 1. **Enable Web Server**: Settings → Server → Enable
 2. **Set Password**: Configure authentication credentials
 3. **Share URL**: Give singers the URL (shown in Server tab)
-4. **Manage Requests**: Approve/reject requests in the Requests tab
+4. **QR Code**: Singers can scan the QR code from the canvas for instant access
+5. **Manage Requests**: Approve/reject requests in the Requests tab
+
+### Canvas Display Features
+
+The karaoke canvas shows helpful information when not playing:
+
+- **QR Code** (bottom left): Scannable code for mobile device access
+  - Toggle: Server tab → "Show QR Code" checkbox
+  - Only visible when not playing
+
+- **Queue Display** (bottom right): Shows upcoming songs
+  - Toggle: Server tab → "Display Queue" checkbox
+  - Displays "Next up:" with 1-3 upcoming songs
+  - Singer names shown in yellow (guests) or white (KJ)
+  - Only visible when not playing and queue has items
 
 ### Keyboard Shortcuts
 

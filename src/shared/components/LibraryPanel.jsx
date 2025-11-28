@@ -508,7 +508,7 @@ export function LibraryPanel({ bridge, showSetFolder = false, showFullRefresh = 
                 <button
                   key={letter}
                   className={`w-8 h-8 p-0 rounded text-sm font-semibold cursor-pointer transition-all ${isActive ? 'bg-blue-600 border-blue-600 text-white' : isAvailable ? 'bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white hover:bg-gray-200 dark:hover:bg-gray-750 hover:scale-105' : 'bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-400 dark:text-gray-600 opacity-30 cursor-not-allowed'}`}
-                  onClick={() => isAvailable && loadLetterPage(letter, 1)}
+                  onClick={() => isAvailable && loadLetterPage(letter, 1, songs)}
                   disabled={!isAvailable}
                 >
                   {letter}

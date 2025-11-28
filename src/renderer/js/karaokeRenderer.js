@@ -96,6 +96,15 @@ export class KaraokeRenderer {
     this.audioDebugInterval = 1000; // Log every 1 second for testing
     this.lastConditionsDebugTime = 0;
 
+    // QR code for server URL
+    this.qrCodeCanvas = null;
+    this.showQrCode = false;
+    this.serverUrl = null;
+
+    // Queue display
+    this.queueItems = [];
+    this.displayQueue = true;
+
     // Karaoke visual settings scaled for 1080p
     this.settings = {
       fontSize: 80, // Scaled up for 1080p (was 40 for ~800px)
@@ -325,6 +334,39 @@ export class KaraokeRenderer {
   setSongMetadata(metadata) {
     // Store song metadata for display when not playing
     this.songMetadata = metadata || {};
+  }
+
+  /**
+   * Set server URL and generate QR code
+   * @param {string} url - Server URL
+   * @param {boolean} show - Whether to show QR code
+   */
+  async setServerQRCode(url, show) {
+    this.serverUrl = url;
+    this.showQrCode = show;
+
+    if (url && show) {
+      try {
+        // Dynamically import QR code generator
+        const { generateQRCodeCanvas } = await import('../utils/qrCodeGenerator.js');
+        this.qrCodeCanvas = await generateQRCodeCanvas(url, 150);
+      } catch (error) {
+        console.error('Error generating QR code:', error);
+        this.qrCodeCanvas = null;
+      }
+    } else {
+      this.qrCodeCanvas = null;
+    }
+  }
+
+  /**
+   * Set queue items and display setting
+   * @param {Array} queue - Array of queue items with title, artist, requester
+   * @param {boolean} display - Whether to display queue
+   */
+  setQueueDisplay(queue, display) {
+    this.queueItems = queue || [];
+    this.displayQueue = display !== false;
   }
 
   loadLyrics(lyricsData, songDuration = 0) {
@@ -1442,22 +1484,32 @@ export class KaraokeRenderer {
     // Show song info when loaded but not playing
     if (!this.isPlaying && this.songMetadata) {
       this.drawSongInfo(width, height, this.songMetadata);
+      // Draw QR code AFTER song info
+      this.drawQRCodeOverlay(width, height);
+      // Draw queue display AFTER QR code
+      this.drawQueueDisplay(width, height);
       return;
     }
 
     if (!this.lyrics || this.lyrics.length === 0) {
+      // Draw QR code when no lyrics
+      this.drawQRCodeOverlay(width, height);
+      // Draw queue display AFTER QR code
+      this.drawQueueDisplay(width, height);
       return;
     }
 
     // Check for instrumental intro first
     if (this.isInInstrumentalIntro()) {
       this.drawInstrumentalIntro(width, height);
+      // QR code not shown during playback
       return;
     }
 
     // Check for instrumental outro (just show clean ending, no progress bar)
     if (this.isInInstrumentalOutro()) {
       this.drawInstrumentalOutro(width, height);
+      // QR code not shown during playback
       return;
     }
 
@@ -1502,6 +1554,143 @@ export class KaraokeRenderer {
 
       // Log as separate lines to avoid console truncation
     }
+  }
+
+  /**
+   * Draw QR code in bottom left corner (only when not playing)
+   */
+  drawQRCodeOverlay(width, height) {
+    // Only show when not playing
+    if (!this.showQrCode || !this.qrCodeCanvas || this.isPlaying) {
+      return;
+    }
+
+    const padding = 20;
+    const qrSize = 150;
+    const x = padding; // Bottom left instead of right
+    const y = height - qrSize - padding;
+
+    // Draw white background with shadow
+    this.ctx.save();
+    this.ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+    this.ctx.shadowBlur = 10;
+    this.ctx.shadowOffsetX = 2;
+    this.ctx.shadowOffsetY = 2;
+    this.ctx.fillStyle = '#FFFFFF';
+    this.ctx.fillRect(x - 10, y - 10, qrSize + 20, qrSize + 20);
+    this.ctx.restore();
+
+    // Draw QR code
+    this.ctx.drawImage(this.qrCodeCanvas, x, y, qrSize, qrSize);
+  }
+
+  /**
+   * Draw queue display in bottom right corner (only when not playing)
+   */
+  drawQueueDisplay(width, height) {
+    // Only show when setting is enabled and queue has items
+    if (!this.displayQueue || !this.queueItems || this.queueItems.length === 0 || this.isPlaying) {
+      return;
+    }
+
+    const padding = 120; // Move further from edge (left)
+    const bottomPadding = 80; // Move up from bottom
+    const rightX = width - padding;
+    const lineHeight = 64;
+    const labelFontSize = 48;
+    const songFontSize = 40;
+
+    this.ctx.save();
+
+    // Calculate text dimensions for background
+    this.ctx.font = `bold ${labelFontSize}px sans-serif`;
+    const labelText = 'Next up:';
+    const labelWidth = this.ctx.measureText(labelText).width;
+
+    // Measure all song texts and prepare data
+    let maxWidth = labelWidth;
+    const songData = this.queueItems.slice(0, 3).map((item) => {
+      const title = item.title || item.song?.title || 'Unknown';
+      const singer = item.requester || item.singer || '';
+
+      // Measure title
+      this.ctx.font = `${songFontSize}px sans-serif`;
+      const titleWidth = this.ctx.measureText(title).width;
+
+      // Measure singer if present
+      let singerWidth = 0;
+      if (singer) {
+        const singerText = ` - ${singer}`;
+        singerWidth = this.ctx.measureText(singerText).width;
+      }
+
+      const totalWidth = titleWidth + singerWidth;
+      maxWidth = Math.max(maxWidth, totalWidth);
+
+      return { title, singer };
+    });
+
+    // Calculate background dimensions
+    const bgWidth = maxWidth + 30;
+    const bgHeight = lineHeight + songData.length * lineHeight + 20;
+    const bgX = rightX - bgWidth;
+    const bgY = height - bgHeight - bottomPadding;
+
+    // Draw semi-transparent background with shadow and rounded corners
+    this.ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+    this.ctx.shadowBlur = 10;
+    this.ctx.shadowOffsetX = 2;
+    this.ctx.shadowOffsetY = 2;
+    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+
+    // Draw rounded rectangle
+    const radius = 10;
+    this.ctx.beginPath();
+    this.ctx.moveTo(bgX + radius, bgY);
+    this.ctx.lineTo(bgX + bgWidth - radius, bgY);
+    this.ctx.quadraticCurveTo(bgX + bgWidth, bgY, bgX + bgWidth, bgY + radius);
+    this.ctx.lineTo(bgX + bgWidth, bgY + bgHeight - radius);
+    this.ctx.quadraticCurveTo(
+      bgX + bgWidth,
+      bgY + bgHeight,
+      bgX + bgWidth - radius,
+      bgY + bgHeight
+    );
+    this.ctx.lineTo(bgX + radius, bgY + bgHeight);
+    this.ctx.quadraticCurveTo(bgX, bgY + bgHeight, bgX, bgY + bgHeight - radius);
+    this.ctx.lineTo(bgX, bgY + radius);
+    this.ctx.quadraticCurveTo(bgX, bgY, bgX + radius, bgY);
+    this.ctx.closePath();
+    this.ctx.fill();
+
+    this.ctx.shadowColor = 'transparent';
+
+    // Draw "Next up:" label in blue
+    this.ctx.font = `bold ${labelFontSize}px sans-serif`;
+    this.ctx.fillStyle = '#3B82F6'; // Tailwind blue-600
+    this.ctx.textAlign = 'left';
+    this.ctx.fillText(labelText, bgX + 15, bgY + labelFontSize + 10);
+
+    // Draw queue items
+    this.ctx.font = `${songFontSize}px sans-serif`;
+    songData.forEach((item, index) => {
+      const textY = bgY + labelFontSize + 10 + (index + 1) * lineHeight;
+      const textX = bgX + 15;
+
+      // Draw title in white
+      this.ctx.fillStyle = '#FFFFFF';
+      this.ctx.fillText(item.title, textX, textY);
+
+      // Draw singer in yellow if present and not "KJ"
+      if (item.singer) {
+        const titleWidth = this.ctx.measureText(item.title).width;
+        const isKJ = item.singer.toUpperCase() === 'KJ';
+        this.ctx.fillStyle = isKJ ? '#FFFFFF' : '#FCD34D'; // yellow-300 for non-KJ singers
+        this.ctx.fillText(` - ${item.singer}`, textX + titleWidth, textY);
+      }
+    });
+
+    this.ctx.restore();
   }
 
   findCurrentLine() {
@@ -2423,9 +2612,9 @@ export class KaraokeRenderer {
     const artist = songData.artist || songData.metadata?.artist || 'Unknown Artist';
     const requester = songData.requester;
 
-    // Center position
+    // Position higher on canvas (35% from top instead of centered)
     const centerX = width / 2;
-    const centerY = height / 2;
+    const centerY = height * 0.35;
 
     // Draw title
     ctx.fillStyle = '#ffffff';
@@ -2441,16 +2630,32 @@ export class KaraokeRenderer {
 
     ctx.fillText(title, centerX, centerY - 50);
 
-    // Draw artist
-    ctx.fillStyle = '#cccccc';
+    // Draw artist and singer on same line
     ctx.font = '48px Arial, sans-serif';
-    ctx.fillText(artist, centerX, centerY + 50);
+    const artistY = centerY + 50;
 
-    // Draw singer/requester if present
-    if (requester) {
-      ctx.fillStyle = '#aaaaaa';
-      ctx.font = '36px Arial, sans-serif';
-      ctx.fillText(`Singer: ${requester}`, centerX, centerY + 120);
+    if (requester && requester.toUpperCase() !== 'KJ') {
+      // Measure artist text to position singer to the right
+      const artistText = artist;
+      const singerText = ` - ${requester}`;
+
+      ctx.fillStyle = '#cccccc';
+      const artistWidth = ctx.measureText(artistText).width;
+      const singerWidth = ctx.measureText(singerText).width;
+      const totalWidth = artistWidth + singerWidth;
+
+      // Draw centered as a group
+      const startX = centerX - totalWidth / 2;
+
+      ctx.fillText(artistText, startX, artistY);
+
+      // Draw singer in yellow
+      ctx.fillStyle = '#FCD34D'; // yellow-300 for non-KJ singers
+      ctx.fillText(singerText, startX + artistWidth, artistY);
+    } else {
+      // Just artist, centered
+      ctx.fillStyle = '#cccccc';
+      ctx.fillText(artist, centerX, artistY);
     }
 
     ctx.restore();

@@ -10,10 +10,14 @@ import { ipcMain, dialog } from 'electron';
  * @param {Object} mainApp - Main application instance
  */
 export function registerFileHandlers(mainApp) {
-  // Open file dialog to select KAI file
+  // Open file dialog to select karaoke file (M4A or KAI)
   ipcMain.handle('file:openKai', async () => {
     const result = await dialog.showOpenDialog(mainApp.mainWindow, {
-      filters: [{ name: 'KAI Files', extensions: ['kai'] }],
+      filters: [
+        { name: 'Karaoke Files', extensions: ['m4a', 'kai'] },
+        { name: 'M4A Stems (recommended)', extensions: ['m4a'] },
+        { name: 'KAI Files (legacy)', extensions: ['kai'] },
+      ],
       properties: ['openFile'],
     });
 

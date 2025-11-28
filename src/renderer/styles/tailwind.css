@@ -36,6 +36,30 @@
   ::-webkit-scrollbar-thumb:hover {
     @apply bg-gray-400 dark:bg-gray-500;
   }
+
+  /* Fullscreen canvas styling */
+  #karaokeCanvas:fullscreen {
+    width: 100vw;
+    height: 100vh;
+    object-fit: contain;
+    background: #000;
+  }
+
+  /* Webkit prefix for Safari */
+  #karaokeCanvas:-webkit-full-screen {
+    width: 100vw;
+    height: 100vh;
+    object-fit: contain;
+    background: #000;
+  }
+
+  /* Firefox prefix */
+  #karaokeCanvas:-moz-full-screen {
+    width: 100vw;
+    height: 100vh;
+    object-fit: contain;
+    background: #000;
+  }
 }
 
 /* Utility classes */
