@@ -8,7 +8,7 @@
 import KaiLoader from '../../utils/kaiLoader.js';
 import KaiWriter from '../../utils/kaiWriter.js';
 import M4ALoader from '../../utils/m4aLoader.js';
-import M4AWriter from '../../utils/m4aWriter.js';
+import { Atoms } from 'm4a-stems';
 
 /**
  * Load a song for editing
@@ -174,6 +174,9 @@ async function saveM4ASong(path, updates) {
   if (metadata.genre !== undefined) updatedMetadata.genre = metadata.genre;
   if (metadata.key !== undefined) updatedMetadata.key = metadata.key;
 
+  // NOTE: Standard metadata (title, artist, album, year, genre) is now written
+  // using proper MP4 atoms via addStandardMetadata() below, not FFmpeg
+
   // Use updated lyrics array
   let updatedLyrics = m4aData.lyrics;
   if (lyrics !== undefined && Array.isArray(lyrics)) {
@@ -224,12 +227,101 @@ async function saveM4ASong(path, updates) {
     dataToSave.meta = updatedMeta;
   }
 
-  // Save using M4AWriter
-  const result = await M4AWriter.save(dataToSave, path);
+  // Prepare kara data structure for m4a-stems
+  const karaData = {
+    // Audio configuration
+    audio: {
+      sources: (dataToSave.audio?.sources || []).map((source, index) => ({
+        id: source.name || source.filename,
+        role: source.name || source.filename,
+        track: source.trackIndex !== undefined ? source.trackIndex : index,
+      })),
+      profile: dataToSave.audio?.profile || dataToSave.meta?.profile || 'STEMS-4',
+      encoder_delay_samples: dataToSave.audio?.timing?.encoderDelaySamples || 0,
+      presets: dataToSave.audio?.presets || [],
+    },
 
-  if (!result.success) {
-    throw new Error(result.error || 'Failed to save M4A file');
+    // Timing information
+    timing: {
+      offset_sec: dataToSave.audio?.timing?.offsetSec || 0,
+    },
+
+    // Lyrics (lines)
+    lines: (dataToSave.lyrics || []).map((line) => ({
+      start: line.start || line.startTimeSec || 0,
+      end: line.end || line.endTimeSec || 0,
+      text: line.text || '',
+      ...(line.disabled && { disabled: true }),
+    })),
+
+    // Optional: vocal pitch data
+    ...(dataToSave.features?.vocalPitch && {
+      vocal_pitch: dataToSave.features.vocalPitch,
+    }),
+
+    // Optional: onsets data
+    ...(dataToSave.features?.onsets && {
+      onsets: dataToSave.features.onsets,
+    }),
+
+    // Optional: tempo/meter data
+    ...(dataToSave.features?.tempo && {
+      meter: dataToSave.features.tempo,
+    }),
+
+    // Optional: singers
+    ...(dataToSave.singers &&
+      dataToSave.singers.length > 0 && {
+        singers: dataToSave.singers,
+      }),
+  };
+
+  // Save using m4a-stems
+  console.log('💾 Saving M4A kara atom:', path);
+  console.log('📝 kara data prepared:', {
+    lyricsCount: karaData.lines?.length || 0,
+    audioSources: karaData.audio?.sources?.length || 0,
+  });
+
+  await Atoms.writeKaraAtom(path, karaData);
+
+  // Write standard MP4 metadata atoms (title, artist, album, year, genre, BPM)
+  const standardMetadata = {
+    title: updatedMetadata.title,
+    artist: updatedMetadata.artist,
+    album: updatedMetadata.album,
+    year: updatedMetadata.year,
+    genre: updatedMetadata.genre,
+    tempo: updatedMetadata.tempo,
+  };
+  await Atoms.addStandardMetadata(path, standardMetadata);
+
+  // Write vocal pitch atom if we have pitch data
+  if (dataToSave.features?.vocalPitch) {
+    console.log('🎵 Writing vocal pitch atom...');
+    await Atoms.writeVpchAtom(path, dataToSave.features.vocalPitch);
   }
 
-  return result;
+  // Write onsets atom if we have onset data
+  if (dataToSave.features?.onsets && Array.isArray(dataToSave.features.onsets)) {
+    console.log('🎯 Writing onsets atom...');
+    await Atoms.writeKonsAtom(path, dataToSave.features.onsets);
+  }
+
+  // Write musical key if changed (separate atom for DJ software)
+  if (metadata.key !== undefined && updatedMetadata.key) {
+    console.log(`🎹 Writing musical key: ${updatedMetadata.key}`);
+    await Atoms.addMusicalKey(path, updatedMetadata.key);
+  }
+
+  // Restore any preserved atoms that we didn't explicitly handle
+  if (m4aData._preservedAtoms && Object.keys(m4aData._preservedAtoms).length > 0) {
+    console.log(`📦 Restoring ${Object.keys(m4aData._preservedAtoms).length} preserved atoms`);
+    // Note: These atoms are already in the file and we didn't delete them,
+    // so they should still be there. This is just for logging.
+  }
+
+  console.log('✅ M4A file saved successfully');
+
+  return { success: true };
 }

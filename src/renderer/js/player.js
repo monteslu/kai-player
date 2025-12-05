@@ -94,30 +94,11 @@ export class PlayerController {
         // No vocals track available - waveform disabled
       }
 
-      // Load music audio data for background effects analysis
-      const musicSource = metadata.audio.sources.find(
-        (source) =>
-          source.name === 'music' ||
-          source.name === 'instrumental' ||
-          source.name === 'backing' ||
-          source.filename?.includes('music') ||
-          source.filename?.includes('instrumental')
-      );
-
-      if (musicSource && musicSource.audioData) {
-        this.karaokeRenderer.setMusicAudio(musicSource.audioData);
-      } else {
-        // Fallback to any available source that's not vocals
-        const fallbackSource = metadata.audio.sources.find(
-          (source) =>
-            source.name !== 'vocals' && !source.filename?.includes('vocals') && source.audioData
-        );
-        if (fallbackSource && fallbackSource.audioData) {
-          this.karaokeRenderer.setMusicAudio(fallbackSource.audioData);
-        }
-      }
+      // Note: Butterchurn visualization now uses PA analyser from kaiPlayer
+      // Connected in songLoaders.js during song load
+      // No need to decode mixdown buffer separately
     } else {
-      // No audio sources available - effects disabled
+      // No audio sources available - waveforms disabled
     }
 
     // Display updates handled by React PlayerControls via IPC state
@@ -169,6 +150,13 @@ export class PlayerController {
 
   async play() {
     this.isPlaying = true;
+
+    // Update renderer's current time BEFORE starting playback
+    // This ensures butterchurn starts from the correct position on resume
+    if (this.currentPlayer && this.karaokeRenderer) {
+      const position = this.currentPlayer.getCurrentPosition();
+      this.karaokeRenderer.setCurrentTime(position);
+    }
 
     if (this.karaokeRenderer) {
       this.karaokeRenderer.setPlaying(true);

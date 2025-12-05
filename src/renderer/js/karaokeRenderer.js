@@ -15,11 +15,16 @@ export class KaraokeRenderer {
     this.animationFrame = null;
     this.isPlaying = false;
 
+    // Time interpolation for smooth progress bar (60fps)
+    this.lastReportedTime = 0;
+    this.lastReportedTimestamp = performance.now();
+
     // Animation tracking for backup singers
     this.backupAnimations = new Map(); // lineIndex -> { alpha, fadeDirection, lastStateChange }
 
     // Lyric transition animations
     this.lyricTransitions = new Map(); // Track lyrics moving from upcoming to active
+    this.hiddenDuringTransition = new Set(); // Track lines that should be hidden during transitions
 
     // Performance optimization - cache expensive calculations
     this.cachedCurrentLine = -1;
@@ -46,7 +51,7 @@ export class KaraokeRenderer {
 
     // Waveform preferences (will be set from main app)
     this.waveformPreferences = {
-      enableWaveforms: true,
+      enableWaveforms: false,
       micToSpeakers: true,
       enableMic: true,
       enableEffects: true,
@@ -70,9 +75,7 @@ export class KaraokeRenderer {
     this.currentPreset = null;
     this.presetList = [];
     this.effectType = 'butterchurn';
-    this.butterchurnSourceNode = null;
-    this.butterchurnAudioBuffer = null;
-    this.originalAudioArrayBuffer = null; // Store original for multiple AudioContext decoding
+    // Note: Butterchurn now uses PA analyser from kaiPlayer, no separate context needed
 
     // AudioWorklet for efficient analysis
     this.musicWorkletNode = null;
@@ -114,8 +117,8 @@ export class KaraokeRenderer {
       activeColor: '#00BFFF', // Light blue for active lines (easier to read)
       upcomingColor: '#888888', // Gray for upcoming lines
       backupColor: '#DAA520', // Golden color for backup singer lines
-      lyricTransitionDuration: 0.4, // Animation duration in seconds (400ms)
-      lyricTransitionStartBefore: 0.4, // Start animation this many seconds before active (400ms)
+      lyricTransitionDuration: 0.3, // Animation duration in seconds (300ms)
+      lyricTransitionStartBefore: 0.3, // Start animation this many seconds before active (300ms)
       backupActiveColor: '#FFD700', // Brighter gold when active
       backgroundColor: '#1a1a1a',
       shadowColor: '#000000',
@@ -184,12 +187,15 @@ export class KaraokeRenderer {
             throw new Error('Butterchurn API not compatible');
           }
 
-          // Create audio context for Butterchurn (it needs AudioContext, not WebGL context)
-          this.butterchurnAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+          // Create waveform audio context if needed (used as dummy for butterchurn)
+          if (!this.waveformAudioContext) {
+            this.waveformAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+          }
 
           // Initialize Butterchurn with the correct API: createVisualizer(audioContext, canvas, options)
+          // Note: Audio comes from PA analyser via setVisualizationAnalyser(), not from this context
           this.butterchurn = butterchurnAPI.createVisualizer(
-            this.butterchurnAudioContext,
+            this.waveformAudioContext,
             this.effectsCanvas,
             {
               width: 1920,
@@ -198,13 +204,6 @@ export class KaraokeRenderer {
               mesh_height: 72, // Lower for performance
               fps: 30, // Match our target framerate
             }
-          );
-
-          // Create analyser for debugging audio levels
-          this.butterchurnAnalyser = this.butterchurnAudioContext.createAnalyser();
-          this.butterchurnAnalyser.fftSize = 256;
-          this.butterchurnFrequencyData = new Uint8Array(
-            this.butterchurnAnalyser.frequencyBinCount
           );
 
           // If we already have music loaded, decode it for Butterchurn
@@ -449,72 +448,111 @@ export class KaraokeRenderer {
     const oldTime = this.currentTime;
     this.currentTime = time;
 
+    // Track for interpolation
+    this.lastReportedTime = time;
+    this.lastReportedTimestamp = performance.now();
+
     // If time jumped significantly and we're playing, restart music analysis from new position
     if (this.isPlaying && Math.abs(time - oldTime) > 1.0) {
-      // 1 second threshold
-      this.startMusicAnalysis();
+      // 1 second threshold - restart butterchurn analysis to stay in sync
+      // Stop first, then delay restart slightly to ensure it happens after PA sources restart
+      this.stopMusicAnalysis();
+
+      // Delay restart by a small amount to allow PA audio sources to stabilize first
+      setTimeout(() => {
+        if (this.isPlaying) {
+          this.startMusicAnalysis();
+        }
+      }, 50); // 50ms delay
     }
   }
 
-  async setMusicAudio(audioData) {
-    // Set up music analysis for WebGL effects
+  /**
+   * Get interpolated current time for smooth 60fps progress bars
+   * When playing, calculates time based on elapsed time since last update
+   */
+  getInterpolatedTime() {
+    if (!this.isPlaying) {
+      return this.currentTime;
+    }
+
+    // Calculate elapsed time since last report
+    const now = performance.now();
+    const elapsed = (now - this.lastReportedTimestamp) / 1000; // Convert to seconds
+    const interpolated = this.lastReportedTime + elapsed;
+
+    // Don't exceed song duration
+    return Math.min(interpolated, this.songDuration || Infinity);
+  }
+
+  /**
+   * Set the analyser node for butterchurn visualization
+   * This is provided by the PA audio context from kaiPlayer
+   * @param {AnalyserNode} analyserNode - The PA analyser node
+   */
+  setVisualizationAnalyser(analyserNode) {
+    if (!analyserNode) return;
+
     try {
-      // Create contexts only if they don't exist (don't recreate constantly)
-      if (!this.waveformAudioContext) {
-        this.waveformAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+      console.log('🎨 Connecting butterchurn to PA analyser');
+
+      // Check if butterchurn was created with a different context
+      // If so, recreate it with the PA context from the analyser
+      const paContext = analyserNode.context;
+
+      if (this.butterchurn && this.butterchurn.audioContext !== paContext) {
+        console.log('⚠️  Butterchurn context mismatch - recreating with PA context');
+
+        // Destroy old butterchurn
+        if (this.butterchurn.destroy) {
+          this.butterchurn.destroy();
+        }
+
+        // Get butterchurn API
+        let butterchurnAPI = null;
+        if (typeof window.butterchurn.createVisualizer === 'function') {
+          butterchurnAPI = window.butterchurn;
+        } else if (
+          window.butterchurn.default &&
+          typeof window.butterchurn.default.createVisualizer === 'function'
+        ) {
+          butterchurnAPI = window.butterchurn.default;
+        }
+
+        if (butterchurnAPI) {
+          // Recreate with PA context
+          this.butterchurn = butterchurnAPI.createVisualizer(paContext, this.effectsCanvas, {
+            width: 1920,
+            height: 1080,
+            mesh_width: 128,
+            mesh_height: 72,
+            fps: 30,
+          });
+
+          // Reload current preset if available
+          if (this.currentPreset && window.butterchurnPresets) {
+            const presets = window.butterchurnPresets.getPresets();
+            if (presets[this.currentPreset]) {
+              this.butterchurn.loadPreset(presets[this.currentPreset], 0.0);
+            }
+          }
+        }
       }
 
-      if (!this.butterchurnAudioContext) {
-        this.butterchurnAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+      // Connect analyser to butterchurn
+      if (this.butterchurn) {
+        this.butterchurn.connectAudio(analyserNode);
+        console.log('✅ Butterchurn connected to PA analyser successfully');
       }
-
-      // Reset buffer references for fresh decoding
-      this.butterchurnAudioBuffer = null;
-      this.originalAudioArrayBuffer = null;
-
-      let arrayBuffer;
-      if (audioData instanceof ArrayBuffer) {
-        arrayBuffer = audioData;
-      } else if (audioData && audioData.buffer instanceof ArrayBuffer) {
-        arrayBuffer = audioData.buffer.slice(
-          audioData.byteOffset,
-          audioData.byteOffset + audioData.byteLength
-        );
-      } else if (audioData instanceof Uint8Array) {
-        arrayBuffer = audioData.buffer.slice(
-          audioData.byteOffset,
-          audioData.byteOffset + audioData.byteLength
-        );
-      } else {
-        return; // Unexpected audio data type
-      }
-
-      // Store the original ArrayBuffer for Butterchurn decoding
-      this.originalAudioArrayBuffer = arrayBuffer.slice(0);
-
-      // Decode audio for waveform visualization using fresh context
-      const waveformBuffer = await this.waveformAudioContext.decodeAudioData(arrayBuffer.slice(0));
-
-      // ALWAYS decode fresh audio for Butterchurn context
-      if (this.butterchurn && this.butterchurnAudioContext) {
-        this.butterchurnAudioBuffer = await this.butterchurnAudioContext.decodeAudioData(
-          arrayBuffer.slice(0)
-        );
-      }
-
-      // Create debug analyser if we don't have one
-      if (this.butterchurnAudioContext && !this.butterchurnAnalyser) {
-        this.butterchurnAnalyser = this.butterchurnAudioContext.createAnalyser();
-        this.butterchurnAnalyser.fftSize = 256;
-        this.butterchurnFrequencyData = new Uint8Array(this.butterchurnAnalyser.frequencyBinCount);
-      }
-
-      // Setup analysis using the fresh Butterchurn context
-      this.setupMusicAnalysis(waveformBuffer, arrayBuffer);
     } catch (error) {
-      console.warn('Failed to load music audio for analysis:', error);
+      console.error('❌ Failed to connect butterchurn to analyser:', error);
+      console.error('   Error type:', error.name);
+      console.error('   Error message:', error.message);
     }
   }
+
+  // setMusicAudio() removed - butterchurn now uses PA analyser from kaiPlayer
+  // Connected via setVisualizationAnalyser() during song load
 
   reinitializeButterchurn() {
     try {
@@ -544,9 +582,14 @@ export class KaraokeRenderer {
         return;
       }
 
-      // Create fresh Butterchurn instance with the fresh AudioContext
+      // Create fresh Butterchurn instance (uses waveformAudioContext as dummy)
+      // Note: Audio comes from PA analyser via setVisualizationAnalyser(), not from this context
+      if (!this.waveformAudioContext) {
+        this.waveformAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+      }
+
       this.butterchurn = butterchurnAPI.createVisualizer(
-        this.butterchurnAudioContext,
+        this.waveformAudioContext,
         this.effectsCanvas,
         {
           width: 1920,
@@ -1021,6 +1064,11 @@ export class KaraokeRenderer {
           // Start from current time position (analysis only, no audio output)
           // Ensure offset is never negative to avoid RangeError
           const startOffset = Math.max(0, this.currentTime);
+
+          // Track when we started and from what offset for drift detection
+          this.butterchurnStartTime = this.butterchurnAudioContext.currentTime;
+          this.butterchurnStartOffset = startOffset;
+
           this.butterchurnSourceNode.start(0, startOffset);
         } catch (error) {
           console.warn('Failed to start Butterchurn offline analysis:', error);
@@ -1045,6 +1093,10 @@ export class KaraokeRenderer {
       }
       this.butterchurnSourceNode = null;
     }
+
+    // Reset tracking variables
+    this.butterchurnStartTime = 0;
+    this.butterchurnStartOffset = 0;
 
     // Clear any stored analyser references that Butterchurn might be holding
     if (this.butterchurnVisualAnalyser) {
@@ -1813,10 +1865,33 @@ export class KaraokeRenderer {
 
     // Find all active lines at current time (both main and backup singers)
     const activeLines = [];
-    const now = this.currentTime;
+    // Use interpolated time for precise 60fps lyric timing
+    const now = this.getInterpolatedTime();
+
+    // First pass: Check if there are any active main singers (BEFORE filtering transitions)
+    // This prevents upcoming lyrics from showing when a main singer just became active
+    let hasActiveMainSinger = false;
+    for (let i = 0; i < this.lyrics.length; i++) {
+      const line = this.lyrics[i];
+      if (!line.isDisabled && !line.isBackup && now >= line.startTime && now <= line.endTime) {
+        hasActiveMainSinger = true;
+        break;
+      }
+    }
 
     for (let i = 0; i < this.lyrics.length; i++) {
       const line = this.lyrics[i];
+
+      // Skip lines that are currently transitioning (prevents double rendering)
+      if (this.lyricTransitions.has(i)) {
+        continue;
+      }
+
+      // Skip lines that are hidden during transitions (prevents overlap)
+      if (this.hiddenDuringTransition.has(i)) {
+        continue;
+      }
+
       if (!line.isDisabled && now >= line.startTime && now <= line.endTime) {
         activeLines.push({ ...line, index: i });
       }
@@ -1853,7 +1928,23 @@ export class KaraokeRenderer {
     }
 
     // Calculate upcoming position for both animations and drawing
-    const upcomingY = (this.lastActiveLyricsBottom || currentY) + 10;
+    // If there are transitioning lyrics but no active lyrics, estimate position based on transitions
+    let upcomingY = (this.lastActiveLyricsBottom || currentY) + 10;
+
+    // If we have transitioning lyrics but no active lyrics (e.g., intro just ended),
+    // position upcoming below the transitioning lyric's current position
+    if (!hasActiveLyrics && this.lyricTransitions.size > 0) {
+      // Find the lowest transitioning lyric position
+      let lowestTransitionY = 0;
+      for (const [_lineIndex, transition] of this.lyricTransitions.entries()) {
+        const transitionY =
+          transition.startY + (transition.endY - transition.startY) * transition.progress;
+        lowestTransitionY = Math.max(lowestTransitionY, transitionY);
+      }
+      if (lowestTransitionY > 0) {
+        upcomingY = lowestTransitionY + this.settings.lineHeight * 1.5; // Position below with spacing
+      }
+    }
 
     // Check for lyrics transitioning from upcoming to active and start animations
     this.startTransitionAnimations(activeLines, upcomingY);
@@ -1867,7 +1958,15 @@ export class KaraokeRenderer {
     }
 
     // Draw upcoming lyrics if enabled and not skipped (positioned dynamically after current lyrics)
-    if (!skipUpcoming && this.waveformPreferences.showUpcomingLyrics) {
+    // BUT don't draw upcoming lyrics if:
+    // 1. There are active transitions (prevents flash during intro->first lyric)
+    // 2. There are active main singer lyrics (only show upcoming during intro/outro/gaps)
+    if (
+      !skipUpcoming &&
+      this.waveformPreferences.showUpcomingLyrics &&
+      this.lyricTransitions.size === 0 &&
+      !hasActiveMainSinger
+    ) {
       this.drawUpcomingLyrics(canvasWidth, canvasHeight, upcomingY);
     }
   }
@@ -1959,7 +2058,8 @@ export class KaraokeRenderer {
   updateBackupAnimations() {
     if (!this.lyrics) return;
 
-    const now = this.currentTime;
+    // Use interpolated time for smooth 60fps backup singer fade animations
+    const now = this.getInterpolatedTime();
     const _frameDelta = 16; // Assuming 60fps (16ms per frame)
 
     for (let i = 0; i < this.lyrics.length; i++) {
@@ -2104,20 +2204,19 @@ export class KaraokeRenderer {
   isInInstrumentalIntro() {
     if (!this.lyrics || this.lyrics.length === 0) return false;
 
-    const now = this.currentTime;
+    const now = this.getInterpolatedTime();
     const firstLine = this.lyrics[0];
 
     if (!firstLine) return false;
 
-    // Check if we're before the first lyrics and the gap is > 5 seconds
-    const introLength = firstLine.startTime;
-    return introLength > 5 && now < firstLine.startTime;
+    // Check if we're before the first lyric starts
+    return now < firstLine.startTime;
   }
 
   isInInstrumentalOutro() {
     if (!this.lyrics || this.lyrics.length === 0 || !this.songDuration) return false;
 
-    const now = this.currentTime;
+    const now = this.getInterpolatedTime();
     // Find the last enabled main singer line (not backup, not disabled)
     let lastMainLine = null;
     for (let i = this.lyrics.length - 1; i >= 0; i--) {
@@ -2151,7 +2250,7 @@ export class KaraokeRenderer {
   isInInstrumentalGap(currentLineIndex) {
     if (!this.lyrics || currentLineIndex < 0) return false;
 
-    const now = this.currentTime;
+    const now = this.getInterpolatedTime();
     const currentLine = this.lyrics[currentLineIndex];
 
     // Find the NEXT MAIN SINGER line (skip backup singers)
@@ -2179,7 +2278,7 @@ export class KaraokeRenderer {
   isInMainSingerInstrumentalGap() {
     if (!this.lyrics) return { isInGap: false };
 
-    const now = this.currentTime;
+    const now = this.getInterpolatedTime();
 
     // Find the last main singer line that has ended
     let lastMainLine = null;
@@ -2225,7 +2324,8 @@ export class KaraokeRenderer {
   drawInstrumentalProgressBar(currentLineIndex, canvasWidth, canvasHeight) {
     if (!this.lyrics || currentLineIndex < 0) return;
 
-    const now = this.currentTime;
+    // Use interpolated time for smooth 60fps progress bar
+    const now = this.getInterpolatedTime();
     const currentLine = this.lyrics[currentLineIndex];
 
     // Find the next main singer line (skip backup singers and disabled lines)
@@ -2286,7 +2386,8 @@ export class KaraokeRenderer {
   drawInstrumentalIntro(canvasWidth, canvasHeight) {
     if (!this.lyrics || this.lyrics.length === 0) return;
 
-    const now = this.currentTime;
+    // Use interpolated time for smooth 60fps progress bar
+    const now = this.getInterpolatedTime();
     const firstLine = this.lyrics[0];
 
     if (!firstLine) return;
@@ -2308,14 +2409,36 @@ export class KaraokeRenderer {
       canvasWidth
     );
 
-    // Draw upcoming first lyrics with proper spacing
-    this.drawUpcomingLyricsPreview(
-      firstLine,
-      canvasWidth,
-      canvasHeight,
-      introProgress,
-      barY + this.settings.progressBarMargin
-    );
+    // Calculate where the upcoming lyric is being drawn
+    const upcomingY = barY + this.settings.progressBarMargin;
+
+    // Lock the first lyric as upcoming during intro
+    if (this.lockedUpcomingIndex !== 0) {
+      this.lockedUpcomingIndex = 0;
+    }
+
+    // Check if we should start the transition animation (0.3s before first lyric starts)
+    // This ensures smooth transition from intro preview to active lyric
+    this.startTransitionAnimations([], upcomingY);
+
+    // Draw transitioning lyrics if animation has started
+    for (const [lineIndex, transition] of this.lyricTransitions.entries()) {
+      const lyricLine = this.lyrics[lineIndex];
+      if (lyricLine) {
+        this.drawTransitioningLine(lyricLine, canvasWidth, transition);
+      }
+    }
+
+    // Draw upcoming first lyrics with proper spacing (if not transitioning)
+    if (!this.lyricTransitions.has(0)) {
+      this.drawUpcomingLyricsPreview(
+        firstLine,
+        canvasWidth,
+        canvasHeight,
+        introProgress,
+        upcomingY
+      );
+    }
   }
 
   drawInstrumentalOutro(canvasWidth, canvasHeight) {
@@ -2323,7 +2446,8 @@ export class KaraokeRenderer {
     const lastMainLine = this.getLastMainSingerLine();
     if (!lastMainLine) return;
 
-    const currentTime = this.currentTime;
+    // Use interpolated time for smooth 60fps progress bar
+    const currentTime = this.getInterpolatedTime();
     const outroStartTime = lastMainLine.endTime;
     const outroLength = this.songDuration - outroStartTime;
     const outroProgress = Math.max(0, Math.min(1, (currentTime - outroStartTime) / outroLength));
@@ -2352,7 +2476,18 @@ export class KaraokeRenderer {
   drawBackupOnlyProgressBar(canvasWidth, canvasHeight) {
     if (!this.lyrics) return;
 
-    const now = this.currentTime;
+    // Use interpolated time for smooth 60fps progress bar
+    const now = this.getInterpolatedTime();
+
+    // Check if there's an active main singer at interpolated time
+    // (prevents flash when interpolated time is ahead of reported time)
+    for (let i = 0; i < this.lyrics.length; i++) {
+      const line = this.lyrics[i];
+      if (!line.isBackup && !line.isDisabled && now >= line.startTime && now <= line.endTime) {
+        // There's an active main singer, don't show backup-only progress bar
+        return;
+      }
+    }
 
     // Find the next main singer line
     let nextMainLine = null;
@@ -2767,20 +2902,29 @@ export class KaraokeRenderer {
   drawUpcomingLyrics(canvasWidth, canvasHeight, startY) {
     if (!this.lyrics) return;
 
-    const now = this.currentTime;
+    // Use interpolated time for precise upcoming lyric detection
+    const now = this.getInterpolatedTime();
     const maxTimeAhead = 5.0; // Only show lyrics up to 5 seconds ahead
 
     // Check if current locked upcoming has become active - only then clear it
     if (this.lockedUpcomingIndex !== null && this.lockedUpcomingIndex !== undefined) {
       const lockedLine = this.lyrics[this.lockedUpcomingIndex];
-      // Only clear if the line doesn't exist or has actually become active
-      if (!lockedLine || now >= lockedLine.startTime) {
+
+      // Don't clear if this lyric is currently transitioning (prevents second lyric from flashing)
+      const isTransitioning = this.lyricTransitions.has(this.lockedUpcomingIndex);
+
+      // Only clear if the line doesn't exist or has actually become active AND is not transitioning
+      if (!lockedLine || (now >= lockedLine.startTime && !isTransitioning)) {
         this.lockedUpcomingIndex = null;
       }
     }
 
     // If no locked upcoming or it became active, find the next one
-    if (this.lockedUpcomingIndex === null || this.lockedUpcomingIndex === undefined) {
+    // BUT don't search if there are any transitioning lyrics (wait for them to finish)
+    if (
+      (this.lockedUpcomingIndex === null || this.lockedUpcomingIndex === undefined) &&
+      this.lyricTransitions.size === 0
+    ) {
       // Find the next upcoming lyric that starts after now
       let nextUpcomingIndex = null;
       let closestStartTime = Infinity;
@@ -2926,28 +3070,20 @@ export class KaraokeRenderer {
     for (const [lineIndex, transition] of this.lyricTransitions.entries()) {
       const elapsed = now - transition.startTime;
 
-      // Check if this line is now active - if so, complete the transition immediately
-      const lyricLine = this.lyrics[lineIndex];
-      const isNowActive = lyricLine && now >= lyricLine.startTime && now <= lyricLine.endTime;
+      // Update progress (let transitions complete naturally)
+      const newProgress = Math.min(1.0, elapsed / transition.duration);
+      transition.progress = newProgress;
 
-      if (isNowActive) {
-        // Line became active - complete transition immediately
+      // Remove completed transitions
+      if (transition.progress >= 1.0) {
         this.lyricTransitions.delete(lineIndex);
-      } else {
-        // Normal progress update
-        const newProgress = Math.min(1.0, elapsed / transition.duration);
-        transition.progress = newProgress;
-
-        // Remove completed transitions
-        if (transition.progress >= 1.0) {
-          this.lyricTransitions.delete(lineIndex);
-        }
       }
     }
   }
 
   startTransitionAnimations(activeLines, upcomingY) {
-    const now = this.currentTime;
+    // Use interpolated time for smooth 60fps lyric slide animations
+    const now = this.getInterpolatedTime();
 
     // Check if locked upcoming lyric should start animating
     if (this.lockedUpcomingIndex !== null && this.lockedUpcomingIndex !== undefined) {
@@ -2971,6 +3107,7 @@ export class KaraokeRenderer {
             // This matches the exact calculation in drawActiveLines
             const activeY = canvasHeight / 2 - totalHeight / 2 + lineSpacing - 180;
 
+            // Start the transition
             this.lyricTransitions.set(this.lockedUpcomingIndex, {
               startTime: now,
               duration: this.settings.lyricTransitionDuration,
@@ -2978,6 +3115,22 @@ export class KaraokeRenderer {
               startY: upcomingY, // Where upcoming lyric is drawn (no offset)
               endY: activeY,
             });
+
+            // Hide any currently active main lines that will overlap with this transition
+            // Check all currently active lines (not just the filtered activeLines array)
+            for (let i = 0; i < this.lyrics.length; i++) {
+              const line = this.lyrics[i];
+              if (!line.isDisabled && !line.isBackup && i !== this.lockedUpcomingIndex) {
+                // Check if this line is currently active
+                if (now >= line.startTime && now <= line.endTime) {
+                  const timeUntilEnd = line.endTime - now;
+                  // If active line ends during the transition period, hide it immediately
+                  if (timeUntilEnd > 0 && timeUntilEnd <= this.settings.lyricTransitionDuration) {
+                    this.hiddenDuringTransition.add(i);
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -2986,20 +3139,21 @@ export class KaraokeRenderer {
     // Update existing transitions
     for (const [lineIndex, transition] of this.lyricTransitions.entries()) {
       const elapsed = now - transition.startTime;
-      const lyricLine = this.lyrics[lineIndex];
-      const isNowActive = lyricLine && now >= lyricLine.startTime && now <= lyricLine.endTime;
 
-      if (isNowActive) {
-        // Complete transition immediately when lyric becomes active
+      // Update progress
+      transition.progress = Math.min(1.0, elapsed / transition.duration);
+
+      // Remove completed transitions (let them finish naturally)
+      if (transition.progress >= 1.0) {
         this.lyricTransitions.delete(lineIndex);
-      } else {
-        // Update progress
-        transition.progress = Math.min(1.0, elapsed / transition.duration);
+      }
+    }
 
-        // Remove completed transitions
-        if (transition.progress >= 1.0) {
-          this.lyricTransitions.delete(lineIndex);
-        }
+    // Clean up hidden lines that are no longer active
+    for (const hiddenIndex of this.hiddenDuringTransition) {
+      const line = this.lyrics[hiddenIndex];
+      if (line && (now > line.endTime || now < line.startTime)) {
+        this.hiddenDuringTransition.delete(hiddenIndex);
       }
     }
   }

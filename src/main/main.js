@@ -10,6 +10,7 @@ import AudioEngine from './audioEngine.js';
 import KaiLoader from '../utils/kaiLoader.js';
 import CDGLoader from '../utils/cdgLoader.js';
 import M4ALoader from '../utils/m4aLoader.js';
+import { Atoms as M4AAtoms } from 'm4a-stems';
 import SettingsManager from './settingsManager.js';
 import WebServer from './webServer.js';
 import AppState from './appState.js';
@@ -1140,30 +1141,22 @@ class KaiPlayerApp {
         metadata.duration = mmData.format.duration;
       }
 
-      // Check for kaid atom (karaoke data)
-      // The kaid atom is stored as '----:com.stems:kaid' in MP4 files
-      if (mmData.native && mmData.native.iTunes) {
-        const kaidAtom = mmData.native.iTunes.find((tag) => tag.id === '----:com.stems:kaid');
+      // Check for kara atom using m4a-stems
+      try {
+        const karaData = await M4AAtoms.readKaraAtom(m4aFilePath);
 
-        if (kaidAtom && kaidAtom.value) {
-          try {
-            // Parse kaid JSON
-            const kaidData = JSON.parse(kaidAtom.value);
+        if (karaData && karaData.lines && karaData.lines.length > 0) {
+          metadata.hasKaraoke = true;
 
-            // Check if it has lyrics (Level 1 minimum)
-            if (kaidData.lines && kaidData.lines.length > 0) {
-              metadata.hasKaraoke = true;
-
-              // Extract stem information if available
-              if (kaidData.audio && kaidData.audio.sources) {
-                metadata.stems = kaidData.audio.sources.map((source) => source.role || source.id);
-                metadata.stemCount = metadata.stems.length;
-              }
-            }
-          } catch (parseErr) {
-            console.warn('❌ Could not parse kaid atom from:', m4aFilePath, parseErr.message);
+          // Extract stem information if available
+          if (karaData.audio && karaData.audio.sources) {
+            metadata.stems = karaData.audio.sources.map((source) => source.role || source.id);
+            metadata.stemCount = metadata.stems.length;
           }
         }
+      } catch {
+        // No kara atom or error reading it - not a karaoke file
+        console.log(`No kara atom in ${m4aFilePath}`);
       }
 
       // Fallback to filename parsing if no tags

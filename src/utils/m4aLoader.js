@@ -3,6 +3,7 @@ import path from 'path';
 import { promisify } from 'util';
 import { exec } from 'child_process';
 import os from 'os';
+import { Atoms as M4AAtoms } from 'm4a-stems';
 
 const execAsync = promisify(exec);
 
@@ -89,27 +90,21 @@ class M4ALoader {
       // Read M4A file
       const m4aBuffer = await fs.promises.readFile(m4aPath);
 
-      // Import music-metadata to read MP4 metadata and atoms
+      // Import music-metadata to read MP4 metadata
       const mm = await import('music-metadata');
       const mmData = await mm.parseFile(m4aPath);
 
-      // Extract kaid atom (karaoke data)
-      let kaidData = null;
-      if (mmData.native && mmData.native.iTunes) {
-        const kaidAtom = mmData.native.iTunes.find((tag) => tag.id === '----:com.stems:kaid');
-
-        if (kaidAtom && kaidAtom.value) {
-          try {
-            kaidData = JSON.parse(kaidAtom.value);
-          } catch (parseErr) {
-            console.warn('❌ Could not parse kaid atom from:', m4aPath, parseErr.message);
-          }
-        }
+      // Extract kara atom (karaoke data) using m4a-stems
+      let karaData = null;
+      try {
+        karaData = await M4AAtoms.readKaraAtom(m4aPath);
+      } catch {
+        // No kara atom found - will create default structure below
       }
 
-      // If no kaid atom found, create default structure for new karaoke file
-      if (!kaidData) {
-        console.warn('⚠️  M4A file does not contain kaid atom - creating default structure');
+      // If no kara atom found, create default structure for new karaoke file
+      if (!karaData) {
+        console.warn('⚠️  M4A file does not contain kara atom - creating default structure');
 
         // Get track count from format
         const trackCount = mmData.format?.numberOfChannels || 2;
@@ -124,8 +119,8 @@ class M4ALoader {
           });
         }
 
-        // Create minimal kaid structure
-        kaidData = {
+        // Create minimal kara structure
+        karaData = {
           audio: {
             sources: defaultSources,
             profile: 'STEMS-2',
@@ -162,19 +157,19 @@ class M4ALoader {
         album: mmData.common?.album || '',
         duration: mmData.format?.duration || 0,
         key: musicalKey,
-        tempo: kaidData.meter?.bpm || 120,
+        tempo: karaData.meter?.bpm || 120,
         genre: mmData.common?.genre ? mmData.common.genre[0] : '',
         year: mmData.common?.year || null,
       };
 
       // Extract audio tracks from M4A container
       console.log('🎵 Extracting audio tracks from M4A container...');
-      const audioFiles = await this.extractAllTracks(m4aPath, kaidData.audio.sources);
+      const audioFiles = await this.extractAllTracks(m4aPath, karaData.audio.sources);
 
-      // Build audio sources from kaid data with extracted audio buffers
+      // Build audio sources from kara data with extracted audio buffers
       const sources = [];
-      if (kaidData.audio && kaidData.audio.sources) {
-        for (const source of kaidData.audio.sources) {
+      if (karaData.audio && karaData.audio.sources) {
+        for (const source of karaData.audio.sources) {
           const sourceName = source.role || source.id;
           sources.push({
             name: sourceName,
@@ -189,10 +184,18 @@ class M4ALoader {
         }
       }
 
-      // Extract lyrics from kaid data
+      // Extract lyrics from kara data and transform property names
       let lyrics = null;
-      if (kaidData.lines && kaidData.lines.length > 0) {
-        lyrics = [...kaidData.lines].sort((a, b) => (a.start || 0) - (b.start || 0));
+      if (karaData.lines && karaData.lines.length > 0) {
+        lyrics = karaData.lines
+          .map((line) => ({
+            ...line,
+            startTime: line.start,
+            endTime: line.end,
+            isDisabled: line.disabled || false,
+            isBackup: line.backup || false,
+          }))
+          .sort((a, b) => (a.startTime || 0) - (b.startTime || 0));
       }
 
       // Build data structure compatible with KaiLoader
@@ -201,31 +204,31 @@ class M4ALoader {
 
         meta: {
           format: 'm4a-stems',
-          profile: kaidData.audio?.profile || 'STEMS-4',
-          encoder_delay_samples: kaidData.audio?.encoder_delay_samples || 0,
+          profile: karaData.audio?.profile || 'STEMS-4',
+          encoder_delay_samples: karaData.audio?.encoder_delay_samples || 0,
         },
 
         audio: {
           sources,
 
-          presets: kaidData.audio?.presets || this.generatePresets(sources),
+          presets: karaData.audio?.presets || this.generatePresets(sources),
 
           timing: {
-            offsetSec: kaidData.timing?.offset_sec || 0,
-            encoderDelaySamples: kaidData.audio?.encoder_delay_samples || 0,
+            offsetSec: karaData.timing?.offset_sec || 0,
+            encoderDelaySamples: karaData.audio?.encoder_delay_samples || 0,
           },
 
-          profile: kaidData.audio?.profile || 'STEMS-4',
+          profile: karaData.audio?.profile || 'STEMS-4',
         },
 
         lyrics,
 
         features: {
           notesRef: null,
-          vocalPitch: kaidData.vocal_pitch || null,
+          vocalPitch: karaData.vocal_pitch || null,
           vocalsF0: null,
-          onsets: kaidData.onsets || null,
-          tempo: kaidData.meter || null,
+          onsets: karaData.onsets || null,
+          tempo: karaData.meter || null,
         },
 
         coaching: {
@@ -235,21 +238,21 @@ class M4ALoader {
           stabilityThreshold: 20,
         },
 
-        // Store original kaid data for reference
-        kaidData,
+        // Store original kara data for reference
+        karaData,
 
         // Store file path and buffer for track extraction
         originalFilePath: m4aPath,
         m4aBuffer: new Uint8Array(m4aBuffer),
 
         // Store singers if available
-        singers: kaidData.singers || [],
+        singers: karaData.singers || [],
 
         // Store original song metadata
         song: metadata,
 
-        // Preserve original kaid data for editor access
-        originalSongJson: kaidData,
+        // Preserve original kara data for editor access
+        originalSongJson: karaData,
       };
 
       return processedData;

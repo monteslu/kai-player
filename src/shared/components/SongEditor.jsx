@@ -18,6 +18,7 @@ import { LyricLine } from './LyricLine.jsx';
 import { Toast } from './Toast.jsx';
 import { LyricRejection } from './LyricRejection.jsx';
 import { LyricSuggestion } from './LyricSuggestion.jsx';
+import { splitLine, canSplitLine } from '../utils/lyricsUtils.js';
 
 export function SongEditor({ bridge }) {
   const [searchTerm, setSearchTerm] = useState('');
@@ -63,6 +64,35 @@ export function SongEditor({ bridge }) {
   // Toast notification state
   const [toast, setToast] = useState(null);
 
+  // Check if a line overlaps with the previous line (for same singer)
+  const checkOverlap = useCallback(
+    (index) => {
+      if (index === 0 || index >= lyricsData.length) {
+        return false; // First line can't overlap, or invalid index
+      }
+
+      const currentLine = lyricsData[index];
+      const previousLine = lyricsData[index - 1];
+
+      // Get singer type (backup vs lead)
+      const currentIsBackup = currentLine.backup === true;
+      const previousIsBackup = previousLine.backup === true;
+
+      // Only check overlap if same singer type
+      if (currentIsBackup !== previousIsBackup) {
+        return false;
+      }
+
+      // Get timing values
+      const currentStart = currentLine.start || currentLine.startTimeSec || 0;
+      const previousEnd = previousLine.end || previousLine.endTimeSec || 0;
+
+      // Overlap occurs when current starts before previous ends
+      return currentStart < previousEnd;
+    },
+    [lyricsData]
+  );
+
   // Lyrics editing handlers - wrap in useCallback for stable references
   const handleLineUpdate = useCallback((index, updatedLine) => {
     setLyricsData((prev) => prev.map((line, i) => (i === index ? updatedLine : line)));
@@ -85,6 +115,9 @@ export function SongEditor({ bridge }) {
       audioElements.forEach(({ audio }) => {
         audio.currentTime = startTime;
       });
+
+      // Immediately update currentPosition state so canvas shows correct position
+      setCurrentPosition(startTime);
 
       // Start playback with error handling
       try {
@@ -646,6 +679,34 @@ export function SongEditor({ bridge }) {
     setHasChanges(true);
   };
 
+  const handleLineSplit = (index) => {
+    const line = lyricsData[index];
+
+    // Try to split the line
+    const splitResult = splitLine(line, index);
+
+    if (!splitResult) {
+      // Show toast if split failed
+      showToast('Cannot split line: no punctuation found or would create empty line', 'error');
+      return;
+    }
+
+    const [firstLine, secondLine] = splitResult;
+
+    // Replace the line at index with the two new lines
+    setLyricsData((prev) => [
+      ...prev.slice(0, index),
+      firstLine,
+      secondLine,
+      ...prev.slice(index + 1),
+    ]);
+
+    // Select the second line
+    setSelectedLineIndex(index + 1);
+    setHasChanges(true);
+    showToast('Line split successfully', 'success');
+  };
+
   const handleAddLineAtStart = () => {
     const firstLine = lyricsData[0];
     if (!firstLine) {
@@ -700,6 +761,11 @@ export function SongEditor({ bridge }) {
     return gap >= 0.6;
   };
 
+  const canSplit = (index) => {
+    if (index < 0 || index >= lyricsData.length) return false;
+    return canSplitLine(lyricsData[index]);
+  };
+
   // Handle metadata field changes
   const handleMetadataChange = (field, value) => {
     setMetadata((prev) => ({
@@ -731,7 +797,10 @@ export function SongEditor({ bridge }) {
           rejections,
           suggestions,
         },
-        ...(songData.format === 'kai' && { lyrics: sortedLyrics }),
+        // Include lyrics for both KAI and M4A formats
+        ...((songData.format === 'kai' || songData.format === 'm4a-stems') && {
+          lyrics: sortedLyrics,
+        }),
       };
 
       const result = await bridge.saveSongEdits(updates);
@@ -1155,12 +1224,12 @@ export function SongEditor({ bridge }) {
                           </span>
                           <button
                             onClick={() => toggleMute(index)}
-                            className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] cursor-pointer transition-colors ${el.muted ? 'bg-red-600 text-white hover:bg-red-700' : 'bg-green-600 text-white hover:bg-green-700'}`}
+                            className={`flex items-center justify-center w-6 h-6 p-0.5 rounded cursor-pointer transition-colors ${el.muted ? 'bg-red-600 text-white hover:bg-red-700' : 'bg-green-600 text-white hover:bg-green-700'}`}
+                            title={el.muted ? 'Unmute' : 'Mute'}
                           >
-                            <span className="material-icons text-xs">
+                            <span className="material-icons text-sm">
                               {el.muted ? 'volume_off' : 'volume_up'}
                             </span>
-                            {el.muted ? 'Muted' : 'On'}
                           </button>
                         </div>
                       ))}
@@ -1214,8 +1283,11 @@ export function SongEditor({ bridge }) {
                           onUpdate={handleLineUpdate}
                           onDelete={handleLineDelete}
                           onAddAfter={handleAddLineAfter}
+                          onSplit={handleLineSplit}
                           onPlaySection={handlePlayLineSection}
                           canAddAfter={canAddLineAfter(index)}
+                          canSplit={canSplit(index)}
+                          hasOverlap={checkOverlap(index)}
                         />
                       ))
                     ) : (

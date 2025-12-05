@@ -5,6 +5,7 @@
  * Works with both ElectronBridge and WebBridge via callbacks
  */
 
+import { useState, useEffect, useRef } from 'react';
 import { formatDuration } from '../formatUtils.js';
 
 export function PlayerControls({
@@ -24,8 +25,50 @@ export function PlayerControls({
 }) {
   const { isPlaying, position = 0, duration = 0 } = playback || {};
 
+  // Smooth position interpolation for 60fps progress bar updates
+  const [interpolatedPosition, setInterpolatedPosition] = useState(position);
+  const lastReportedPosition = useRef(position);
+  const lastReportedTime = useRef(performance.now());
+  const animationFrameRef = useRef(null);
+
   // Derive loading state from currentSong if not explicitly provided
   const loading = isLoading !== undefined ? isLoading : currentSong?.isLoading || false;
+
+  // Update refs when position changes from IPC
+  useEffect(() => {
+    lastReportedPosition.current = position;
+    lastReportedTime.current = performance.now();
+    setInterpolatedPosition(position);
+  }, [position]);
+
+  // Smooth interpolation when playing
+  useEffect(() => {
+    if (!isPlaying) {
+      // Stop interpolation when paused
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = null;
+      }
+      return;
+    }
+
+    // Interpolate position on every frame
+    const animate = () => {
+      const now = performance.now();
+      const elapsed = (now - lastReportedTime.current) / 1000; // Convert to seconds
+      const newPosition = Math.min(lastReportedPosition.current + elapsed, duration || Infinity);
+      setInterpolatedPosition(newPosition);
+      animationFrameRef.current = requestAnimationFrame(animate);
+    };
+
+    animationFrameRef.current = requestAnimationFrame(animate);
+
+    return () => {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+    };
+  }, [isPlaying, duration]);
 
   // Truncate effect name to 28 characters with ellipsis
   const truncateEffectName = (name) => {
@@ -42,7 +85,8 @@ export function PlayerControls({
     onSeek(newPosition);
   };
 
-  const progress = duration > 0 ? (position / duration) * 100 : 0;
+  // Use interpolated position for smooth 60fps progress bar
+  const progress = duration > 0 ? (interpolatedPosition / duration) * 100 : 0;
 
   return (
     <div
@@ -96,11 +140,11 @@ export function PlayerControls({
             onClick={handleProgressClick}
           >
             <div
-              className="absolute inset-y-0 left-0 bg-blue-600 rounded-full transition-all"
+              className="absolute inset-y-0 left-0 bg-blue-600 rounded-full"
               style={{ width: `${progress}%` }}
             />
             <div
-              className="absolute top-1/2 -translate-y-1/2 w-4 h-4 bg-blue-600 rounded-full shadow-lg transition-all"
+              className="absolute top-1/2 -translate-y-1/2 w-4 h-4 bg-blue-600 rounded-full shadow-lg"
               style={{ left: `calc(${progress}% - 8px)` }}
             />
           </div>
@@ -108,7 +152,7 @@ export function PlayerControls({
 
         {/* Time Display */}
         <div className="flex items-center gap-1 text-sm font-mono text-gray-700 dark:text-gray-300 flex-shrink-0">
-          <span>{formatDuration(position)}</span>
+          <span>{formatDuration(interpolatedPosition)}</span>
           <span>/</span>
           <span>{formatDuration(duration)}</span>
         </div>

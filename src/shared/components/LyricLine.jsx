@@ -19,8 +19,11 @@ export function LyricLine({
   onUpdate,
   onDelete,
   onAddAfter,
+  onSplit,
   onPlaySection,
   canAddAfter,
+  canSplit,
+  hasOverlap = false,
 }) {
   const startTime = line.start || line.startTimeSec || 0;
   const endTime = line.end || line.endTimeSec || startTime + 3;
@@ -93,12 +96,21 @@ export function LyricLine({
       <div className="flex items-center gap-1.5 flex-shrink-0">
         <input
           type="number"
-          className="w-[70px] px-2 py-1.5 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-gray-900 dark:text-white text-xs text-center font-mono focus:outline-none focus:border-blue-500 dark:focus:border-blue-400"
+          className={`w-[70px] px-2 py-1.5 bg-gray-100 dark:bg-gray-700 rounded text-gray-900 dark:text-white text-xs text-center font-mono focus:outline-none ${
+            hasOverlap
+              ? 'border-2 border-red-500 dark:border-red-400 focus:border-red-600 dark:focus:border-red-300'
+              : 'border border-gray-300 dark:border-gray-600 focus:border-blue-500 dark:focus:border-blue-400'
+          }`}
           value={startTime.toFixed(1)}
           onChange={handleStartTimeChange}
           step="0.1"
           min="0"
           onClick={(e) => e.stopPropagation()}
+          title={
+            hasOverlap
+              ? 'Warning: This line overlaps with the previous line for the same singer'
+              : ''
+          }
         />
         <span className="text-gray-500 dark:text-gray-400 font-semibold">—</span>
         <input
@@ -169,6 +181,23 @@ export function LyricLine({
           }}
         >
           <span className="material-icons text-base">delete</span>
+        </button>
+        <button
+          className={`w-8 h-8 p-0 flex items-center justify-center border rounded cursor-pointer transition-all ${canSplit ? 'border-gray-300 dark:border-gray-600 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-blue-600 hover:border-blue-600 hover:text-white dark:hover:bg-blue-500 dark:hover:border-blue-500' : 'opacity-30 cursor-not-allowed border-gray-300 dark:border-gray-600 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200'}`}
+          title={
+            canSplit
+              ? 'Split line at first punctuation'
+              : 'Cannot split: no punctuation or would create empty line'
+          }
+          disabled={!canSplit}
+          onClick={(e) => {
+            e.stopPropagation();
+            if (canSplit) {
+              onSplit(index);
+            }
+          }}
+        >
+          <span className="material-icons text-base">call_split</span>
         </button>
         <button
           className={`w-8 h-8 p-0 flex items-center justify-center border rounded cursor-pointer transition-all ${canAddAfter ? 'border-gray-300 dark:border-gray-600 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-green-600 hover:border-green-600 hover:text-white dark:hover:bg-green-500 dark:hover:border-green-500' : 'opacity-30 cursor-not-allowed border-gray-300 dark:border-gray-600 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200'}`}
