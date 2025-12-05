@@ -35,6 +35,8 @@ import { registerAppHandlers } from './appHandlers.js';
 console.log('✓ appHandlers');
 import { registerAutotuneHandlers } from './autotuneHandlers.js';
 console.log('✓ autotuneHandlers');
+import { registerCreatorHandlers } from './creatorHandlers.js';
+console.log('✓ creatorHandlers');
 
 /**
  * Register all IPC handlers
@@ -64,6 +66,9 @@ export function registerAllHandlers(mainApp) {
     registerFileHandlers(mainApp);
     registerRendererHandlers(mainApp);
     registerAppHandlers(mainApp);
+
+    // Creator handlers
+    registerCreatorHandlers(mainApp);
 
     console.log('✅ All IPC handlers registered');
   } catch (error) {

@@ -18,6 +18,7 @@ import { TabNavigation } from './TabNavigation.jsx';
 import { ServerTab } from './ServerTab.jsx';
 import { VisualizationSettings } from '../../shared/components/VisualizationSettings.jsx';
 import { toggleCanvasFullscreen } from '../hooks/useKeyboardShortcuts.js';
+import { CreateTab } from './creator/CreateTab.jsx';
 
 export function App({ bridge }) {
   const [requests, setRequests] = useState([]);
@@ -285,6 +286,11 @@ export function App({ bridge }) {
             {/* Lyrics Editor Tab */}
             <div id="editor-tab" className="hidden h-full">
               <SongEditor bridge={bridge} />
+            </div>
+
+            {/* Create Tab */}
+            <div id="create-tab" className="hidden h-full overflow-auto">
+              <CreateTab bridge={bridge} />
             </div>
           </div>
         </div>

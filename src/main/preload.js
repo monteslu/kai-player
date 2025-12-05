@@ -196,6 +196,35 @@ const api = {
   shell: {
     openExternal: (url) => ipcRenderer.invoke('shell:openExternal', url),
   },
+
+  creator: {
+    checkComponents: () => ipcRenderer.invoke('creator:checkComponents'),
+    installComponents: () => ipcRenderer.invoke('creator:installComponents'),
+    getStatus: () => ipcRenderer.invoke('creator:getStatus'),
+    cancelInstall: () => ipcRenderer.invoke('creator:cancelInstall'),
+    searchLyrics: (title, artist) => ipcRenderer.invoke('creator:searchLyrics', title, artist),
+    prepareWhisperContext: (title, artist, existingLyrics) =>
+      ipcRenderer.invoke('creator:prepareWhisperContext', title, artist, existingLyrics),
+    selectFile: () => ipcRenderer.invoke('creator:selectFile'),
+    startConversion: (options) => ipcRenderer.invoke('creator:startConversion', options),
+    cancelConversion: () => ipcRenderer.invoke('creator:cancelConversion'),
+
+    onInstallProgress: (callback) => ipcRenderer.on('creator:installProgress', callback),
+    onInstallError: (callback) => ipcRenderer.on('creator:installError', callback),
+    onConversionProgress: (callback) => ipcRenderer.on('creator:conversionProgress', callback),
+    onConversionComplete: (callback) => ipcRenderer.on('creator:conversionComplete', callback),
+    onConversionError: (callback) => ipcRenderer.on('creator:conversionError', callback),
+    removeInstallProgressListener: (callback) =>
+      ipcRenderer.removeListener('creator:installProgress', callback),
+    removeInstallErrorListener: (callback) =>
+      ipcRenderer.removeListener('creator:installError', callback),
+    removeConversionProgressListener: (callback) =>
+      ipcRenderer.removeListener('creator:conversionProgress', callback),
+    removeConversionCompleteListener: (callback) =>
+      ipcRenderer.removeListener('creator:conversionComplete', callback),
+    removeConversionErrorListener: (callback) =>
+      ipcRenderer.removeListener('creator:conversionError', callback),
+  },
 };
 
 // Since contextIsolation is disabled, directly assign to window

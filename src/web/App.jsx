@@ -452,7 +452,7 @@ export function App() {
           }`}
           onClick={() => setCurrentTab('editor')}
         >
-          ✏️ Editor
+          ✏️ Edit
         </button>
       </div>
 

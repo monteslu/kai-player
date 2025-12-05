@@ -217,6 +217,29 @@ export const SHELL_CHANNELS = {
 };
 
 // ============================================================================
+// CREATOR CHANNELS
+// ============================================================================
+
+export const CREATOR_CHANNELS = {
+  CHECK_COMPONENTS: 'creator:checkComponents',
+  INSTALL_COMPONENTS: 'creator:installComponents',
+  GET_STATUS: 'creator:getStatus',
+  CANCEL_INSTALL: 'creator:cancelInstall',
+  SEARCH_LYRICS: 'creator:searchLyrics',
+  PREPARE_WHISPER_CONTEXT: 'creator:prepareWhisperContext',
+  SELECT_FILE: 'creator:selectFile',
+  START_CONVERSION: 'creator:startConversion',
+  CANCEL_CONVERSION: 'creator:cancelConversion',
+
+  // Events (main → renderer)
+  INSTALL_PROGRESS: 'creator:installProgress',
+  INSTALL_ERROR: 'creator:installError',
+  CONVERSION_PROGRESS: 'creator:conversionProgress',
+  CONVERSION_COMPLETE: 'creator:conversionComplete',
+  CONVERSION_ERROR: 'creator:conversionError',
+};
+
+// ============================================================================
 // ALL CHANNELS (for validation)
 // ============================================================================
 
@@ -239,6 +262,7 @@ export const ALL_CHANNELS = {
   ...ADMIN_CHANNELS,
   ...RENDERER_CHANNELS,
   ...SHELL_CHANNELS,
+  ...CREATOR_CHANNELS,
 };
 
 // ============================================================================
@@ -264,4 +288,5 @@ export const CHANNEL_GROUPS = {
   ADMIN: Object.values(ADMIN_CHANNELS),
   RENDERER: Object.values(RENDERER_CHANNELS),
   SHELL: Object.values(SHELL_CHANNELS),
+  CREATOR: Object.values(CREATOR_CHANNELS),
 };

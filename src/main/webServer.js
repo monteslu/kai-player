@@ -19,6 +19,7 @@ import * as effectsService from '../shared/services/effectsService.js';
 import * as mixerService from '../shared/services/mixerService.js';
 import * as requestsService from '../shared/services/requestsService.js';
 import * as serverSettingsService from '../shared/services/serverSettingsService.js';
+import * as creatorService from '../shared/services/creatorService.js';
 
 // ESM equivalent of __dirname
 const __filename = fileURLToPath(import.meta.url);
@@ -1643,6 +1644,185 @@ class WebServer {
       } catch (error) {
         console.error('Error updating effects preferences:', error);
         res.status(500).json({ error: 'Failed to update effects preferences' });
+      }
+    });
+
+    // ===== Creator Endpoints =====
+
+    // Check creator components status
+    this.app.get('/admin/creator/status', async (req, res) => {
+      try {
+        const components = await creatorService.checkComponents();
+        const status = creatorService.getStatus();
+        res.json({
+          ...components,
+          ...status,
+        });
+      } catch (error) {
+        console.error('Error checking creator status:', error);
+        res.status(500).json({ error: 'Failed to check creator status' });
+      }
+    });
+
+    // Install creator components
+    this.app.post('/admin/creator/install', async (req, res) => {
+      try {
+        // Start installation with Socket.IO progress updates
+        const result = await creatorService.installComponents((progress) => {
+          this.io.to('admin-clients').emit('creator:install-progress', progress);
+        });
+
+        if (result.success) {
+          res.json(result);
+        } else {
+          this.io.to('admin-clients').emit('creator:install-error', {
+            error: result.error,
+          });
+          res.status(500).json(result);
+        }
+      } catch (error) {
+        console.error('Error installing creator components:', error);
+        this.io.to('admin-clients').emit('creator:install-error', {
+          error: error.message,
+        });
+        res.status(500).json({ error: 'Failed to install components' });
+      }
+    });
+
+    // Cancel creator installation
+    this.app.post('/admin/creator/cancel-install', (req, res) => {
+      try {
+        const result = creatorService.cancelInstall();
+        res.json(result);
+      } catch (error) {
+        console.error('Error cancelling installation:', error);
+        res.status(500).json({ error: 'Failed to cancel installation' });
+      }
+    });
+
+    // Search lyrics
+    this.app.post('/admin/creator/search-lyrics', async (req, res) => {
+      try {
+        const { title, artist } = req.body;
+
+        if (!title) {
+          return res.status(400).json({ error: 'Title is required' });
+        }
+
+        const result = await creatorService.findLyrics(title, artist || '');
+        res.json(result);
+      } catch (error) {
+        console.error('Error searching lyrics:', error);
+        res.status(500).json({ error: 'Failed to search lyrics' });
+      }
+    });
+
+    // Get file info (for library songs)
+    this.app.post('/admin/creator/file-info', async (req, res) => {
+      try {
+        const { path: filePath } = req.body;
+
+        if (!filePath) {
+          return res.status(400).json({ error: 'File path is required' });
+        }
+
+        const result = await creatorService.getFileInfo(filePath);
+        res.json(result);
+      } catch (error) {
+        console.error('Error getting file info:', error);
+        res.status(500).json({ error: 'Failed to get file info' });
+      }
+    });
+
+    // Start conversion
+    this.app.post('/admin/creator/convert', async (req, res) => {
+      try {
+        const options = req.body;
+
+        if (!options.inputPath) {
+          return res.status(400).json({ error: 'Input path is required' });
+        }
+
+        // Send immediate response that conversion started
+        res.json({ success: true, message: 'Conversion started' });
+
+        // Run conversion with Socket.IO progress updates
+        const result = await creatorService.startConversion(options, (progress) => {
+          this.io.to('admin-clients').emit('creator:conversion-progress', progress);
+        });
+
+        if (result.success) {
+          this.io.to('admin-clients').emit('creator:conversion-complete', {
+            outputPath: result.outputPath,
+            duration: result.duration,
+            stems: result.stems,
+            hasLyrics: result.hasLyrics,
+            hasPitch: result.hasPitch,
+          });
+        } else if (result.cancelled) {
+          // User cancelled - no error event needed
+        } else {
+          this.io.to('admin-clients').emit('creator:conversion-error', {
+            error: result.error,
+          });
+        }
+      } catch (error) {
+        console.error('Error during conversion:', error);
+        this.io.to('admin-clients').emit('creator:conversion-error', {
+          error: error.message,
+        });
+      }
+    });
+
+    // Cancel conversion
+    this.app.post('/admin/creator/cancel-convert', (req, res) => {
+      try {
+        const result = creatorService.stopConversion();
+        res.json(result);
+      } catch (error) {
+        console.error('Error cancelling conversion:', error);
+        res.status(500).json({ error: 'Failed to cancel conversion' });
+      }
+    });
+
+    // Get audio files that can be converted (from library or direct path)
+    this.app.get('/admin/creator/sources', async (req, res) => {
+      try {
+        // Get library songs that are audio files (not already .kai or .stem.m4a)
+        const allSongs = await this.getCachedSongs();
+
+        // Filter to songs that could be source files for conversion
+        // (exclude .kai and .stem.m4a which are already karaoke files)
+        const sourceCandidates = allSongs.filter((song) => {
+          const ext = song.path.split('.').pop().toLowerCase();
+          return [
+            'mp3',
+            'wav',
+            'flac',
+            'ogg',
+            'm4a',
+            'aac',
+            'mp4',
+            'mkv',
+            'avi',
+            'mov',
+            'webm',
+          ].includes(ext);
+        });
+
+        res.json({
+          success: true,
+          sources: sourceCandidates.map((song) => ({
+            path: song.path,
+            title: song.title,
+            artist: song.artist,
+            duration: song.duration,
+            format: song.path.split('.').pop().toLowerCase(),
+          })),
+        });
+      } catch (error) {
+        console.error('Error getting source files:', error);
+        res.status(500).json({ error: 'Failed to get source files' });
       }
     });
 

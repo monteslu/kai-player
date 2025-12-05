@@ -16,7 +16,8 @@ export function TabNavigation({ requestsCount = 0 }) {
     { id: 'effects', label: '✨ Effects' },
     { id: 'requests', label: '🎤 Requests', badge: requestsCount },
     { id: 'server', label: '🌐 Server' },
-    { id: 'editor', label: '✏️ Editor' },
+    { id: 'create', label: '⚡ Create' },
+    { id: 'editor', label: '✏️ Edit' },
   ];
 
   const handleTabClick = (tabId) => {
